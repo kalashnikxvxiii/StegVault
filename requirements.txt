@@ -1,0 +1,15 @@
+# Core cryptography
+PyNaCl>=1.5.0          # libsodium bindings for XChaCha20-Poly1305
+argon2-cffi>=23.1.0    # Argon2id KDF
+
+# Image processing
+Pillow>=10.0.0         # PNG/JPEG manipulation
+
+# CLI
+click>=8.1.0           # Command-line interface
+
+# Development dependencies
+pytest>=7.4.0          # Testing framework
+pytest-cov>=4.1.0      # Coverage reporting
+black>=23.0.0          # Code formatting
+mypy>=1.5.0            # Type checking
