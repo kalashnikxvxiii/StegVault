@@ -6,42 +6,42 @@ This document provides a technical overview of StegVault's architecture.
 
 ```
 ┌────────────────────────────────────────────────────────────┐
-│                      StegVault System                       │
+│                      StegVault System                      │
 ├────────────────────────────────────────────────────────────┤
-│                                                             │
+│                                                            │
 │  ┌──────────────┐                                          │
 │  │   CLI Layer  │  ← User Interface (Click framework)      │
 │  └──────┬───────┘                                          │
-│         │                                                   │
+│         │                                                  │
 │  ┌──────▼───────────────────────────────────────┐          │
 │  │          StegVault Core API                  │          │
 │  ├──────────────────────────────────────────────┤          │
 │  │                                              │          │
-│  │  ┌─────────────┐  ┌─────────────┐           │          │
-│  │  │   Crypto    │  │    Stego    │           │          │
-│  │  │   Module    │  │   Module    │           │          │
-│  │  │             │  │             │           │          │
-│  │  │ • Argon2id  │  │ • LSB PNG   │           │          │
-│  │  │ • XChaCha20 │  │ • Pseudo-   │           │          │
-│  │  │ • Poly1305  │  │   random    │           │          │
-│  │  │             │  │   ordering  │           │          │
-│  │  └─────────────┘  └─────────────┘           │          │
+│  │  ┌─────────────┐  ┌─────────────┐            │          │
+│  │  │   Crypto    │  │    Stego    │            │          │
+│  │  │   Module    │  │   Module    │            │          │
+│  │  │             │  │             │            │          │
+│  │  │ • Argon2id  │  │ • LSB PNG   │            │          │
+│  │  │ • XChaCha20 │  │ • Pseudo-   │            │          │
+│  │  │ • Poly1305  │  │   random    │            │          │
+│  │  │             │  │   ordering  │            │          │
+│  │  └─────────────┘  └─────────────┘            │          │
 │  │                                              │          │
-│  │  ┌──────────────────────────────┐           │          │
-│  │  │      Utils Module            │           │          │
-│  │  │                              │           │          │
-│  │  │ • Payload serialization      │           │          │
-│  │  │ • Format parsing             │           │          │
-│  │  │ • Capacity validation        │           │          │
-│  │  └──────────────────────────────┘           │          │
+│  │  ┌──────────────────────────────┐            │          │
+│  │  │      Utils Module            │            │          │
+│  │  │                              │            │          │
+│  │  │ • Payload serialization      │            │          │
+│  │  │ • Format parsing             │            │          │
+│  │  │ • Capacity validation        │            │          │
+│  │  └──────────────────────────────┘            │          │
 │  │                                              │          │
 │  └──────────────────────────────────────────────┘          │
-│         │              │              │                     │
-│  ┌──────▼──────┐ ┌────▼─────┐ ┌──────▼──────┐             │
-│  │   PyNaCl    │ │  Pillow  │ │   argon2    │             │
-│  │ (libsodium) │ │  (PIL)   │ │   -cffi     │             │
-│  └─────────────┘ └──────────┘ └─────────────┘             │
-│                                                             │
+│         │              │             │                     │
+│  ┌──────▼──────┐ ┌────▼─────┐ ┌──────▼──────┐              │
+│  │   PyNaCl    │ │  Pillow  │ │   argon2    │              │
+│  │ (libsodium) │ │  (PIL)   │ │   -cffi     │              │
+│  └─────────────┘ └──────────┘ └─────────────┘              │
+│                                                            │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -220,27 +220,27 @@ Stego Image + Passphrase
 
 ```
 ┌─────────────────────────────────────────┐
-│         Trusted Environment              │
+│         Trusted Environment             │
 │  ┌─────────────────────────────────┐    │
 │  │    StegVault Process            │    │
 │  │  • Encryption                   │    │
 │  │  • Decryption                   │    │
 │  │  • Key derivation               │    │
 │  └─────────────────────────────────┘    │
-│                                          │
-│  Secrets exist only in memory            │
+│                                         │
+│  Secrets exist only in memory           │
 └─────────────────────────────────────────┘
                   │
                   │ Encrypted payload only
                   ▼
 ┌─────────────────────────────────────────┐
-│       Untrusted Environment              │
-│  • File system                           │
-│  • Network                               │
-│  • Cloud storage                         │
-│  • External media                        │
-│                                          │
-│  Only encrypted data exposed             │
+│       Untrusted Environment             │
+│  • File system                          │
+│  • Network                              │
+│  • Cloud storage                        │
+│  • External media                       │
+│                                         │
+│  Only encrypted data exposed            │
 └─────────────────────────────────────────┘
 ```
 
