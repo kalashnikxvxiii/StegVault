@@ -64,8 +64,10 @@ def _generate_pixel_sequence(width: int, height: int, seed: int) -> list:
     # Create all pixel coordinates
     pixels = [(x, y) for y in range(height) for x in range(width)]
 
-    # Shuffle deterministically based on seed
-    rng = random.Random(seed)
+    # Shuffle deterministically based on seed (using seed derived from cryptographic salt)
+    # nosec B311: random.Random() is used here for deterministic pixel ordering,
+    # not for cryptographic purposes. The seed itself is derived from crypto-grade randomness.
+    rng = random.Random(seed)  # nosec B311
     rng.shuffle(pixels)
 
     return pixels
