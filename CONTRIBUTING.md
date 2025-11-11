@@ -121,7 +121,7 @@ mypy stegvault
 - Use Google-style docstrings
 - Include parameter types and return types
 - Provide usage examples for complex functions
-- Keep CLAUDE.md updated with architectural changes
+- Keep the WIKI folder updated with architectural changes
 
 ### Example Function
 
@@ -239,7 +239,7 @@ Security-critical changes require:
 2. **Write tests**: Ensure new code is tested
 3. **Run test suite**: `pytest` should pass
 4. **Format code**: Run `black stegvault tests`
-5. **Update documentation**: Update README, CLAUDE.md if needed
+5. **Update documentation**: Update README, WIKI if needed
 6. **Update CHANGELOG**: Add entry under "Unreleased" section
 
 ### Pull Request Template
