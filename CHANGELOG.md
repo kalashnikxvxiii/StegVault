@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Configuration File Support**: Users can now customize StegVault settings via TOML config file
+  - Config location: `~/.config/stegvault/config.toml` (Linux/Mac) or `%APPDATA%\StegVault\config.toml` (Windows)
+  - Configurable Argon2id KDF parameters (time_cost, memory_cost, parallelism)
+  - CLI behavior settings (check_strength, verbose mode)
+  - New `stegvault config` command group with subcommands:
+    - `stegvault config show`: Display current configuration
+    - `stegvault config init`: Create default configuration file
+    - `stegvault config path`: Show config file location
 - Progress indicators for key derivation operations
   - Visual progress bar during Argon2id KDF (can take 1-3 seconds)
   - Progress feedback for encryption and decryption
@@ -17,7 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - CLI coverage improved from 78% to 80%
 - Overall coverage improved to 88%
-- Total test count: 84 tests (82 passing, 2 flaky on Windows)
+- Total test count: 84 tests (81 passing, 3 flaky on Windows)
+- Crypto module functions now accept optional KDF parameters from config
+- Dependencies: Added `tomli` and `tomli_w` for TOML support
 
 ### Known Issues
 - Two tests are flaky on Windows due to rapid file operations:

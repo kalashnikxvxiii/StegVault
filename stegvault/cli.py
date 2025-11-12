@@ -32,6 +32,11 @@ from stegvault.utils import (
     validate_payload_capacity,
     PayloadFormatError,
 )
+from stegvault.config import (
+    load_config,
+    Config,
+    ConfigError,
+)
 
 
 @click.group()
@@ -85,6 +90,15 @@ def backup(password: str, passphrase: str, image: str, output: str, check_streng
         stegvault backup -i cover.png -o backup.png
     """
     try:
+        # Load configuration
+        try:
+            config = load_config()
+        except ConfigError as e:
+            click.echo(f"Warning: Failed to load config: {e}", err=True)
+            click.echo("Using default settings...", err=True)
+            from stegvault.config import get_default_config
+            config = get_default_config()
+
         click.echo("Creating encrypted backup...")
 
         # Verify passphrase strength
@@ -131,7 +145,13 @@ def backup(password: str, passphrase: str, image: str, output: str, check_streng
 
         def encrypt_worker():
             try:
-                result[0] = encrypt_data(password_bytes, passphrase)
+                result[0] = encrypt_data(
+                    password_bytes,
+                    passphrase,
+                    time_cost=config.crypto.argon2_time_cost,
+                    memory_cost=config.crypto.argon2_memory_cost,
+                    parallelism=config.crypto.argon2_parallelism,
+                )
             except Exception as e:
                 exception[0] = e
 
@@ -228,6 +248,15 @@ def restore(image: str, passphrase: str, output: Any) -> None:
         stegvault restore -i backup.png -o password.txt
     """
     try:
+        # Load configuration
+        try:
+            config = load_config()
+        except ConfigError as e:
+            click.echo(f"Warning: Failed to load config: {e}", err=True)
+            click.echo("Using default settings...", err=True)
+            from stegvault.config import get_default_config
+            config = get_default_config()
+
         click.echo("Restoring password from backup...", err=True)
 
         # Check if image exists
@@ -301,7 +330,15 @@ def restore(image: str, passphrase: str, output: Any) -> None:
 
         def decrypt_worker():
             try:
-                result[0] = decrypt_data(ciphertext, salt, nonce, passphrase)
+                result[0] = decrypt_data(
+                    ciphertext,
+                    salt,
+                    nonce,
+                    passphrase,
+                    time_cost=config.crypto.argon2_time_cost,
+                    memory_cost=config.crypto.argon2_memory_cost,
+                    parallelism=config.crypto.argon2_parallelism,
+                )
             except Exception as e:
                 exception[0] = e
 
@@ -416,6 +453,100 @@ def check(image: str) -> None:
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
+
+
+@main.group()
+def config() -> None:
+    """
+    Manage StegVault configuration.
+
+    Subcommands: show, init, path
+    """
+    pass
+
+
+@config.command()
+def show() -> None:
+    """Display current configuration."""
+    try:
+        from stegvault.config import load_config, get_config_path
+
+        config_path = get_config_path()
+
+        if not config_path.exists():
+            click.echo("No configuration file found.")
+            click.echo(f"Expected location: {config_path}")
+            click.echo("\nUsing default settings:")
+        else:
+            click.echo(f"Configuration file: {config_path}\n")
+
+        try:
+            cfg = load_config()
+
+            click.echo("[crypto]")
+            click.echo(f"  argon2_time_cost    = {cfg.crypto.argon2_time_cost}")
+            click.echo(f"  argon2_memory_cost  = {cfg.crypto.argon2_memory_cost} KB ({cfg.crypto.argon2_memory_cost / 1024:.0f} MB)")
+            click.echo(f"  argon2_parallelism  = {cfg.crypto.argon2_parallelism}")
+            click.echo()
+            click.echo("[cli]")
+            click.echo(f"  check_strength      = {cfg.cli.check_strength}")
+            click.echo(f"  default_image_dir   = {cfg.cli.default_image_dir or '(not set)'}")
+            click.echo(f"  verbose             = {cfg.cli.verbose}")
+
+        except ConfigError as e:
+            click.echo(f"Error loading config: {e}", err=True)
+            sys.exit(1)
+
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@config.command()
+def init() -> None:
+    """Create default configuration file."""
+    try:
+        from stegvault.config import save_config, get_default_config, get_config_path
+
+        config_path = get_config_path()
+
+        if config_path.exists():
+            click.echo(f"Configuration file already exists: {config_path}")
+            if not click.confirm("Overwrite with default settings?"):
+                click.echo("Cancelled.")
+                sys.exit(0)
+
+        cfg = get_default_config()
+        save_config(cfg)
+
+        click.echo(f"Created configuration file: {config_path}")
+        click.echo("\nDefault settings:")
+        click.echo(f"  Argon2 time cost:    {cfg.crypto.argon2_time_cost} iterations")
+        click.echo(f"  Argon2 memory cost:  {cfg.crypto.argon2_memory_cost / 1024:.0f} MB")
+        click.echo(f"  Argon2 parallelism:  {cfg.crypto.argon2_parallelism} threads")
+
+    except ConfigError as e:
+        click.echo(f"Error creating config: {e}", err=True)
+        sys.exit(1)
+
+
+@config.command()
+def path() -> None:
+    """Show configuration file path."""
+    from stegvault.config import get_config_path, get_config_dir
+
+    config_path = get_config_path()
+    config_dir = get_config_dir()
+
+    click.echo(f"Config directory: {config_dir}")
+    click.echo(f"Config file:      {config_path}")
+    click.echo()
+
+    if config_path.exists():
+        click.echo(f"Status: File exists")
+    else:
+        click.echo(f"Status: File not found (using defaults)")
+        click.echo(f"\nRun 'stegvault config init' to create it.")
 
 
 if __name__ == "__main__":

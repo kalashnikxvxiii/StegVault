@@ -57,31 +57,47 @@ def generate_nonce() -> bytes:
     return nacl.utils.random(NONCE_SIZE)
 
 
-def derive_key(passphrase: str, salt: bytes) -> bytes:
+def derive_key(
+    passphrase: str,
+    salt: bytes,
+    time_cost: int = ARGON2_TIME_COST,
+    memory_cost: int = ARGON2_MEMORY_COST,
+    parallelism: int = ARGON2_PARALLELISM,
+) -> bytes:
     """
     Derive a 256-bit encryption key from a passphrase using Argon2id.
 
     Args:
         passphrase: User-provided passphrase
         salt: 16-byte salt (must be stored with ciphertext)
+        time_cost: Number of iterations (default: 3)
+        memory_cost: Memory usage in KB (default: 65536 = 64MB)
+        parallelism: Number of parallel threads (default: 4)
 
     Returns:
         32-byte derived key suitable for XChaCha20-Poly1305
 
     Raises:
-        CryptoError: If key derivation fails
+        CryptoError: If key derivation fails or parameters are invalid
     """
     if len(salt) != SALT_SIZE:
         raise CryptoError(f"Salt must be exactly {SALT_SIZE} bytes, got {len(salt)}")
+
+    if time_cost < 1:
+        raise CryptoError(f"time_cost must be >= 1, got {time_cost}")
+    if memory_cost < 8:
+        raise CryptoError(f"memory_cost must be >= 8 KB, got {memory_cost}")
+    if parallelism < 1:
+        raise CryptoError(f"parallelism must be >= 1, got {parallelism}")
 
     try:
         # Use Argon2id (hybrid mode: resistant to both side-channel and GPU attacks)
         key = hash_secret_raw(
             secret=passphrase.encode("utf-8"),
             salt=salt,
-            time_cost=ARGON2_TIME_COST,
-            memory_cost=ARGON2_MEMORY_COST,
-            parallelism=ARGON2_PARALLELISM,
+            time_cost=time_cost,
+            memory_cost=memory_cost,
+            parallelism=parallelism,
             hash_len=ARGON2_HASH_LENGTH,
             type=Type.ID,  # Argon2id
         )
@@ -90,13 +106,22 @@ def derive_key(passphrase: str, salt: bytes) -> bytes:
         raise CryptoError(f"Key derivation failed: {e}")
 
 
-def encrypt_data(plaintext: bytes, passphrase: str) -> Tuple[bytes, bytes, bytes]:
+def encrypt_data(
+    plaintext: bytes,
+    passphrase: str,
+    time_cost: int = ARGON2_TIME_COST,
+    memory_cost: int = ARGON2_MEMORY_COST,
+    parallelism: int = ARGON2_PARALLELISM,
+) -> Tuple[bytes, bytes, bytes]:
     """
     Encrypt data using XChaCha20-Poly1305 AEAD with Argon2id key derivation.
 
     Args:
         plaintext: Data to encrypt
         passphrase: User-provided passphrase
+        time_cost: Argon2id iterations (default: 3)
+        memory_cost: Argon2id memory in KB (default: 65536 = 64MB)
+        parallelism: Argon2id thread count (default: 4)
 
     Returns:
         Tuple of (ciphertext, salt, nonce)
@@ -113,7 +138,7 @@ def encrypt_data(plaintext: bytes, passphrase: str) -> Tuple[bytes, bytes, bytes
         nonce = generate_nonce()
 
         # Derive encryption key from passphrase
-        key = derive_key(passphrase, salt)
+        key = derive_key(passphrase, salt, time_cost, memory_cost, parallelism)
 
         # Create XChaCha20-Poly1305 cipher
         box = nacl.secret.SecretBox(key)
@@ -132,7 +157,15 @@ def encrypt_data(plaintext: bytes, passphrase: str) -> Tuple[bytes, bytes, bytes
         raise CryptoError(f"Encryption failed: {e}")
 
 
-def decrypt_data(ciphertext: bytes, salt: bytes, nonce: bytes, passphrase: str) -> bytes:
+def decrypt_data(
+    ciphertext: bytes,
+    salt: bytes,
+    nonce: bytes,
+    passphrase: str,
+    time_cost: int = ARGON2_TIME_COST,
+    memory_cost: int = ARGON2_MEMORY_COST,
+    parallelism: int = ARGON2_PARALLELISM,
+) -> bytes:
     """
     Decrypt data using XChaCha20-Poly1305 AEAD with Argon2id key derivation.
 
@@ -141,6 +174,9 @@ def decrypt_data(ciphertext: bytes, salt: bytes, nonce: bytes, passphrase: str) 
         salt: 16-byte salt used for key derivation
         nonce: 24-byte nonce used for encryption
         passphrase: User-provided passphrase
+        time_cost: Argon2id iterations (default: 3)
+        memory_cost: Argon2id memory in KB (default: 65536 = 64MB)
+        parallelism: Argon2id thread count (default: 4)
 
     Returns:
         Decrypted plaintext
@@ -157,7 +193,7 @@ def decrypt_data(ciphertext: bytes, salt: bytes, nonce: bytes, passphrase: str) 
 
     try:
         # Derive the same encryption key from passphrase
-        key = derive_key(passphrase, salt)
+        key = derive_key(passphrase, salt, time_cost, memory_cost, parallelism)
 
         # Create XChaCha20-Poly1305 cipher
         box = nacl.secret.SecretBox(key)
