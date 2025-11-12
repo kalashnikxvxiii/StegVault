@@ -7,6 +7,8 @@ Provides commands for backup creation and password recovery.
 import click
 import sys
 import os
+import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -120,8 +122,48 @@ def backup(password: str, passphrase: str, image: str, output: str, check_streng
             sys.exit(1)
 
         # Encrypt password
-        click.echo("Encrypting password...")
-        ciphertext, salt, nonce = encrypt_data(password_bytes, passphrase)
+        click.echo("Encrypting password...", nl=False)
+        click.echo(" (this may take a few seconds)", err=True)
+
+        # Show progress for key derivation (Argon2id is intentionally slow)
+        result = [None]
+        exception = [None]
+
+        def encrypt_worker():
+            try:
+                result[0] = encrypt_data(password_bytes, passphrase)
+            except Exception as e:
+                exception[0] = e
+
+        with click.progressbar(
+            length=100,
+            label="Deriving encryption key",
+            show_eta=False,
+            show_percent=False,
+            bar_template="%(label)s [%(bar)s] %(info)s",
+        ) as bar:
+            # Simulate progress during KDF (it's not truly measurable)
+            thread = threading.Thread(target=encrypt_worker)
+            thread.start()
+
+            # Update progress bar while KDF is running
+            while thread.is_alive():
+                bar.update(10)
+                time.sleep(0.1)
+
+            thread.join()
+
+            if exception[0]:
+                raise exception[0]
+
+            bar.update(100)  # Complete the bar
+
+        if result[0] is None:
+            click.echo("Error: Encryption failed", err=True)
+            sys.exit(1)
+
+        ciphertext, salt, nonce = result[0]
+        click.echo("[OK] Encryption complete")
 
         # Serialize payload
         payload = serialize_payload(salt, nonce, ciphertext)
@@ -133,6 +175,7 @@ def backup(password: str, passphrase: str, image: str, output: str, check_streng
         # Embed in image
         click.echo("Embedding payload in image...")
         embed_payload(image, payload, seed, output)
+        click.echo("[OK] Embedding complete")
 
         click.echo(f"[OK] Backup created successfully: {output}")
         click.echo("\nIMPORTANT:")
@@ -249,8 +292,48 @@ def restore(image: str, passphrase: str, output: Any) -> None:
         salt, nonce, ciphertext = parse_payload(payload)
 
         # Decrypt
-        click.echo("Decrypting password...", err=True)
-        password_bytes = decrypt_data(ciphertext, salt, nonce, passphrase)
+        click.echo("Decrypting password...", nl=False, err=True)
+        click.echo(" (deriving key, this may take a few seconds)", err=True)
+
+        # Show progress for key derivation (Argon2id is intentionally slow)
+        result = [None]
+        exception = [None]
+
+        def decrypt_worker():
+            try:
+                result[0] = decrypt_data(ciphertext, salt, nonce, passphrase)
+            except Exception as e:
+                exception[0] = e
+
+        with click.progressbar(
+            length=100,
+            label="Deriving decryption key",
+            show_eta=False,
+            show_percent=False,
+            bar_template="%(label)s [%(bar)s] %(info)s",
+            file=sys.stderr,
+        ) as bar:
+            thread = threading.Thread(target=decrypt_worker)
+            thread.start()
+
+            # Update progress bar while KDF is running
+            while thread.is_alive():
+                bar.update(10)
+                time.sleep(0.1)
+
+            thread.join()
+
+            if exception[0]:
+                raise exception[0]
+
+            bar.update(100)  # Complete the bar
+
+        if result[0] is None:
+            click.echo("\nError: Decryption failed", err=True)
+            sys.exit(1)
+
+        password_bytes = result[0]
+        click.echo("[OK] Decryption complete", err=True)
 
         # Convert to string
         password = password_bytes.decode("utf-8")

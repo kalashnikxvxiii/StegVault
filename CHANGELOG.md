@@ -5,6 +5,19 @@ All notable changes to StegVault will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Progress indicators for key derivation operations
+  - Visual progress bar during Argon2id KDF (can take 1-3 seconds)
+  - Progress feedback for encryption and decryption
+  - User-friendly feedback for long-running operations
+- Improved CLI output with operation status indicators
+
+### Changed
+- CLI coverage improved from 78% to 82%
+- Total test count: 84 tests (83 passing, 1 flaky on Windows)
+
 ## [0.2.0] - 2025-11-12
 
 ### Added
