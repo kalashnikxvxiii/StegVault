@@ -33,7 +33,7 @@ from stegvault.utils import (
 
 
 @click.group()
-@click.version_option(version="0.1.0")
+@click.version_option(version="0.2.0")
 def main() -> None:
     """
     StegVault - Password Manager with Steganography
@@ -134,7 +134,7 @@ def backup(password: str, passphrase: str, image: str, output: str, check_streng
         click.echo("Embedding payload in image...")
         embed_payload(image, payload, seed, output)
 
-        click.echo(f"✓ Backup created successfully: {output}")
+        click.echo(f"[OK] Backup created successfully: {output}")
         click.echo("\nIMPORTANT:")
         click.echo("- Keep both the image AND passphrase safe")
         click.echo("- Losing either means permanent data loss")
@@ -192,27 +192,42 @@ def restore(image: str, passphrase: str, output: Any) -> None:
             click.echo(f"Error: Image file not found: {image}", err=True)
             sys.exit(1)
 
-        # First, we need to extract the payload header to determine size
-        # We'll extract a generous amount first to get the header
+        # Extract payload from image
+        # NOTE: The first 20 bytes (magic + salt) are stored sequentially
+        # This allows us to extract them without knowing the seed
         from PIL import Image
 
         img = Image.open(image)
+        img.load()
         capacity = calculate_capacity(img)
         img.close()
 
-        # Extract enough bytes to read the header
-        # Header is: 4 (magic) + 16 (salt) + 24 (nonce) + 4 (length) = 48 bytes
-        header_size = 48
-        seed_temp = 0  # Temporary seed to extract header
-
         click.echo("Extracting payload header...", err=True)
-        header_bytes = extract_payload(image, header_size, seed_temp)
+
+        # Extract just enough to get magic + salt (first 20 bytes)
+        # These are stored sequentially, so seed doesn't matter for this part
+        initial_extract_size = 20
+        seed_placeholder = 0  # Seed doesn't matter for sequential extraction
+        header_bytes = extract_payload(image, initial_extract_size, seed_placeholder)
+
+        # Validate magic header
+        if header_bytes[:4] != b'SPW1':
+            click.echo("Error: Invalid or corrupted payload (bad magic header)", err=True)
+            sys.exit(1)
+
+        # Extract salt from header
+        salt = header_bytes[4:20]
+
+        # Derive correct seed from salt for the remaining payload
+        seed = int.from_bytes(salt[:4], byteorder="big")
+
+        # Now extract the full header to get payload size
+        header_size = 48  # 4 (magic) + 16 (salt) + 24 (nonce) + 4 (length)
+        header_bytes = extract_payload(image, header_size, seed)
 
         # Parse header to get ciphertext length
         try:
-            # We can't fully parse yet, but we can extract the length field
             import struct
-
             ct_length = struct.unpack(">I", header_bytes[44:48])[0]
         except:
             click.echo("Error: Invalid or corrupted payload", err=True)
@@ -227,18 +242,10 @@ def restore(image: str, passphrase: str, output: Any) -> None:
 
         # Extract full payload
         click.echo("Extracting full payload...", err=True)
-        payload = extract_payload(image, total_payload_size, seed_temp)
+        payload = extract_payload(image, total_payload_size, seed)
 
         # Parse payload
         click.echo("Parsing payload...", err=True)
-        salt, nonce, ciphertext = parse_payload(payload)
-
-        # Derive correct seed from salt
-        seed = int.from_bytes(salt[:4], byteorder="big")
-
-        # Re-extract with correct seed
-        click.echo("Re-extracting with correct seed...", err=True)
-        payload = extract_payload(image, total_payload_size, seed)
         salt, nonce, ciphertext = parse_payload(payload)
 
         # Decrypt
@@ -251,14 +258,14 @@ def restore(image: str, passphrase: str, output: Any) -> None:
         # Output
         if output.name == "<stdout>":
             click.echo("\n" + "=" * 50, err=True)
-            click.echo("✓ Password recovered successfully!", err=True)
+            click.echo("[OK] Password recovered successfully!", err=True)
             click.echo("=" * 50 + "\n", err=True)
 
         output.write(password)
 
         if output.name != "<stdout>":
             output.write("\n")
-            click.echo(f"\n✓ Password saved to: {output.name}", err=True)
+            click.echo(f"\n[OK] Password saved to: {output.name}", err=True)
 
     except DecryptionError:
         click.echo("\nError: Decryption failed. Wrong passphrase or corrupted data.", err=True)
@@ -321,7 +328,7 @@ def check(image: str) -> None:
         elif capacity < 500:
             click.echo("\nNote: Image capacity is limited. Suitable for short passwords only.")
         else:
-            click.echo("\n✓ Image has sufficient capacity for password storage.")
+            click.echo("\n[OK] Image has sufficient capacity for password storage.")
 
     except Exception as e:
         click.echo(f"Error: {e}", err=True)

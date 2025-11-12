@@ -27,9 +27,13 @@ def test_image_small():
         img_array = np.random.randint(0, 256, (10, 10, 3), dtype=np.uint8)
         img = Image.fromarray(img_array, mode="RGB")
         img.save(tmp.name, format="PNG")
+        img.close()  # Close image to release file handle
         yield tmp.name
         # Cleanup
-        os.unlink(tmp.name)
+        try:
+            os.unlink(tmp.name)
+        except PermissionError:
+            pass  # File might still be in use, skip cleanup
 
 
 @pytest.fixture
@@ -39,8 +43,13 @@ def test_image_medium():
         img_array = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8)
         img = Image.fromarray(img_array, mode="RGB")
         img.save(tmp.name, format="PNG")
+        img.close()  # Close image to release file handle
         yield tmp.name
-        os.unlink(tmp.name)
+        # Cleanup
+        try:
+            os.unlink(tmp.name)
+        except PermissionError:
+            pass  # File might still be in use, skip cleanup
 
 
 @pytest.fixture
@@ -50,8 +59,13 @@ def test_image_large():
         img_array = np.random.randint(0, 256, (500, 500, 3), dtype=np.uint8)
         img = Image.fromarray(img_array, mode="RGB")
         img.save(tmp.name, format="PNG")
+        img.close()  # Close image to release file handle
         yield tmp.name
-        os.unlink(tmp.name)
+        # Cleanup
+        try:
+            os.unlink(tmp.name)
+        except PermissionError:
+            pass  # File might still be in use, skip cleanup
 
 
 class TestCapacityCalculation:
@@ -73,20 +87,26 @@ class TestCapacityCalculation:
     def test_capacity_medium_image(self, test_image_medium):
         """Should calculate correct capacity for 100x100 image."""
         img = Image.open(test_image_medium)
-        capacity = calculate_capacity(img)
+        try:
+            capacity = calculate_capacity(img)
 
-        expected = (100 * 100 * 3) // 8
-        assert capacity == expected
-        assert capacity == 3750
+            expected = (100 * 100 * 3) // 8
+            assert capacity == expected
+            assert capacity == 3750
+        finally:
+            img.close()
 
     def test_capacity_large_image(self, test_image_large):
         """Should calculate correct capacity for 500x500 image."""
         img = Image.open(test_image_large)
-        capacity = calculate_capacity(img)
+        try:
+            capacity = calculate_capacity(img)
 
-        expected = (500 * 500 * 3) // 8
-        assert capacity == expected
-        assert capacity == 93750
+            expected = (500 * 500 * 3) // 8
+            assert capacity == expected
+            assert capacity == 93750
+        finally:
+            img.close()
 
 
 class TestEmbedding:
@@ -108,12 +128,18 @@ class TestEmbedding:
 
             # Verify it's a valid PNG
             loaded = Image.open(output_path)
+            loaded.load()  # Force load to close file handle
+            expected_size = Image.open(test_image_medium).size
             assert loaded.mode == "RGB"
-            assert loaded.size == Image.open(test_image_medium).size
+            assert loaded.size == expected_size
+            loaded.close()
 
         finally:
             if os.path.exists(output_path):
-                os.unlink(output_path)
+                try:
+                    os.unlink(output_path)
+                except PermissionError:
+                    pass  # File might still be in use
 
     def test_embed_payload_too_large(self, test_image_small):
         """Should raise CapacityError for oversized payload."""
@@ -128,7 +154,10 @@ class TestEmbedding:
     def test_embed_maximum_capacity(self, test_image_medium):
         """Should embed payload at maximum capacity."""
         img = Image.open(test_image_medium)
-        capacity = calculate_capacity(img)
+        try:
+            capacity = calculate_capacity(img)
+        finally:
+            img.close()
 
         payload = b"x" * capacity  # Maximum size
         seed = 12345
@@ -142,7 +171,10 @@ class TestEmbedding:
 
         finally:
             if os.path.exists(output_path):
-                os.unlink(output_path)
+                try:
+                    os.unlink(output_path)
+                except PermissionError:
+                    pass
 
     def test_embed_empty_payload(self, test_image_medium):
         """Should handle empty payload."""
@@ -158,7 +190,10 @@ class TestEmbedding:
 
         finally:
             if os.path.exists(output_path):
-                os.unlink(output_path)
+                try:
+                    os.unlink(output_path)
+                except PermissionError:
+                    pass
 
 
 class TestExtraction:
@@ -183,11 +218,16 @@ class TestExtraction:
 
         finally:
             if os.path.exists(stego_path):
-                os.unlink(stego_path)
+                try:
+                    os.unlink(stego_path)
+                except PermissionError:
+                    pass
 
     def test_extract_with_wrong_seed(self, test_image_medium):
         """Should extract garbage with wrong seed."""
-        original_payload = b"Secret data"
+        # Use payload larger than 20 bytes (magic + salt are stored sequentially)
+        # so the random-ordered part will be different with wrong seed
+        original_payload = b"Secret data that is longer than 20 bytes for testing"
         correct_seed = 11111
         wrong_seed = 99999
 
@@ -201,17 +241,23 @@ class TestExtraction:
             # Extract with wrong seed
             extracted = extract_payload(stego_path, len(original_payload), wrong_seed)
 
-            # Should get different data
+            # Should get different data (at least the part beyond first 20 bytes)
             assert extracted != original_payload
 
         finally:
             if os.path.exists(stego_path):
-                os.unlink(stego_path)
+                try:
+                    os.unlink(stego_path)
+                except PermissionError:
+                    pass
 
     def test_extract_oversized_payload(self, test_image_small):
         """Should raise ExtractionError for oversized extraction."""
         img = Image.open(test_image_small)
-        capacity = calculate_capacity(img)
+        try:
+            capacity = calculate_capacity(img)
+        finally:
+            img.close()
 
         with pytest.raises(ExtractionError, match="exceeds image capacity"):
             extract_payload(test_image_small, capacity + 100, 12345)
@@ -269,6 +315,7 @@ class TestImageFormatHandling:
             img_array = np.random.randint(0, 256, (100, 100, 4), dtype=np.uint8)
             img = Image.fromarray(img_array, mode="RGBA")
             img.save(rgba_path, format="PNG")
+            img.close()
 
             payload = b"Test RGBA"
             seed = 123
@@ -284,11 +331,17 @@ class TestImageFormatHandling:
             extracted = extract_payload(output_path, len(payload), seed)
             assert extracted == payload
 
-            os.unlink(output_path)
+            try:
+                os.unlink(output_path)
+            except PermissionError:
+                pass
 
         finally:
             if os.path.exists(rgba_path):
-                os.unlink(rgba_path)
+                try:
+                    os.unlink(rgba_path)
+                except PermissionError:
+                    pass
 
 
 class TestErrorHandling:

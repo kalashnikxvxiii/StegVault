@@ -136,19 +136,24 @@ def embed_payload(
     try:
         # Load image
         image = Image.open(image_path)
+        # Force load pixel data and close file descriptor (fixes Windows file locking)
+        image.load()
 
         # Convert to RGB if needed
         if image.mode == "RGBA":
             # Convert RGBA to RGB by compositing on white background
             background = Image.new("RGB", image.size, (255, 255, 255))
             background.paste(image, mask=image.split()[3])  # Use alpha channel as mask
+            image.close()  # Close original RGBA image
             image = background  # type: ignore[assignment]
         elif image.mode != "RGB":
+            image.close()
             raise StegoError(f"Unsupported image mode: {image.mode}")
 
         # Check capacity
         capacity = calculate_capacity(image)
         if len(payload) > capacity:
+            image.close()
             raise CapacityError(
                 f"Payload size ({len(payload)} bytes) exceeds image capacity ({capacity} bytes)"
             )
@@ -157,26 +162,54 @@ def embed_payload(
         pixels = np.array(image)
         height, width = pixels.shape[:2]
 
-        # Generate pseudo-random pixel sequence
-        pixel_sequence = _generate_pixel_sequence(width, height, seed)
+        # Close the original image now that we have the pixel data
+        image.close()
 
         # Convert payload to bits
         payload_bits = _bytes_to_bits(payload)
 
         # Embed bits in LSB of pixel channels
+        # IMPORTANT: For the first 20 bytes (magic + salt), use sequential order
+        # This allows extraction without knowing the seed (which is derived from salt)
+        # The remaining payload uses pseudo-random ordering
+
+        HEADER_SIZE = 20  # Magic (4) + Salt (16) bytes
+        header_bits = min(HEADER_SIZE * 8, len(payload_bits))
+
+        # Embed header sequentially (left-to-right, top-to-bottom)
         bit_index = 0
-        for x, y in pixel_sequence:
-            if bit_index >= len(payload_bits):
+        for y in range(height):
+            for x in range(width):
+                if bit_index >= header_bits:
+                    break
+
+                for channel in range(3):  # R=0, G=1, B=2
+                    if bit_index >= header_bits:
+                        break
+
+                    # Clear LSB and set to payload bit
+                    pixels[y, x, channel] = (pixels[y, x, channel] & 0xFE) | payload_bits[bit_index]
+                    bit_index += 1
+
+            if bit_index >= header_bits:
                 break
 
-            # Modify LSB of R, G, B channels
-            for channel in range(3):  # R=0, G=1, B=2
+        # Embed remaining payload with pseudo-random ordering
+        if bit_index < len(payload_bits):
+            pixel_sequence = _generate_pixel_sequence(width, height, seed)
+
+            for x, y in pixel_sequence:
                 if bit_index >= len(payload_bits):
                     break
 
-                # Clear LSB and set to payload bit
-                pixels[y, x, channel] = (pixels[y, x, channel] & 0xFE) | payload_bits[bit_index]
-                bit_index += 1
+                # Modify LSB of R, G, B channels
+                for channel in range(3):  # R=0, G=1, B=2
+                    if bit_index >= len(payload_bits):
+                        break
+
+                    # Clear LSB and set to payload bit
+                    pixels[y, x, channel] = (pixels[y, x, channel] & 0xFE) | payload_bits[bit_index]
+                    bit_index += 1
 
         # Convert back to PIL Image
         stego_image = Image.fromarray(pixels, mode="RGB")
@@ -212,18 +245,23 @@ def extract_payload(image_path: str, payload_size: int, seed: int) -> bytes:
     try:
         # Load image
         image = Image.open(image_path)
+        # Force load pixel data and close file descriptor (fixes Windows file locking)
+        image.load()
 
         # Convert to RGB if needed
         if image.mode == "RGBA":
             background = Image.new("RGB", image.size, (255, 255, 255))
             background.paste(image, mask=image.split()[3])
+            image.close()  # Close original RGBA image
             image = background  # type: ignore[assignment]
         elif image.mode != "RGB":
+            image.close()
             raise StegoError(f"Unsupported image mode: {image.mode}")
 
         # Check capacity
         capacity = calculate_capacity(image)
         if payload_size > capacity:
+            image.close()
             raise ExtractionError(
                 f"Requested payload size ({payload_size} bytes) exceeds image capacity ({capacity} bytes)"
             )
@@ -232,24 +270,49 @@ def extract_payload(image_path: str, payload_size: int, seed: int) -> bytes:
         pixels = np.array(image)
         height, width = pixels.shape[:2]
 
-        # Generate same pseudo-random pixel sequence
-        pixel_sequence = _generate_pixel_sequence(width, height, seed)
+        # Close the original image now that we have the pixel data
+        image.close()
 
         # Extract bits from LSB of pixel channels
+        # IMPORTANT: For the first 20 bytes (magic + salt), extract sequentially
+        # The remaining payload uses pseudo-random ordering with the provided seed
         extracted_bits: list[int] = []
         bits_needed = payload_size * 8
 
-        for x, y in pixel_sequence:
-            if len(extracted_bits) >= bits_needed:
+        HEADER_SIZE = 20  # Magic (4) + Salt (16) bytes
+        header_bits = min(HEADER_SIZE * 8, bits_needed)
+
+        # Extract header sequentially (left-to-right, top-to-bottom)
+        for y in range(height):
+            for x in range(width):
+                if len(extracted_bits) >= header_bits:
+                    break
+
+                for channel in range(3):  # R=0, G=1, B=2
+                    if len(extracted_bits) >= header_bits:
+                        break
+
+                    bit = pixels[y, x, channel] & 1
+                    extracted_bits.append(bit)
+
+            if len(extracted_bits) >= header_bits:
                 break
 
-            # Extract LSB from R, G, B channels
-            for channel in range(3):  # R=0, G=1, B=2
+        # Extract remaining payload with pseudo-random ordering
+        if len(extracted_bits) < bits_needed:
+            pixel_sequence = _generate_pixel_sequence(width, height, seed)
+
+            for x, y in pixel_sequence:
                 if len(extracted_bits) >= bits_needed:
                     break
 
-                bit = pixels[y, x, channel] & 1
-                extracted_bits.append(bit)
+                # Extract LSB from R, G, B channels
+                for channel in range(3):  # R=0, G=1, B=2
+                    if len(extracted_bits) >= bits_needed:
+                        break
+
+                    bit = pixels[y, x, channel] & 1
+                    extracted_bits.append(bit)
 
         # Convert bits to bytes
         payload = _bits_to_bytes(extracted_bits[:bits_needed])
