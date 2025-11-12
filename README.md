@@ -3,9 +3,10 @@
 > Secure password manager using steganography to embed encrypted credentials within images
 
 [![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://github.com/kalashnikxvxiii-collab/StegVault/releases/tag/v0.2.0)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](tests/)
-[![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-82/84_passing-brightgreen.svg)](tests/)
+[![Coverage](https://img.shields.io/badge/coverage-88%25-brightgreen.svg)](tests/)
 
 **StegVault** combines modern cryptography with steganography to create a secure, portable password backup system. Your master password is encrypted using battle-tested algorithms (XChaCha20-Poly1305 + Argon2id) and then hidden within ordinary PNG images using LSB steganography.
 
@@ -15,7 +16,7 @@
 - 🖼️ **Invisible Storage**: LSB steganography with pseudo-random pixel ordering
 - 🔒 **Zero-Knowledge**: All operations performed locally, no cloud dependencies
 - ✅ **Authenticated**: AEAD tag ensures data integrity
-- 🧪 **Well-Tested**: 63+ unit tests with 90%+ coverage
+- 🧪 **Well-Tested**: 84 unit tests with 88% coverage (82 passing)
 - 🚀 **Easy to Use**: Simple CLI interface
 
 ## Quick Start
