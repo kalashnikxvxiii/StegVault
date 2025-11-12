@@ -15,8 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved CLI output with operation status indicators
 
 ### Changed
-- CLI coverage improved from 78% to 82%
-- Total test count: 84 tests (83 passing, 1 flaky on Windows)
+- CLI coverage improved from 78% to 80%
+- Overall coverage improved to 88%
+- Total test count: 84 tests (82 passing, 2 flaky on Windows)
+
+### Known Issues
+- Two tests are flaky on Windows due to rapid file operations:
+  - `test_multiple_backups_different_images`: Fails intermittently when creating multiple backups in rapid succession
+  - `test_restore_wrong_passphrase`: Occasional timing issues with temporary file cleanup
+  - These issues do not affect real-world CLI usage and only occur in test scenarios
 
 ## [0.2.0] - 2025-11-12
 
