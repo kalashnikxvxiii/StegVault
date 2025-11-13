@@ -549,5 +549,171 @@ def path() -> None:
         click.echo(f"\nRun 'stegvault config init' to create it.")
 
 
+@main.command()
+@click.option(
+    "--config",
+    "-c",
+    required=True,
+    type=click.Path(exists=True),
+    help="Batch configuration file (JSON format)",
+)
+@click.option(
+    "--stop-on-error/--continue-on-error",
+    default=False,
+    help="Stop processing on first error (default: continue)",
+)
+def batch_backup(config: str, stop_on_error: bool) -> None:
+    """
+    Create multiple backups from a configuration file.
+
+    The config file should be in JSON format with the following structure:
+    {
+        "passphrase": "CommonPassphrase123",
+        "backups": [
+            {
+                "password": "Password1",
+                "image": "cover1.png",
+                "output": "backup1.png",
+                "label": "Gmail backup"
+            }
+        ]
+    }
+
+    \b
+    Example:
+        stegvault batch-backup -c batch_config.json
+    """
+    try:
+        from stegvault.batch import load_batch_config, process_batch_backup, BatchError
+
+        click.echo("Loading batch configuration...")
+        batch_config = load_batch_config(config)
+
+        total_jobs = len(batch_config.backup_jobs)
+        if total_jobs == 0:
+            click.echo("No backup jobs found in configuration.", err=True)
+            sys.exit(1)
+
+        click.echo(f"Processing {total_jobs} backup job(s)...\n")
+
+        def progress_callback(current, total, label):
+            click.echo(f"[{current}/{total}] Processing: {label}...", err=True)
+
+        successful, failed, errors = process_batch_backup(
+            batch_config,
+            progress_callback=progress_callback,
+            stop_on_error=stop_on_error
+        )
+
+        # Summary
+        click.echo(f"\n{'='*50}")
+        click.echo(f"Batch Backup Complete")
+        click.echo(f"{'='*50}")
+        click.echo(f"Successful: {successful}")
+        click.echo(f"Failed:     {failed}")
+
+        if errors:
+            click.echo(f"\nErrors:")
+            for error in errors:
+                click.echo(f"  - {error}", err=True)
+
+        sys.exit(0 if failed == 0 else 1)
+
+    except BatchError as e:
+        click.echo(f"Batch error: {e}", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"Unexpected error: {e}", err=True)
+        sys.exit(1)
+
+
+@main.command()
+@click.option(
+    "--config",
+    "-c",
+    required=True,
+    type=click.Path(exists=True),
+    help="Batch configuration file (JSON format)",
+)
+@click.option(
+    "--stop-on-error/--continue-on-error",
+    default=False,
+    help="Stop processing on first error (default: continue)",
+)
+@click.option(
+    "--show-passwords/--no-show-passwords",
+    default=False,
+    help="Display recovered passwords (default: hide)",
+)
+def batch_restore(config: str, stop_on_error: bool, show_passwords: bool) -> None:
+    """
+    Restore multiple passwords from a configuration file.
+
+    The config file should be in JSON format with the following structure:
+    {
+        "passphrase": "CommonPassphrase123",
+        "restores": [
+            {
+                "image": "backup1.png",
+                "output": "password1.txt",
+                "label": "Gmail restore"
+            }
+        ]
+    }
+
+    \b
+    Example:
+        stegvault batch-restore -c batch_config.json
+        stegvault batch-restore -c batch_config.json --show-passwords
+    """
+    try:
+        from stegvault.batch import load_batch_config, process_batch_restore, BatchError
+
+        click.echo("Loading batch configuration...")
+        batch_config = load_batch_config(config)
+
+        total_jobs = len(batch_config.restore_jobs)
+        if total_jobs == 0:
+            click.echo("No restore jobs found in configuration.", err=True)
+            sys.exit(1)
+
+        click.echo(f"Processing {total_jobs} restore job(s)...\n")
+
+        def progress_callback(current, total, label):
+            click.echo(f"[{current}/{total}] Processing: {label}...", err=True)
+
+        successful, failed, errors, recovered = process_batch_restore(
+            batch_config,
+            progress_callback=progress_callback,
+            stop_on_error=stop_on_error
+        )
+
+        # Summary
+        click.echo(f"\n{'='*50}")
+        click.echo(f"Batch Restore Complete")
+        click.echo(f"{'='*50}")
+        click.echo(f"Successful: {successful}")
+        click.echo(f"Failed:     {failed}")
+
+        if errors:
+            click.echo(f"\nErrors:")
+            for error in errors:
+                click.echo(f"  - {error}", err=True)
+
+        if show_passwords and recovered:
+            click.echo(f"\nRecovered Passwords:")
+            for label, password in recovered.items():
+                click.echo(f"  {label}: {password}")
+
+        sys.exit(0 if failed == 0 else 1)
+
+    except BatchError as e:
+        click.echo(f"Batch error: {e}", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"Unexpected error: {e}", err=True)
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     main()

@@ -1,0 +1,40 @@
+{
+  "passphrase": "MyBatchPassphrase2024!@#",
+  "backups": [
+    {
+      "password": "Gmail_Password123!",
+      "image": "cover_gradient.png",
+      "output": "backup_gmail.png",
+      "label": "Gmail Account"
+    },
+    {
+      "password": "GitHub_Token_abc123xyz",
+      "image": "cover_pattern.png",
+      "output": "backup_github.png",
+      "label": "GitHub Token"
+    },
+    {
+      "password": "Database_Admin_Pass!2024",
+      "image": "cover_nature.png",
+      "output": "backup_database.png",
+      "label": "Database Admin"
+    }
+  ],
+  "restores": [
+    {
+      "image": "backup_gmail.png",
+      "output": "recovered_gmail.txt",
+      "label": "Gmail Account"
+    },
+    {
+      "image": "backup_github.png",
+      "output": "recovered_github.txt",
+      "label": "GitHub Token"
+    },
+    {
+      "image": "backup_database.png",
+      "output": "recovered_database.txt",
+      "label": "Database Admin"
+    }
+  ]
+}

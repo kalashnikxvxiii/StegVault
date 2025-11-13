@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Batch Operations**: Process multiple backups/restores from JSON configuration files
+  - New `stegvault batch-backup` command: Create multiple backups in one operation
+  - New `stegvault batch-restore` command: Restore multiple passwords in one operation
+  - JSON-based configuration format with support for:
+    - Multiple backup jobs with custom labels
+    - Multiple restore jobs with optional file output
+    - Shared passphrase across all operations
+  - Features:
+    - Progress tracking for each job
+    - Continue-on-error mode (default) or stop-on-error
+    - Success/failure summary with error details
+    - Optional password display for restore operations
+  - Example configuration file included in `examples/batch_example.json`
 - **Configuration File Support**: Users can now customize StegVault settings via TOML config file
   - Config location: `~/.config/stegvault/config.toml` (Linux/Mac) or `%APPDATA%\StegVault\config.toml` (Windows)
   - Configurable Argon2id KDF parameters (time_cost, memory_cost, parallelism)

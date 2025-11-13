@@ -48,6 +48,9 @@ examples/backup_*.png
 examples/test_*.png
 examples/*_backup.png
 
+# Batch operation outputs
+examples/recovered_*.txt
+
 # Sensitive data
 *.key
 *.secret
