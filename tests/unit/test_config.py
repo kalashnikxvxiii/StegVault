@@ -113,15 +113,15 @@ class TestDataclasses:
 class TestConfigPaths:
     """Tests for configuration path functions."""
 
+    @pytest.mark.skipif(sys.platform != "win32", reason="Windows-specific test")
     def test_get_config_dir_windows(self, monkeypatch):
         """Should return correct config dir on Windows."""
         monkeypatch.setattr(sys, "platform", "win32")
         monkeypatch.setenv("APPDATA", "C:\\Users\\Test\\AppData\\Roaming")
 
         config_dir = get_config_dir()
-        # Compare path parts for cross-platform compatibility
         expected = Path("C:\\Users\\Test\\AppData\\Roaming\\StegVault")
-        assert config_dir.parts == expected.parts
+        assert config_dir == expected
 
     def test_get_config_dir_windows_no_appdata(self, monkeypatch):
         """Should fallback to home dir on Windows without APPDATA."""
@@ -130,9 +130,8 @@ class TestConfigPaths:
         monkeypatch.setattr(Path, "home", lambda: Path("/home/test"))
 
         config_dir = get_config_dir()
-        # Compare path parts for cross-platform compatibility
         expected = Path("/home/test/.stegvault")
-        assert config_dir.parts == expected.parts
+        assert config_dir == expected
 
     def test_get_config_dir_unix_with_xdg(self, monkeypatch):
         """Should use XDG_CONFIG_HOME on Unix when set."""
@@ -140,9 +139,8 @@ class TestConfigPaths:
         monkeypatch.setenv("XDG_CONFIG_HOME", "/home/test/.config")
 
         config_dir = get_config_dir()
-        # Compare path parts for cross-platform compatibility
         expected = Path("/home/test/.config/stegvault")
-        assert config_dir.parts == expected.parts
+        assert config_dir == expected
 
     def test_get_config_dir_unix_without_xdg(self, monkeypatch):
         """Should fallback to ~/.config on Unix without XDG."""
@@ -151,18 +149,16 @@ class TestConfigPaths:
         monkeypatch.setattr(Path, "home", lambda: Path("/home/test"))
 
         config_dir = get_config_dir()
-        # Compare path parts for cross-platform compatibility
         expected = Path("/home/test/.config/stegvault")
-        assert config_dir.parts == expected.parts
+        assert config_dir == expected
 
     def test_get_config_path(self, monkeypatch):
         """Should return config.toml in config directory."""
         monkeypatch.setattr("stegvault.config.core.get_config_dir", lambda: Path("/tmp/stegvault"))
 
         config_path = get_config_path()
-        # Compare path parts for cross-platform compatibility
         expected = Path("/tmp/stegvault/config.toml")
-        assert config_path.parts == expected.parts
+        assert config_path == expected
 
 
 class TestDefaultConfig:
