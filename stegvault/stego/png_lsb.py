@@ -52,8 +52,6 @@ def calculate_capacity(image: Image.Image) -> int:
     return (width * height * 3) // 8
 
 
-
-
 def _bytes_to_bits(data: bytes) -> list:
     """
     Convert bytes to list of bits.
