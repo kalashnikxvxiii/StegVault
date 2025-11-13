@@ -9,7 +9,6 @@ import sys
 import os
 import threading
 import time
-from pathlib import Path
 from typing import Any, Optional, List
 
 from stegvault.crypto import (
@@ -34,7 +33,6 @@ from stegvault.utils import (
 )
 from stegvault.config import (
     load_config,
-    Config,
     ConfigError,
 )
 

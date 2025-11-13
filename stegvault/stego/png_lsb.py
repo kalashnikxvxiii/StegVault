@@ -9,7 +9,7 @@ Security is provided by strong cryptography (XChaCha20-Poly1305 + Argon2id),
 not by pixel ordering.
 """
 
-from typing import Tuple, Optional, List
+from typing import Optional, List
 from PIL import Image
 import numpy as np
 

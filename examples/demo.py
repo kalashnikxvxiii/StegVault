@@ -58,8 +58,9 @@ def demo_backup_restore():
     print("-" * 70)
 
     # Encrypt password
-    print(f"Password to hide: {master_password}")
-    print(f"Encryption passphrase: {passphrase}")
+    # NOTE: This is a demo file. In production, NEVER log passwords in clear text.
+    print(f"Password to hide: {'*' * len(master_password)} ({len(master_password)} chars)")
+    print(f"Encryption passphrase: {'*' * len(passphrase)} ({len(passphrase)} chars)")
     print()
 
     password_bytes = master_password.encode("utf-8")
