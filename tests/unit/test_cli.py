@@ -440,6 +440,7 @@ class TestMainCommand:
     def test_main_version(self, runner):
         """Should display version."""
         from stegvault import __version__
+
         result = runner.invoke(main, ["--version"])
 
         assert result.exit_code == 0
