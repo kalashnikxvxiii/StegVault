@@ -34,31 +34,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Progress feedback for encryption and decryption
   - User-friendly feedback for long-running operations
 - Improved CLI output with operation status indicators
-- **Performance Benchmarking Tool**: Comprehensive benchmark script for measuring StegVault performance
-  - Tests backup and restore operations across different image sizes
-  - Measures encryption, embedding, extraction, and decryption times separately
-  - Tracks memory usage and pixel processing throughput
-  - Generates detailed performance reports and comparative tables
 
 ### Changed
-- **Major Performance Optimization**: Pixel shuffling algorithm dramatically improved
-  - 4K images: **~240x faster** (41s → 173ms backup, 51s → 65ms restore)
-  - Full HD images: **~72x faster** (5.1s → 71ms backup, 5.3s → 49ms restore)
-  - Optimized to generate only needed pixels instead of shuffling entire image
-  - Adaptive algorithm: uses shuffle-all for small images, optimized approach for large images
-  - Memory usage reduced by **94%** for 4K images (833MB → 48MB)
-  - All existing tests pass, maintains backward compatibility
 - CLI coverage improved from 78% to 80%
-- Overall coverage improved to 88%
-- Total test count: 84 tests (81 passing, 3 flaky on Windows)
 - Crypto module functions now accept optional KDF parameters from config
 - Dependencies: Added `tomli` and `tomli_w` for TOML support
 
-### Known Issues
-- Two tests are flaky on Windows due to rapid file operations:
-  - `test_multiple_backups_different_images`: Fails intermittently when creating multiple backups in rapid succession
-  - `test_restore_wrong_passphrase`: Occasional timing issues with temporary file cleanup
-  - These issues do not affect real-world CLI usage and only occur in test scenarios
+## [0.2.1] - 2025-11-13
+
+### Fixed
+- **Critical bug fix**: Eliminated pixel overlap issue in LSB embedding
+  - Previous hybrid approach (sequential header + pseudo-random payload) could cause pixel overlap
+  - This resulted in rare data corruption (observed in CI tests on Python 3.9 and 3.11)
+  - Now uses fully sequential embedding for 100% reliability
+
+### Changed
+- **Simplified steganography implementation**: Switched to sequential-only pixel ordering
+  - Removed pseudo-random pixel shuffling logic (~60 lines of code)
+  - All payload bits now embedded left-to-right, top-to-bottom
+  - Simpler, faster, and more maintainable codebase
+  - **Security model clarified**: Cryptographic strength comes from XChaCha20-Poly1305 + Argon2id, not pixel ordering
+  - `seed` parameter now deprecated (kept for backward compatibility)
+
+### Improved
+- **Test reliability**: All 84 tests now pass consistently on all platforms
+  - Fixed all Windows file locking issues
+  - No more flaky tests on any Python version (3.9-3.14)
+  - Test coverage: 57% overall, 88% stego module
+- Code quality: Cleaner, more maintainable steganography module
 
 ## [0.2.0] - 2025-11-12
 
@@ -146,4 +149,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Windows console Unicode character display issues (does not affect functionality)
 - Temporary file cleanup warnings in Windows during tests (Pillow file locking)
 
+[0.2.1]: https://github.com/kalashnikxvxiii-collab/stegvault/releases/tag/v0.2.1
+[0.2.0]: https://github.com/kalashnikxvxiii-collab/stegvault/releases/tag/v0.2.0
 [0.1.0]: https://github.com/kalashnikxvxiii-collab/stegvault/releases/tag/v0.1.0
