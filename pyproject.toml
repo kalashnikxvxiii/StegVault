@@ -11,17 +11,39 @@ requires-python = ">=3.9"
 authors = [
     {name = "StegVault Contributors"}
 ]
-license = "MIT"
+license = {text = "MIT"}
+keywords = [
+    "steganography",
+    "password-manager",
+    "encryption",
+    "cryptography",
+    "security",
+    "LSB",
+    "XChaCha20-Poly1305",
+    "Argon2id",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
     "Topic :: Security :: Cryptography",
+    "Topic :: Security",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
+
+[project.urls]
+Homepage = "https://github.com/kalashnikxvxiii-collab/stegvault"
+Repository = "https://github.com/kalashnikxvxiii-collab/stegvault"
+Issues = "https://github.com/kalashnikxvxiii-collab/stegvault/issues"
+Changelog = "https://github.com/kalashnikxvxiii-collab/stegvault/blob/main/CHANGELOG.md"
 dependencies = [
     "PyNaCl>=1.5.0",
     "argon2-cffi>=23.1.0",
