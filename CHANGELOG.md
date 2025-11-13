@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-11-13
+
 ### Added
 - **Batch Operations**: Process multiple backups/restores from JSON configuration files
   - New `stegvault batch-backup` command: Create multiple backups in one operation
@@ -36,7 +38,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved CLI output with operation status indicators
 
 ### Changed
-- CLI coverage improved from 78% to 80%
 - Crypto module functions now accept optional KDF parameters from config
 - Dependencies: Added `tomli` and `tomli_w` for TOML support
 
@@ -149,6 +150,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Windows console Unicode character display issues (does not affect functionality)
 - Temporary file cleanup warnings in Windows during tests (Pillow file locking)
 
+[0.3.0]: https://github.com/kalashnikxvxiii-collab/stegvault/releases/tag/v0.3.0
 [0.2.1]: https://github.com/kalashnikxvxiii-collab/stegvault/releases/tag/v0.2.1
 [0.2.0]: https://github.com/kalashnikxvxiii-collab/stegvault/releases/tag/v0.2.0
 [0.1.0]: https://github.com/kalashnikxvxiii-collab/stegvault/releases/tag/v0.1.0
