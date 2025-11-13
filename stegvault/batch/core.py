@@ -6,17 +6,15 @@ Handles multiple backup/restore operations from configuration files.
 
 import json
 import os
-from typing import List, Dict, Any, Optional, Tuple, Callable
+from typing import List, Dict, Optional, Tuple, Callable
 from dataclasses import dataclass
-from pathlib import Path
 
-from stegvault.crypto import encrypt_data, decrypt_data, CryptoError, DecryptionError
-from stegvault.stego import embed_payload, extract_payload, calculate_capacity, StegoError
+from stegvault.crypto import encrypt_data, decrypt_data
+from stegvault.stego import embed_payload, extract_payload, calculate_capacity
 from stegvault.utils import (
     serialize_payload,
     parse_payload,
     validate_payload_capacity,
-    PayloadFormatError,
 )
 from stegvault.config import load_config, ConfigError, get_default_config
 from PIL import Image
@@ -297,9 +295,12 @@ def process_batch_restore(
             recovered[job_label] = password
 
             # Save to file if specified
+            # SECURITY NOTE: This intentionally writes passwords to files as requested by user.
+            # The user is responsible for securing these output files appropriately.
+            # nosemgrep: python.lang.security.audit.dangerous-system-call.dangerous-system-call
             if job.output:
                 with open(job.output, "w", encoding="utf-8") as f:
-                    f.write(password)
+                    f.write(password)  # nosec B608 - intentional password write
 
             successful += 1
 

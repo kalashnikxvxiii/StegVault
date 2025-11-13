@@ -7,7 +7,7 @@ Handles loading, saving, and validating StegVault configuration files.
 import os
 import sys
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from dataclasses import dataclass, asdict
 
 # Python 3.11+ has tomllib in stdlib, earlier versions need tomli

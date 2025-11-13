@@ -11,7 +11,7 @@ import os
 import sys
 import traceback
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 import tracemalloc
 from PIL import Image
 
