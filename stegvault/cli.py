@@ -715,5 +715,725 @@ def batch_restore(config: str, stop_on_error: bool, show_passwords: bool) -> Non
         sys.exit(1)
 
 
+@main.group()
+def vault() -> None:
+    """
+    Manage password vaults (multiple passwords in one image).
+
+    The vault commands allow you to store and manage multiple credentials
+    within a single image, transforming it into a complete password manager.
+
+    \b
+    Subcommands:
+      create  - Create a new vault in an image
+      add     - Add an entry to an existing vault
+      get     - Retrieve a password from the vault
+      list    - List all keys in the vault
+      show    - Show entry details (without password)
+      update  - Update an existing entry
+      delete  - Delete an entry from the vault
+      export  - Export vault to JSON file
+    """
+    pass
+
+
+@vault.command()
+@click.option("--image", "-i", required=True, type=click.Path(exists=True), help="Cover image")
+@click.option("--output", "-o", required=True, type=click.Path(), help="Output path for vault image")
+@click.option("--passphrase", prompt=True, hide_input=True, confirmation_prompt=True, help="Vault encryption passphrase")
+@click.option("--key", "-k", required=True, help="Entry key (e.g., 'gmail', 'github')")
+@click.option("--password", "-p", help="Password for this entry")
+@click.option("--generate", "-g", is_flag=True, help="Generate a secure password")
+@click.option("--username", "-u", help="Username or email")
+@click.option("--url", help="Website URL")
+@click.option("--notes", "-n", help="Additional notes")
+def create(image: str, output: str, passphrase: str, key: str, password: Optional[str], generate: bool, username: Optional[str], url: Optional[str], notes: Optional[str]) -> None:
+    """
+    Create a new vault with the first entry.
+
+    \b
+    Example:
+        stegvault vault create -i cover.png -o vault.png -k gmail -u user@gmail.com --generate
+    """
+    try:
+        from stegvault.vault import create_vault, add_entry, vault_to_json, generate_password
+        from PIL import Image
+
+        # Load configuration
+        try:
+            config = load_config()
+        except ConfigError:
+            from stegvault.config import get_default_config
+            config = get_default_config()
+
+        # Handle password generation or prompt
+        if generate and password:
+            click.echo("Error: Cannot use both --generate and --password", err=True)
+            sys.exit(1)
+
+        if generate:
+            password = generate_password(length=20)
+            click.echo(f"Generated password: {password}")
+        elif not password:
+            password = click.prompt("Password", hide_input=True, confirmation_prompt=True)
+
+        # Create vault and add first entry
+        click.echo(f"Creating vault with entry '{key}'...")
+        vault_obj = create_vault()
+        add_entry(vault_obj, key=key, password=password, username=username, url=url, notes=notes)
+
+        # Serialize vault to JSON
+        vault_json = vault_to_json(vault_obj)
+        vault_bytes = vault_json.encode("utf-8")
+
+        # Check image capacity
+        img = Image.open(image)
+        capacity = calculate_capacity(img)
+        img.close()
+
+        click.echo(f"Image capacity: {capacity} bytes")
+        click.echo(f"Vault size: {len(vault_bytes)} bytes")
+
+        if not validate_payload_capacity(capacity, len(vault_bytes)):
+            click.echo(f"Error: Image too small. Need {len(vault_bytes) + 64} bytes, have {capacity} bytes", err=True)
+            sys.exit(1)
+
+        # Encrypt vault
+        click.echo("Encrypting vault...")
+        result: List[Any] = [None]
+        exception: List[Any] = [None]
+
+        def encrypt_worker() -> None:
+            try:
+                result[0] = encrypt_data(
+                    vault_bytes,
+                    passphrase,
+                    time_cost=config.crypto.argon2_time_cost,
+                    memory_cost=config.crypto.argon2_memory_cost,
+                    parallelism=config.crypto.argon2_parallelism,
+                )
+            except Exception as e:
+                exception[0] = e
+
+        with click.progressbar(length=100, label="Deriving encryption key", show_eta=False, show_percent=False) as bar:
+            thread = threading.Thread(target=encrypt_worker)
+            thread.start()
+            while thread.is_alive():
+                bar.update(10)
+                time.sleep(0.1)
+            thread.join()
+            if exception[0]:
+                raise exception[0]
+            bar.update(100)
+
+        if result[0] is None:
+            click.echo("Error: Encryption failed", err=True)
+            sys.exit(1)
+
+        ciphertext, salt, nonce = result[0]
+        click.echo("[OK] Encryption complete")
+
+        # Serialize and embed
+        payload = serialize_payload(salt, nonce, ciphertext)
+        seed = int.from_bytes(salt[:4], byteorder="big")
+
+        click.echo("Embedding vault in image...")
+        embed_payload(image, payload, seed, output)
+
+        click.echo(f"[OK] Vault created successfully: {output}")
+        click.echo(f"     Entries: 1")
+        click.echo(f"     Keys: {key}")
+
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@vault.command()
+@click.argument("vault_image", type=click.Path(exists=True))
+@click.option("--output", "-o", required=True, type=click.Path(), help="Output path for updated vault")
+@click.option("--passphrase", prompt=True, hide_input=True, help="Vault passphrase")
+@click.option("--key", "-k", required=True, help="Entry key")
+@click.option("--password", "-p", help="Password for this entry")
+@click.option("--generate", "-g", is_flag=True, help="Generate a secure password")
+@click.option("--username", "-u", help="Username or email")
+@click.option("--url", help="Website URL")
+@click.option("--notes", "-n", help="Additional notes")
+def add(vault_image: str, output: str, passphrase: str, key: str, password: Optional[str], generate: bool, username: Optional[str], url: Optional[str], notes: Optional[str]) -> None:
+    """
+    Add a new entry to an existing vault.
+
+    \b
+    Example:
+        stegvault vault add vault.png -o vault_updated.png -k github --generate
+    """
+    try:
+        from stegvault.vault import add_entry as vault_add, vault_from_json, vault_to_json, generate_password, parse_payload
+        from PIL import Image
+
+        # Load configuration
+        try:
+            config = load_config()
+        except ConfigError:
+            from stegvault.config import get_default_config
+            config = get_default_config()
+
+        # Handle password
+        if generate and password:
+            click.echo("Error: Cannot use both --generate and --password", err=True)
+            sys.exit(1)
+
+        if generate:
+            password = generate_password(length=20)
+            click.echo(f"Generated password: {password}")
+        elif not password:
+            password = click.prompt("Password", hide_input=True, confirmation_prompt=True)
+
+        # Extract and decrypt existing vault
+        click.echo("Extracting vault from image...")
+        img = Image.open(vault_image)
+        seed = 0  # Will be determined from salt
+        img.close()
+
+        payload = extract_payload(vault_image, seed)
+        salt, nonce, ciphertext = parse_payload(payload)
+
+        # Decrypt
+        click.echo("Decrypting vault...")
+        decrypted = decrypt_data(ciphertext, passphrase, salt, nonce,
+                                 time_cost=config.crypto.argon2_time_cost,
+                                 memory_cost=config.crypto.argon2_memory_cost,
+                                 parallelism=config.crypto.argon2_parallelism)
+
+        # Parse vault
+        parsed = parse_payload(decrypted.decode("utf-8"))
+        if isinstance(parsed, str):
+            click.echo("Error: This image contains a single password, not a vault", err=True)
+            click.echo("Use 'stegvault restore' to retrieve it", err=True)
+            sys.exit(1)
+
+        vault_obj = parsed
+
+        # Add new entry
+        click.echo(f"Adding entry '{key}' to vault...")
+        vault_add(vault_obj, key=key, password=password, username=username, url=url, notes=notes)
+
+        # Re-encrypt and embed
+        vault_json = vault_to_json(vault_obj)
+        vault_bytes = vault_json.encode("utf-8")
+
+        # Check capacity
+        img = Image.open(vault_image)
+        capacity = calculate_capacity(img)
+        img.close()
+
+        if not validate_payload_capacity(capacity, len(vault_bytes)):
+            click.echo(f"Error: Vault too large for image", err=True)
+            sys.exit(1)
+
+        click.echo("Re-encrypting vault...")
+        ciphertext_new, salt_new, nonce_new = encrypt_data(
+            vault_bytes, passphrase,
+            time_cost=config.crypto.argon2_time_cost,
+            memory_cost=config.crypto.argon2_memory_cost,
+            parallelism=config.crypto.argon2_parallelism,
+        )
+
+        payload_new = serialize_payload(salt_new, nonce_new, ciphertext_new)
+        seed_new = int.from_bytes(salt_new[:4], byteorder="big")
+
+        click.echo("Embedding updated vault...")
+        embed_payload(vault_image, payload_new, seed_new, output)
+
+        click.echo(f"[OK] Entry added successfully: {output}")
+        click.echo(f"     Total entries: {len(vault_obj.entries)}")
+
+    except DecryptionError:
+        click.echo("Error: Wrong passphrase", err=True)
+        sys.exit(1)
+    except ValueError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@vault.command()
+@click.argument("vault_image", type=click.Path(exists=True))
+@click.option("--passphrase", prompt=True, hide_input=True, help="Vault passphrase")
+@click.option("--key", "-k", required=True, help="Entry key to retrieve")
+@click.option("--copy/--no-copy", default=False, help="Copy password to clipboard (if available)")
+def get(vault_image: str, passphrase: str, key: str, copy: bool) -> None:
+    """
+    Retrieve a password from the vault.
+
+    \b
+    Example:
+        stegvault vault get vault.png -k gmail
+    """
+    try:
+        from stegvault.vault import get_entry, parse_payload
+
+        # Load configuration
+        try:
+            config = load_config()
+        except ConfigError:
+            from stegvault.config import get_default_config
+            config = get_default_config()
+
+        # Extract and decrypt
+        click.echo("Decrypting vault...")
+        payload = extract_payload(vault_image, 0)
+        salt, nonce, ciphertext = parse_payload(payload)
+
+        decrypted = decrypt_data(ciphertext, passphrase, salt, nonce,
+                                 time_cost=config.crypto.argon2_time_cost,
+                                 memory_cost=config.crypto.argon2_memory_cost,
+                                 parallelism=config.crypto.argon2_parallelism)
+
+        # Parse vault
+        parsed = parse_payload(decrypted.decode("utf-8"))
+        if isinstance(parsed, str):
+            click.echo("Error: This image contains a single password, not a vault", err=True)
+            sys.exit(1)
+
+        vault_obj = parsed
+
+        # Get entry
+        entry = get_entry(vault_obj, key)
+        if not entry:
+            click.echo(f"Error: Entry '{key}' not found", err=True)
+            click.echo(f"Available keys: {', '.join(vault_obj.list_keys())}", err=True)
+            sys.exit(1)
+
+        click.echo(f"\nEntry: {key}")
+        if entry.username:
+            click.echo(f"Username: {entry.username}")
+        if entry.url:
+            click.echo(f"URL: {entry.url}")
+        click.echo(f"Password: {entry.password}")
+        if entry.notes:
+            click.echo(f"Notes: {entry.notes}")
+
+        if copy:
+            try:
+                import pyperclip
+                pyperclip.copy(entry.password)
+                click.echo("\n[OK] Password copied to clipboard")
+            except ImportError:
+                click.echo("\nWarning: pyperclip not installed, cannot copy to clipboard", err=True)
+
+    except DecryptionError:
+        click.echo("Error: Wrong passphrase", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@vault.command()
+@click.argument("vault_image", type=click.Path(exists=True))
+@click.option("--passphrase", prompt=True, hide_input=True, help="Vault passphrase")
+def list(vault_image: str, passphrase: str) -> None:
+    """
+    List all entry keys in the vault (without showing passwords).
+
+    \b
+    Example:
+        stegvault vault list vault.png
+    """
+    try:
+        from stegvault.vault import list_entries, parse_payload
+
+        # Load configuration
+        try:
+            config = load_config()
+        except ConfigError:
+            from stegvault.config import get_default_config
+            config = get_default_config()
+
+        # Extract and decrypt
+        click.echo("Decrypting vault...")
+        payload = extract_payload(vault_image, 0)
+        salt, nonce, ciphertext = parse_payload(payload)
+
+        decrypted = decrypt_data(ciphertext, passphrase, salt, nonce,
+                                 time_cost=config.crypto.argon2_time_cost,
+                                 memory_cost=config.crypto.argon2_memory_cost,
+                                 parallelism=config.crypto.argon2_parallelism)
+
+        # Parse vault
+        parsed = parse_payload(decrypted.decode("utf-8"))
+        if isinstance(parsed, str):
+            click.echo("Error: This image contains a single password, not a vault", err=True)
+            sys.exit(1)
+
+        vault_obj = parsed
+
+        # List entries
+        keys = list_entries(vault_obj)
+
+        click.echo(f"\nVault contains {len(keys)} entries:")
+        for i, entry_key in enumerate(keys, 1):
+            entry = vault_obj.get_entry(entry_key)
+            username_part = f" ({entry.username})" if entry and entry.username else ""
+            click.echo(f"  {i}. {entry_key}{username_part}")
+
+    except DecryptionError:
+        click.echo("Error: Wrong passphrase", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@vault.command()
+@click.argument("vault_image", type=click.Path(exists=True))
+@click.option("--passphrase", prompt=True, hide_input=True, help="Vault passphrase")
+@click.option("--key", "-k", required=True, help="Entry key to show")
+def show(vault_image: str, passphrase: str, key: str) -> None:
+    """
+    Show entry details without revealing the password.
+
+    \b
+    Example:
+        stegvault vault show vault.png -k gmail
+    """
+    try:
+        from stegvault.vault import get_entry, parse_payload as vault_parse
+
+        # Load configuration
+        try:
+            config = load_config()
+        except ConfigError:
+            from stegvault.config import get_default_config
+            config = get_default_config()
+
+        # Extract and decrypt
+        click.echo("Decrypting vault...")
+        payload = extract_payload(vault_image, 0)
+        salt, nonce, ciphertext = parse_payload(payload)
+
+        decrypted = decrypt_data(ciphertext, passphrase, salt, nonce,
+                                 time_cost=config.crypto.argon2_time_cost,
+                                 memory_cost=config.crypto.argon2_memory_cost,
+                                 parallelism=config.crypto.argon2_parallelism)
+
+        # Parse vault
+        parsed = vault_parse(decrypted.decode("utf-8"))
+        if isinstance(parsed, str):
+            click.echo("Error: This image contains a single password, not a vault", err=True)
+            sys.exit(1)
+
+        vault_obj = parsed
+
+        # Get entry
+        entry = get_entry(vault_obj, key)
+        if not entry:
+            click.echo(f"Error: Entry '{key}' not found", err=True)
+            sys.exit(1)
+
+        click.echo(f"\nEntry: {key}")
+        if entry.username:
+            click.echo(f"Username: {entry.username}")
+        if entry.url:
+            click.echo(f"URL: {entry.url}")
+        click.echo(f"Password: {'*' * 12} (hidden)")
+        if entry.notes:
+            click.echo(f"Notes: {entry.notes}")
+        if entry.tags:
+            click.echo(f"Tags: {', '.join(entry.tags)}")
+        click.echo(f"\nCreated: {entry.created}")
+        click.echo(f"Modified: {entry.modified}")
+        if entry.accessed:
+            click.echo(f"Last accessed: {entry.accessed}")
+
+    except DecryptionError:
+        click.echo("Error: Wrong passphrase", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@vault.command()
+@click.argument("vault_image", type=click.Path(exists=True))
+@click.option("--output", "-o", required=True, type=click.Path(), help="Output path for updated vault")
+@click.option("--passphrase", prompt=True, hide_input=True, help="Vault passphrase")
+@click.option("--key", "-k", required=True, help="Entry key to update")
+@click.option("--password", "-p", help="New password")
+@click.option("--username", "-u", help="New username")
+@click.option("--url", help="New URL")
+@click.option("--notes", "-n", help="New notes")
+def update(vault_image: str, output: str, passphrase: str, key: str, password: Optional[str], username: Optional[str], url: Optional[str], notes: Optional[str]) -> None:
+    """
+    Update an existing entry in the vault.
+
+    \b
+    Example:
+        stegvault vault update vault.png -o vault_updated.png -k gmail --password newpass123
+    """
+    try:
+        from stegvault.vault import update_entry as vault_update, vault_to_json, parse_payload as vault_parse
+        from PIL import Image
+
+        # Load configuration
+        try:
+            config = load_config()
+        except ConfigError:
+            from stegvault.config import get_default_config
+            config = get_default_config()
+
+        # Check if at least one field is being updated
+        if not any([password, username, url, notes]):
+            click.echo("Error: At least one field must be specified for update", err=True)
+            sys.exit(1)
+
+        # Extract and decrypt
+        click.echo("Decrypting vault...")
+        payload_data = extract_payload(vault_image, 0)
+        salt, nonce, ciphertext = parse_payload(payload_data)
+
+        decrypted = decrypt_data(ciphertext, passphrase, salt, nonce,
+                                 time_cost=config.crypto.argon2_time_cost,
+                                 memory_cost=config.crypto.argon2_memory_cost,
+                                 parallelism=config.crypto.argon2_parallelism)
+
+        # Parse vault
+        parsed = vault_parse(decrypted.decode("utf-8"))
+        if isinstance(parsed, str):
+            click.echo("Error: This image contains a single password, not a vault", err=True)
+            sys.exit(1)
+
+        vault_obj = parsed
+
+        # Build update dict
+        updates = {}
+        if password:
+            updates["password"] = password
+        if username:
+            updates["username"] = username
+        if url:
+            updates["url"] = url
+        if notes:
+            updates["notes"] = notes
+
+        # Update entry
+        click.echo(f"Updating entry '{key}'...")
+        success = vault_update(vault_obj, key, **updates)
+        if not success:
+            click.echo(f"Error: Entry '{key}' not found", err=True)
+            sys.exit(1)
+
+        # Re-encrypt and embed
+        vault_json = vault_to_json(vault_obj)
+        vault_bytes = vault_json.encode("utf-8")
+
+        # Check capacity
+        img = Image.open(vault_image)
+        capacity = calculate_capacity(img)
+        img.close()
+
+        if not validate_payload_capacity(capacity, len(vault_bytes)):
+            click.echo(f"Error: Vault too large for image", err=True)
+            sys.exit(1)
+
+        click.echo("Re-encrypting vault...")
+        ciphertext_new, salt_new, nonce_new = encrypt_data(
+            vault_bytes, passphrase,
+            time_cost=config.crypto.argon2_time_cost,
+            memory_cost=config.crypto.argon2_memory_cost,
+            parallelism=config.crypto.argon2_parallelism,
+        )
+
+        payload_new = serialize_payload(salt_new, nonce_new, ciphertext_new)
+        seed_new = int.from_bytes(salt_new[:4], byteorder="big")
+
+        click.echo("Embedding updated vault...")
+        embed_payload(vault_image, payload_new, seed_new, output)
+
+        click.echo(f"[OK] Entry updated successfully: {output}")
+
+    except DecryptionError:
+        click.echo("Error: Wrong passphrase", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@vault.command()
+@click.argument("vault_image", type=click.Path(exists=True))
+@click.option("--output", "-o", required=True, type=click.Path(), help="Output path for updated vault")
+@click.option("--passphrase", prompt=True, hide_input=True, help="Vault passphrase")
+@click.option("--key", "-k", required=True, help="Entry key to delete")
+@click.option("--confirm/--no-confirm", default=True, help="Confirm before deleting")
+def delete(vault_image: str, output: str, passphrase: str, key: str, confirm: bool) -> None:
+    """
+    Delete an entry from the vault.
+
+    \b
+    Example:
+        stegvault vault delete vault.png -o vault_updated.png -k oldservice
+    """
+    try:
+        from stegvault.vault import delete_entry as vault_delete, vault_to_json, parse_payload as vault_parse
+        from PIL import Image
+
+        # Load configuration
+        try:
+            config = load_config()
+        except ConfigError:
+            from stegvault.config import get_default_config
+            config = get_default_config()
+
+        # Extract and decrypt
+        click.echo("Decrypting vault...")
+        payload_data = extract_payload(vault_image, 0)
+        salt, nonce, ciphertext = parse_payload(payload_data)
+
+        decrypted = decrypt_data(ciphertext, passphrase, salt, nonce,
+                                 time_cost=config.crypto.argon2_time_cost,
+                                 memory_cost=config.crypto.argon2_memory_cost,
+                                 parallelism=config.crypto.argon2_parallelism)
+
+        # Parse vault
+        parsed = vault_parse(decrypted.decode("utf-8"))
+        if isinstance(parsed, str):
+            click.echo("Error: This image contains a single password, not a vault", err=True)
+            sys.exit(1)
+
+        vault_obj = parsed
+
+        # Check if entry exists
+        if not vault_obj.has_entry(key):
+            click.echo(f"Error: Entry '{key}' not found", err=True)
+            sys.exit(1)
+
+        # Confirm deletion
+        if confirm:
+            if not click.confirm(f"Delete entry '{key}'?"):
+                click.echo("Deletion cancelled")
+                sys.exit(0)
+
+        # Delete entry
+        click.echo(f"Deleting entry '{key}'...")
+        vault_delete(vault_obj, key)
+
+        # Re-encrypt and embed
+        vault_json = vault_to_json(vault_obj)
+        vault_bytes = vault_json.encode("utf-8")
+
+        click.echo("Re-encrypting vault...")
+        ciphertext_new, salt_new, nonce_new = encrypt_data(
+            vault_bytes, passphrase,
+            time_cost=config.crypto.argon2_time_cost,
+            memory_cost=config.crypto.argon2_memory_cost,
+            parallelism=config.crypto.argon2_parallelism,
+        )
+
+        payload_new = serialize_payload(salt_new, nonce_new, ciphertext_new)
+        seed_new = int.from_bytes(salt_new[:4], byteorder="big")
+
+        click.echo("Embedding updated vault...")
+        embed_payload(vault_image, payload_new, seed_new, output)
+
+        click.echo(f"[OK] Entry deleted successfully: {output}")
+        click.echo(f"     Remaining entries: {len(vault_obj.entries)}")
+
+    except DecryptionError:
+        click.echo("Error: Wrong passphrase", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@vault.command()
+@click.argument("vault_image", type=click.Path(exists=True))
+@click.option("--output", "-o", required=True, type=click.Path(), help="Output JSON file")
+@click.option("--passphrase", prompt=True, hide_input=True, help="Vault passphrase")
+@click.option("--decrypt/--no-decrypt", default=False, help="Export as plaintext JSON (WARNING: insecure)")
+@click.option("--pretty/--no-pretty", default=True, help="Pretty-print JSON")
+def export(vault_image: str, output: str, passphrase: str, decrypt: bool, pretty: bool) -> None:
+    """
+    Export vault to JSON file.
+
+    By default, exports the vault structure without decrypting passwords.
+    Use --decrypt to export plaintext (WARNING: insecure!).
+
+    \b
+    Example:
+        stegvault vault export vault.png -o backup.json --pretty
+    """
+    try:
+        from stegvault.vault import vault_to_json, parse_payload as vault_parse
+        import json as json_module
+
+        # Load configuration
+        try:
+            config = load_config()
+        except ConfigError:
+            from stegvault.config import get_default_config
+            config = get_default_config()
+
+        # Extract and decrypt
+        click.echo("Decrypting vault...")
+        payload_data = extract_payload(vault_image, 0)
+        salt, nonce, ciphertext = parse_payload(payload_data)
+
+        decrypted = decrypt_data(ciphertext, passphrase, salt, nonce,
+                                 time_cost=config.crypto.argon2_time_cost,
+                                 memory_cost=config.crypto.argon2_memory_cost,
+                                 parallelism=config.crypto.argon2_parallelism)
+
+        # Parse vault
+        parsed = vault_parse(decrypted.decode("utf-8"))
+        if isinstance(parsed, str):
+            click.echo("Error: This image contains a single password, not a vault", err=True)
+            sys.exit(1)
+
+        vault_obj = parsed
+
+        # Export
+        if decrypt:
+            click.echo("\nWARNING: Exporting vault with plaintext passwords!", err=True)
+            click.echo("This file will contain unencrypted credentials!", err=True)
+            if not click.confirm("Continue?"):
+                click.echo("Export cancelled")
+                sys.exit(0)
+
+            vault_json = vault_to_json(vault_obj, pretty=pretty)
+        else:
+            # Export without passwords (mask them)
+            vault_dict = vault_obj.to_dict()
+            for entry in vault_dict["entries"]:
+                entry["password"] = "***REDACTED***"
+
+            if pretty:
+                vault_json = json_module.dumps(vault_dict, indent=2, ensure_ascii=False)
+            else:
+                vault_json = json_module.dumps(vault_dict, ensure_ascii=False)
+
+        # Write to file
+        with open(output, 'w', encoding='utf-8') as f:
+            f.write(vault_json)
+
+        click.echo(f"\n[OK] Vault exported: {output}")
+        click.echo(f"     Entries: {len(vault_obj.entries)}")
+        if decrypt:
+            click.echo(f"     Mode: PLAINTEXT (passwords visible)")
+        else:
+            click.echo(f"     Mode: REDACTED (passwords masked)")
+
+    except DecryptionError:
+        click.echo("Error: Wrong passphrase", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     main()
