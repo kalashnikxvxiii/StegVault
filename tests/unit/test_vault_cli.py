@@ -9,7 +9,7 @@ from click.testing import CliRunner
 from PIL import Image
 import numpy as np
 
-from stegvault.cli import vault
+from stegvault.cli import vault, main
 
 
 @pytest.fixture
@@ -41,6 +41,28 @@ def temp_output():
     yield output_path
     try:
         os.unlink(output_path)
+    except (PermissionError, FileNotFoundError):
+        pass
+
+
+# Helper functions
+def get_test_image(width=200, height=200):
+    """Create a test image with random pixel data."""
+    img_array = np.random.randint(0, 256, (height, width, 3), dtype=np.uint8)
+    return Image.fromarray(img_array, mode="RGB")
+
+
+def get_temp_filename(suffix=".png"):
+    """Generate a temporary filename."""
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        return tmp.name
+
+
+def cleanup_file(filepath):
+    """Safely cleanup a file."""
+    try:
+        if os.path.exists(filepath):
+            os.unlink(filepath)
     except (PermissionError, FileNotFoundError):
         pass
 
@@ -1494,3 +1516,206 @@ class TestVaultExportCommand:
                 os.unlink(json_file)
             except (PermissionError, FileNotFoundError):
                 pass
+
+
+class TestVaultTOTPCommand:
+    """Test vault totp command."""
+
+    @pytest.fixture
+    def vault_with_totp_fixture(self):
+        """Create a vault with TOTP configured."""
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False, mode="wb") as cover:
+            test_image = get_test_image(400, 300)
+            test_image.save(cover, format="PNG")
+            cover_path = cover.name
+
+        temp_output = None
+        try:
+            temp_output = get_temp_filename(".png")
+            passphrase = "test_passphrase_123"
+
+            # Create vault with TOTP
+            from stegvault.vault import create_vault, add_entry, vault_to_json
+            from stegvault.vault.totp import generate_totp_secret
+            from stegvault.crypto import encrypt_data
+            from stegvault.stego import embed_payload
+            from stegvault.utils import serialize_payload
+
+            vault = create_vault()
+            totp_secret = generate_totp_secret()
+            add_entry(
+                vault,
+                "test_entry",
+                "test_password",
+                username="testuser",
+                totp_secret=totp_secret,
+            )
+
+            # Serialize and encrypt
+            vault_json = vault_to_json(vault)
+            ciphertext, salt, nonce = encrypt_data(vault_json.encode("utf-8"), passphrase)
+            payload = serialize_payload(salt, nonce, ciphertext)
+
+            # Embed in image
+            stego_img = embed_payload(cover_path, payload)
+            stego_img.save(temp_output)
+
+            yield temp_output, passphrase
+
+        finally:
+            cleanup_file(cover_path)
+            if temp_output:
+                cleanup_file(temp_output)
+
+    def test_totp_generate_code(self, vault_with_totp_fixture, runner):
+        """Test generating TOTP code."""
+        vault_image, passphrase = vault_with_totp_fixture
+
+        result = runner.invoke(
+            vault,
+            ["totp", vault_image, "-k", "test_entry", "--passphrase", passphrase],
+            input=f"{passphrase}\n",
+        )
+
+        assert result.exit_code == 0
+        assert "TOTP Code:" in result.output
+        assert "Valid for:" in result.output
+        assert "test_entry" in result.output
+
+    def test_totp_with_qr_code(self, vault_with_totp_fixture, runner):
+        """Test TOTP with QR code display."""
+        vault_image, passphrase = vault_with_totp_fixture
+
+        result = runner.invoke(
+            vault,
+            ["totp", vault_image, "-k", "test_entry", "--passphrase", passphrase, "--qr"],
+            input=f"{passphrase}\n",
+        )
+
+        assert result.exit_code == 0
+        assert "TOTP Code:" in result.output
+        assert "Scan this QR code" in result.output
+        assert "Secret (manual entry):" in result.output
+
+    def test_totp_entry_not_found(self, vault_with_totp_fixture, runner):
+        """Test TOTP with nonexistent entry."""
+        vault_image, passphrase = vault_with_totp_fixture
+
+        result = runner.invoke(
+            vault,
+            ["totp", vault_image, "-k", "nonexistent", "--passphrase", passphrase],
+            input=f"{passphrase}\n",
+        )
+
+        assert result.exit_code == 1
+        assert "Entry 'nonexistent' not found" in result.output
+        assert "Available keys:" in result.output
+
+    def test_totp_no_totp_configured(self, runner):
+        """Test TOTP with entry that has no TOTP secret."""
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False, mode="wb") as cover:
+            test_image = get_test_image(400, 300)
+            test_image.save(cover, format="PNG")
+            cover_path = cover.name
+
+        temp_output = None
+        try:
+            temp_output = get_temp_filename(".png")
+
+            # Create vault without TOTP
+            passphrase = "SuperSecure123!Pass"
+            result = runner.invoke(
+                vault,
+                [
+                    "create",
+                    "-i",
+                    cover_path,
+                    "-o",
+                    temp_output,
+                    "-k",
+                    "no_totp_entry",
+                    "--password",
+                    "mypass123",
+                    "--passphrase",
+                    passphrase,
+                ],
+                input=f"{passphrase}\n",
+            )
+
+            assert result.exit_code == 0
+
+            # Try to get TOTP (should fail)
+            result = runner.invoke(
+                vault,
+                ["totp", temp_output, "-k", "no_totp_entry", "--passphrase", passphrase],
+                input=f"{passphrase}\n",
+            )
+
+            assert result.exit_code == 1
+            assert "does not have TOTP configured" in result.output
+            assert "vault update" in result.output
+
+        finally:
+            cleanup_file(cover_path)
+            if temp_output:
+                cleanup_file(temp_output)
+
+    def test_totp_wrong_passphrase(self, vault_with_totp_fixture, runner):
+        """Test TOTP with wrong passphrase."""
+        vault_image, _ = vault_with_totp_fixture
+
+        result = runner.invoke(
+            vault,
+            ["totp", vault_image, "-k", "test_entry", "--passphrase", "wrong_pass"],
+            input="wrong_pass\n",
+        )
+
+        assert result.exit_code == 1
+        assert "Wrong passphrase" in result.output
+
+    def test_totp_single_password_image(self, runner):
+        """Test TOTP with single password image (not a vault)."""
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False, mode="wb") as cover:
+            test_image = get_test_image(400, 300)
+            test_image.save(cover, format="PNG")
+            cover_path = cover.name
+
+        temp_output = None
+        try:
+            temp_output = get_temp_filename(".png")
+
+            # Create single password backup (not vault)
+            passphrase = "test_passphrase_123"
+            result = runner.invoke(
+                main,
+                [
+                    "backup",
+                    "-i",
+                    cover_path,
+                    "-o",
+                    temp_output,
+                    "--password",
+                    "singlepass",
+                    "--passphrase",
+                    passphrase,
+                    "--no-check-strength",
+                ],
+                input=f"{passphrase}\n",
+            )
+
+            assert result.exit_code == 0
+
+            # Try to get TOTP from single password image
+            result = runner.invoke(
+                vault,
+                ["totp", temp_output, "-k", "any_key", "--passphrase", passphrase],
+                input=f"{passphrase}\n",
+            )
+
+            assert result.exit_code == 1
+            assert "single password, not a vault" in result.output
+
+        finally:
+            cleanup_file(cover_path)
+            if temp_output:
+                cleanup_file(temp_output)

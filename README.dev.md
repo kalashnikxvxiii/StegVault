@@ -59,8 +59,8 @@ black stegvault tests
 ```bash
 pytest
 ```
-**Why**: Catch test failures early. All 299 tests must pass.
-**Expected**: `299 passed` (or current test count)
+**Why**: Catch test failures early. All 305 tests must pass.
+**Expected**: `305 passed` (or current test count)
 
 ### 3. Run Bandit Security Scan
 ```bash
@@ -177,7 +177,7 @@ stegvault/
 └── cli.py           # Command-line interface
 
 tests/
-├── unit/            # Unit tests (299 tests, 77% coverage)
+├── unit/            # Unit tests (305 tests, 79% coverage)
 │   ├── test_crypto.py              # 26 tests
 │   ├── test_payload.py             # 22 tests
 │   ├── test_stego.py               # 16 tests
@@ -185,7 +185,7 @@ tests/
 │   ├── test_batch.py               # 20 tests
 │   ├── test_vault.py               # 49 tests
 │   ├── test_cli.py                 # 53 tests
-│   ├── test_vault_cli.py           # 38 tests (vault CLI)
+│   ├── test_vault_cli.py           # 44 tests (vault CLI + TOTP)
 │   ├── test_totp.py                # 19 tests (TOTP/2FA)
 │   ├── test_password_strength.py   # 24 tests (password validation)
 │   └── test_vault_search.py        # 24 tests (search/filter)
