@@ -257,3 +257,107 @@ def import_vault_from_file(json_path: str) -> Vault:
 
     # vault_from_json will raise ValueError if invalid
     return vault_from_json(json_str)
+
+
+def search_entries(
+    vault: Vault,
+    query: str,
+    case_sensitive: bool = False,
+    fields: Optional[list[str]] = None,
+) -> list[VaultEntry]:
+    """
+    Search vault entries by query string.
+
+    Searches across key, username, URL, and notes fields by default.
+
+    Args:
+        vault: The vault to search
+        query: Search query string
+        case_sensitive: If True, perform case-sensitive search
+        fields: Optional list of fields to search in. Default: ["key", "username", "url", "notes"]
+
+    Returns:
+        List of matching VaultEntry objects
+    """
+    if not query:
+        return []
+
+    search_fields = fields or ["key", "username", "url", "notes"]
+    search_query = query if case_sensitive else query.lower()
+    results = []
+
+    for entry in vault.entries:
+        # Check each field for matches
+        for field in search_fields:
+            value = getattr(entry, field, None)
+            if value:
+                check_value = value if case_sensitive else value.lower()
+                if search_query in check_value:
+                    results.append(entry)
+                    break  # Don't add same entry multiple times
+
+    return results
+
+
+def filter_by_tags(vault: Vault, tags: list[str], match_all: bool = False) -> list[VaultEntry]:
+    """
+    Filter vault entries by tags.
+
+    Args:
+        vault: The vault to filter
+        tags: List of tags to filter by
+        match_all: If True, entry must have ALL tags. If False, entry must have ANY tag.
+
+    Returns:
+        List of matching VaultEntry objects
+    """
+    if not tags:
+        return []
+
+    results = []
+
+    for entry in vault.entries:
+        entry_tags = set(entry.tags)
+        filter_tags = set(tags)
+
+        if match_all:
+            # Entry must have all specified tags
+            if filter_tags.issubset(entry_tags):
+                results.append(entry)
+        else:
+            # Entry must have at least one of the specified tags
+            if filter_tags.intersection(entry_tags):
+                results.append(entry)
+
+    return results
+
+
+def filter_by_url(vault: Vault, url_pattern: str, exact: bool = False) -> list[VaultEntry]:
+    """
+    Filter vault entries by URL pattern.
+
+    Args:
+        vault: The vault to filter
+        url_pattern: URL pattern to match (e.g., "github.com")
+        exact: If True, require exact match. If False, use substring match.
+
+    Returns:
+        List of matching VaultEntry objects
+    """
+    if not url_pattern:
+        return []
+
+    results = []
+
+    for entry in vault.entries:
+        if not entry.url:
+            continue
+
+        if exact:
+            if entry.url == url_pattern:
+                results.append(entry)
+        else:
+            if url_pattern.lower() in entry.url.lower():
+                results.append(entry)
+
+    return results

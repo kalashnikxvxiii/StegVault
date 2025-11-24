@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **🔍 Vault Search and Filter Commands**
+  - New `vault search` command: Search entries by query string across multiple fields
+  - New `vault filter` command: Filter entries by tags or URL patterns
+  - Search supports case-sensitive/insensitive modes and field-specific searches
+  - Filter supports tag matching (ANY or ALL) and URL pattern matching (exact or substring)
+  - 24 comprehensive tests for search and filter functionality
+  - Backend functions: `search_entries()`, `filter_by_tags()`, `filter_by_url()`
+
+### Changed
+- Updated vault group documentation to include new search and filter commands
+- Improved vault/operations.py coverage from 58% to 94%
+
 ## [0.4.0] - 2025-11-24
 
 ### Added - Major Features

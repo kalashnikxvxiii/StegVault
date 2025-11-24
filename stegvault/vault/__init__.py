@@ -19,6 +19,9 @@ from .operations import (
     parse_payload,
     single_password_to_vault,
     import_vault_from_file,
+    search_entries,
+    filter_by_tags,
+    filter_by_url,
 )
 from .generator import (
     PasswordGenerator,
@@ -52,6 +55,9 @@ __all__ = [
     "parse_payload",
     "single_password_to_vault",
     "import_vault_from_file",
+    "search_entries",
+    "filter_by_tags",
+    "filter_by_url",
     "PasswordGenerator",
     "generate_password",
     "generate_passphrase",

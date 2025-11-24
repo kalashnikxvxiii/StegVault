@@ -771,6 +771,8 @@ def vault() -> None:
       export  - Export vault to JSON file
       import  - Import vault from JSON file
       totp    - Generate TOTP (2FA) code for an entry
+      search  - Search vault entries by query
+      filter  - Filter vault entries by tags or URL
     """
     pass
 
@@ -2055,6 +2057,216 @@ def totp(vault_image: str, passphrase: str, key: str, qr: bool) -> None:
         except ValueError as e:
             click.echo(f"Error: {e}", err=True)
             sys.exit(1)
+
+    except DecryptionError:
+        click.echo("Error: Wrong passphrase", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@vault.command()
+@click.argument("vault_image", type=click.Path(exists=True))
+@click.option(
+    "--passphrase",
+    prompt=True,
+    hide_input=True,
+    confirmation_prompt=False,
+    help="Passphrase to decrypt the vault",
+)
+@click.option(
+    "--query",
+    "-q",
+    required=True,
+    help="Search query string",
+)
+@click.option(
+    "--case-sensitive",
+    "-c",
+    is_flag=True,
+    help="Perform case-sensitive search",
+)
+@click.option(
+    "--fields",
+    "-f",
+    multiple=True,
+    type=click.Choice(["key", "username", "url", "notes"]),
+    help="Fields to search in (can be specified multiple times)",
+)
+def search(
+    vault_image: str, passphrase: str, query: str, case_sensitive: bool, fields: tuple
+) -> None:
+    """
+    Search vault entries by query string.
+
+    Searches across key, username, URL, and notes fields by default.
+    Use --fields to search specific fields only.
+
+    Example:
+        stegvault vault search vault.png --query gmail
+        stegvault vault search vault.png -q github --fields key --fields username
+    """
+    from stegvault.vault import search_entries
+
+    try:
+        # Extract and decrypt vault
+        vault_bytes = load_image(vault_image)
+        payload_bytes = extract_full_payload(vault_bytes)
+        salt, nonce, ciphertext = parse_payload(payload_bytes)
+        decrypted_data = decrypt_data(ciphertext, salt, nonce, passphrase)
+        vault_obj = parse_payload(decrypted_data)
+
+        if isinstance(vault_obj, str):
+            click.echo("Error: This is a single-password backup, not a vault", err=True)
+            sys.exit(1)
+
+        # Perform search
+        search_fields = list(fields) if fields else None
+        results = search_entries(
+            vault_obj, query, case_sensitive=case_sensitive, fields=search_fields
+        )
+
+        if not results:
+            click.echo(f"No entries found matching '{query}'")
+            return
+
+        click.echo(f"\nFound {len(results)} matching entries:")
+        click.echo("=" * 60)
+
+        for entry in results:
+            click.echo(f"\nKey: {entry.key}")
+            if entry.username:
+                click.echo(f"Username: {entry.username}")
+            if entry.url:
+                click.echo(f"URL: {entry.url}")
+            if entry.tags:
+                click.echo(f"Tags: {', '.join(entry.tags)}")
+            if entry.notes:
+                # Truncate long notes
+                notes_preview = entry.notes[:100] + "..." if len(entry.notes) > 100 else entry.notes
+                click.echo(f"Notes: {notes_preview}")
+            click.echo(f"Has TOTP: {'Yes' if entry.totp_secret else 'No'}")
+
+        click.echo("\n" + "=" * 60)
+        click.echo(f"Total: {len(results)} entries")
+
+    except DecryptionError:
+        click.echo("Error: Wrong passphrase", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@vault.command()
+@click.argument("vault_image", type=click.Path(exists=True))
+@click.option(
+    "--passphrase",
+    prompt=True,
+    hide_input=True,
+    confirmation_prompt=False,
+    help="Passphrase to decrypt the vault",
+)
+@click.option(
+    "--tag",
+    "-t",
+    multiple=True,
+    help="Tag to filter by (can be specified multiple times)",
+)
+@click.option(
+    "--match-all",
+    is_flag=True,
+    help="Entry must have ALL tags (default: ANY tag)",
+)
+@click.option(
+    "--url",
+    "-u",
+    help="URL pattern to filter by",
+)
+@click.option(
+    "--exact-url",
+    is_flag=True,
+    help="Require exact URL match (default: substring)",
+)
+def filter(
+    vault_image: str, passphrase: str, tag: tuple, match_all: bool, url: str, exact_url: bool
+) -> None:
+    """
+    Filter vault entries by tags or URL.
+
+    Filter by tags, URL patterns, or both.
+
+    Examples:
+        stegvault vault filter vault.png --tag work
+        stegvault vault filter vault.png --tag work --tag email --match-all
+        stegvault vault filter vault.png --url github.com
+        stegvault vault filter vault.png --tag work --url corp.com
+    """
+    from stegvault.vault import filter_by_tags, filter_by_url
+
+    if not tag and not url:
+        click.echo("Error: Must specify at least one filter (--tag or --url)", err=True)
+        sys.exit(1)
+
+    try:
+        # Extract and decrypt vault
+        vault_bytes = load_image(vault_image)
+        payload_bytes = extract_full_payload(vault_bytes)
+        salt, nonce, ciphertext = parse_payload(payload_bytes)
+        decrypted_data = decrypt_data(ciphertext, salt, nonce, passphrase)
+        vault_obj = parse_payload(decrypted_data)
+
+        if isinstance(vault_obj, str):
+            click.echo("Error: This is a single-password backup, not a vault", err=True)
+            sys.exit(1)
+
+        # Apply filters
+        results = set()
+
+        if tag:
+            tag_results = filter_by_tags(vault_obj, list(tag), match_all=match_all)
+            if url:
+                # Both filters: intersection
+                results = set(tag_results)
+            else:
+                # Only tag filter
+                results = set(tag_results)
+
+        if url:
+            url_results = filter_by_url(vault_obj, url, exact=exact_url)
+            if tag:
+                # Both filters: intersection
+                results = results.intersection(set(url_results))
+            else:
+                # Only URL filter
+                results = set(url_results)
+
+        results_list = sorted(list(results), key=lambda e: e.key)
+
+        if not results_list:
+            click.echo("No entries found matching the specified filters")
+            return
+
+        click.echo(f"\nFound {len(results_list)} matching entries:")
+        click.echo("=" * 60)
+
+        for entry in results_list:
+            click.echo(f"\nKey: {entry.key}")
+            if entry.username:
+                click.echo(f"Username: {entry.username}")
+            if entry.url:
+                click.echo(f"URL: {entry.url}")
+            if entry.tags:
+                click.echo(f"Tags: {', '.join(entry.tags)}")
+            if entry.notes:
+                # Truncate long notes
+                notes_preview = entry.notes[:100] + "..." if len(entry.notes) > 100 else entry.notes
+                click.echo(f"Notes: {notes_preview}")
+            click.echo(f"Has TOTP: {'Yes' if entry.totp_secret else 'No'}")
+
+        click.echo("\n" + "=" * 60)
+        click.echo(f"Total: {len(results_list)} entries")
 
     except DecryptionError:
         click.echo("Error: Wrong passphrase", err=True)
