@@ -3,14 +3,14 @@
 > Secure password manager using steganography to embed encrypted credentials within images
 
 [![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)](https://github.com/kalashnikxvxiii-collab/StegVault/releases/tag/v0.5.0)
+[![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)](https://github.com/kalashnikxvxiii-collab/StegVault/releases/tag/v0.4.0)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-275_passing-brightgreen.svg)](tests/)
 [![Coverage](https://img.shields.io/badge/coverage-80%25-brightgreen.svg)](tests/)
 
 **StegVault** is a full-featured password manager that combines modern cryptography with steganography. It can store either a single password or an entire vault of credentials, all encrypted using battle-tested algorithms (XChaCha20-Poly1305 + Argon2id) and hidden within ordinary PNG images using LSB steganography.
 
-**Latest Features (v0.5.0):** Complete password manager with vault import/export, secure clipboard integration, TOTP/2FA authenticator with QR codes, and realistic password strength validation using zxcvbn!
+**Latest Features (v0.4.0):** Complete password manager with vault import/export, secure clipboard integration, TOTP/2FA authenticator with QR codes, and realistic password strength validation using zxcvbn!
 
 ## Features
 

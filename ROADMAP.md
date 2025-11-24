@@ -11,8 +11,7 @@ This document outlines the planned development roadmap for StegVault.
 - **v0.3.1** - Test Coverage Improvements (2025-11-13)
 - **v0.3.2** - Expanded Test Suite (2025-11-13)
 - **v0.3.3** - Version Management Fixes (2025-11-13)
-- **v0.4.0** - Vault Mode & Password Manager (2025-01-14) ✅
-- **v0.5.0** - Complete Password Manager (2025-11-15) ✅ **CURRENT**
+- **v0.4.0** - Complete Password Manager (2025-11-24) ✅ **CURRENT**
 
 ## Completed Milestones
 
@@ -28,7 +27,7 @@ This document outlines the planned development roadmap for StegVault.
 - [x] PyPI publication and CI/CD pipeline
 - [x] Performance optimization (sequential embedding)
 
-### v0.5.0 ✅ (Released 2025-11-15)
+### v0.4.0 ✅ (Released 2025-11-24)
 - [x] Vault import command for backup/restore workflows
 - [x] Clipboard integration with auto-clear functionality
 - [x] TOTP/2FA authenticator support with QR codes and manual entry
@@ -411,9 +410,9 @@ StegVault follows [Semantic Versioning](https://semver.org/):
 **Last Updated**: 2025-11-15
 **Status**: Living document, subject to change based on community feedback and security research
 
-## Quick Reference: Current Focus (v0.5.0)
+## Quick Reference: Current Focus (v0.4.0)
 
-**RECENTLY COMPLETED (v0.5.0):**
+**RECENTLY COMPLETED (v0.4.0):**
 1. ✅ Vault import/export workflow - complete backup/restore
 2. ✅ Clipboard integration - secure password copying with auto-clear
 3. ✅ TOTP/2FA authenticator - built-in with QR code support
