@@ -1204,9 +1204,7 @@ class TestVaultExportCommand:
 
     def test_import_invalid_json(self, runner, test_image, temp_output):
         """Should error with invalid JSON file."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as tmp:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
             tmp.write("not valid json{}")
             json_file = tmp.name
             tmp.flush()  # Ensure data is written to disk
@@ -1226,6 +1224,12 @@ class TestVaultExportCommand:
                 ],
                 input="Test123!\n",
             )
+
+            # Debug output for CI
+            if result.exit_code != 1:
+                print(f"DEBUG: exit_code={result.exit_code}")
+                print(f"DEBUG: output={result.output}")
+                print(f"DEBUG: exception={result.exception}")
 
             assert result.exit_code == 1
             assert "Invalid JSON" in result.output or "error" in result.output.lower()
