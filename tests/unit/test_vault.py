@@ -565,3 +565,61 @@ class TestPasswordGenerator:
         strong_label, strong_score = assess_password_strength("Xk9$mP2!qL5@wN8#vR3^")
         assert strong_label in ["Strong", "Very Strong"]
         assert strong_score >= 3  # Score 3-4 for strong passwords
+
+    def test_password_generator_no_charsets_raises_error(self):
+        """Should raise ValueError when all charsets are disabled."""
+        import pytest
+
+        with pytest.raises(ValueError, match="At least one character set must be enabled"):
+            PasswordGenerator(
+                use_lowercase=False,
+                use_uppercase=False,
+                use_digits=False,
+                use_symbols=False,
+            )
+
+    def test_password_generator_exclude_ambiguous(self):
+        """Should exclude ambiguous characters when requested."""
+        gen = PasswordGenerator(length=100, exclude_ambiguous=True)
+        password = gen.generate()
+
+        # Check that ambiguous characters are not present
+        ambiguous = "il1Lo0O"
+        assert not any(c in ambiguous for c in password)
+
+    def test_password_meets_requirements_lowercase(self):
+        """Generated password should meet lowercase requirement."""
+        gen = PasswordGenerator(
+            length=20, use_lowercase=True, use_uppercase=False, use_digits=False, use_symbols=False
+        )
+        password = gen.generate()
+
+        # Should contain at least one lowercase letter
+        assert any(c.islower() for c in password)
+
+    def test_password_meets_requirements_uppercase(self):
+        """Generated password should meet uppercase requirement."""
+        gen = PasswordGenerator(
+            length=20, use_lowercase=False, use_uppercase=True, use_digits=False, use_symbols=False
+        )
+        password = gen.generate()
+
+        # Should contain at least one uppercase letter
+        assert any(c.isupper() for c in password)
+
+    def test_password_meets_requirements_symbols(self):
+        """Generated password should meet symbols requirement."""
+        gen = PasswordGenerator(
+            length=20, use_lowercase=False, use_uppercase=False, use_digits=False, use_symbols=True
+        )
+        password = gen.generate()
+
+        # Should contain at least one symbol
+        symbols = "!@#$%^&*()-_=+[]{}|;:,.<>?"
+        assert any(c in symbols for c in password)
+
+    def test_estimate_entropy_empty_charset(self):
+        """Should return 0.0 for passwords with no recognizable characters."""
+        # Test with empty string or only whitespace
+        entropy = estimate_entropy("")
+        assert entropy == 0.0

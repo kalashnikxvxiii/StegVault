@@ -358,6 +358,68 @@ class TestGalleryOperations:
 
         assert vault.entry_count == 2  # github + gmail
 
+    def test_add_vault_db_error(self, temp_db, temp_vault_image):
+        """Should handle database errors when adding vault."""
+        from stegvault.gallery.operations import add_vault
+        from unittest.mock import patch
+
+        vault_path, _ = temp_vault_image
+
+        # Mock db.add_vault to raise GalleryDBError
+        with patch.object(temp_db, "add_vault", side_effect=GalleryDBError("Test error")):
+            with pytest.raises(GalleryOperationError, match="Test error"):
+                add_vault(temp_db, "test-vault", vault_path)
+
+    def test_remove_vault_db_error(self, temp_db):
+        """Should handle database errors when removing vault."""
+        from stegvault.gallery.operations import remove_vault
+        from unittest.mock import patch
+
+        # Mock db.remove_vault to raise GalleryDBError
+        with patch.object(temp_db, "remove_vault", side_effect=GalleryDBError("Test error")):
+            with pytest.raises(GalleryOperationError, match="Test error"):
+                remove_vault(temp_db, "test-vault")
+
+    def test_list_vaults_db_error(self, temp_db):
+        """Should handle database errors when listing vaults."""
+        from stegvault.gallery.operations import list_vaults
+        from unittest.mock import patch
+
+        # Mock db.list_vaults to raise GalleryDBError
+        with patch.object(temp_db, "list_vaults", side_effect=GalleryDBError("Test error")):
+            with pytest.raises(GalleryOperationError, match="Test error"):
+                list_vaults(temp_db)
+
+    def test_get_vault_db_error(self, temp_db):
+        """Should handle database errors when getting vault."""
+        from stegvault.gallery.operations import get_vault
+        from unittest.mock import patch
+
+        # Mock db.get_vault to raise GalleryDBError
+        with patch.object(temp_db, "get_vault", side_effect=GalleryDBError("Test error")):
+            with pytest.raises(GalleryOperationError, match="Test error"):
+                get_vault(temp_db, "test-vault")
+
+    def test_refresh_vault_not_found(self, temp_db):
+        """Should fail when refreshing nonexistent vault."""
+        from stegvault.gallery.operations import refresh_vault
+
+        with pytest.raises(GalleryOperationError, match="not found"):
+            refresh_vault(temp_db, "nonexistent", "password")
+
+    def test_refresh_vault_image_not_found(self, temp_db, temp_vault_image):
+        """Should fail when vault image file doesn't exist."""
+        from stegvault.gallery.operations import add_vault, refresh_vault
+
+        vault_path, passphrase = temp_vault_image
+        add_vault(temp_db, "test-vault", vault_path)
+
+        # Delete the image file
+        os.unlink(vault_path)
+
+        with pytest.raises(GalleryOperationError, match="not found"):
+            refresh_vault(temp_db, "test-vault", passphrase)
+
 
 class TestGallerySearch:
     """Tests for Gallery search functionality."""
