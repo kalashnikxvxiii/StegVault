@@ -478,6 +478,88 @@ class TestGallerySearch:
         assert len(results) >= 1
         assert any(r["entry_key"] == "gmail" for r in results)
 
+    def test_search_nonexistent_vault(self, gallery_with_vaults):
+        """Should raise error when searching nonexistent vault."""
+        from stegvault.gallery.operations import GalleryOperationError
+        from stegvault.gallery.search import search_gallery
+
+        with pytest.raises(GalleryOperationError) as exc_info:
+            search_gallery(gallery_with_vaults.db, "test", vault_name="nonexistent")
+
+        assert "not found" in str(exc_info.value)
+
+    def test_search_by_tag(self, gallery_with_vaults):
+        """Should search entries by tag."""
+        from stegvault.gallery.search import search_by_tag
+
+        results = search_by_tag(gallery_with_vaults.db, "work")
+
+        assert len(results) >= 2  # github and jira
+        assert all(r["vault_name"] == "work-vault" for r in results)
+        assert any(r["entry_key"] == "github" for r in results)
+        assert any(r["entry_key"] == "jira" for r in results)
+
+    def test_search_by_tag_specific_vault(self, gallery_with_vaults):
+        """Should search by tag in specific vault only."""
+        from stegvault.gallery.search import search_by_tag
+
+        results = search_by_tag(gallery_with_vaults.db, "work", vault_name="work-vault")
+
+        assert len(results) >= 2
+        assert all(r["vault_name"] == "work-vault" for r in results)
+
+    def test_search_by_tag_no_results(self, gallery_with_vaults):
+        """Should return empty list when tag not found."""
+        from stegvault.gallery.search import search_by_tag
+
+        results = search_by_tag(gallery_with_vaults.db, "nonexistent-tag")
+
+        assert len(results) == 0
+
+    def test_search_by_tag_nonexistent_vault(self, gallery_with_vaults):
+        """Should raise error when searching nonexistent vault by tag."""
+        from stegvault.gallery.operations import GalleryOperationError
+        from stegvault.gallery.search import search_by_tag
+
+        with pytest.raises(GalleryOperationError) as exc_info:
+            search_by_tag(gallery_with_vaults.db, "work", vault_name="nonexistent")
+
+        assert "not found" in str(exc_info.value)
+
+    def test_search_by_url(self, gallery_with_vaults):
+        """Should search entries by URL pattern."""
+        from stegvault.gallery.search import search_by_url
+
+        results = search_by_url(gallery_with_vaults.db, "github.com")
+
+        assert len(results) >= 1
+        assert any(r["entry_key"] == "github" for r in results)
+
+    def test_search_by_url_specific_vault(self, gallery_with_vaults):
+        """Should search by URL in specific vault only."""
+        from stegvault.gallery.search import search_by_url
+
+        results = search_by_url(gallery_with_vaults.db, "github.com", vault_name="work-vault")
+
+        assert len(results) >= 1
+        assert all(r["vault_name"] == "work-vault" for r in results)
+
+    def test_search_handles_db_error(self, gallery_with_vaults):
+        """Should handle database errors gracefully."""
+        from stegvault.gallery.operations import GalleryOperationError
+        from stegvault.gallery.search import search_gallery
+        from stegvault.gallery.db import GalleryDBError
+        from unittest.mock import patch
+
+        # Mock db.search_entries to raise GalleryDBError
+        with patch.object(
+            gallery_with_vaults.db, "search_entries", side_effect=GalleryDBError("Test error")
+        ):
+            with pytest.raises(GalleryOperationError) as exc_info:
+                search_gallery(gallery_with_vaults.db, "test")
+
+            assert "Search failed" in str(exc_info.value)
+
 
 class TestGallery:
     """Tests for Gallery class."""
