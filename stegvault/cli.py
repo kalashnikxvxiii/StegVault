@@ -30,48 +30,13 @@ from stegvault.utils import (
     serialize_payload,
     parse_payload,
     validate_payload_capacity,
+    extract_full_payload,
     PayloadFormatError,
 )
 from stegvault.config import (
     load_config,
     ConfigError,
 )
-
-
-def extract_full_payload(image_path: str) -> bytes:
-    """
-    Extract full payload from image following the standard pattern.
-
-    This handles the multi-step extraction process:
-    1. Extract header to determine payload size
-    2. Derive seed from salt
-    3. Extract full payload with correct seed
-    """
-    import struct
-
-    # Extract just enough to get magic + salt (first 20 bytes)
-    initial_extract_size = 20
-    header_bytes = extract_payload(image_path, initial_extract_size, seed=0)
-
-    # Validate magic header
-    if header_bytes[:4] != b"SPW1":
-        raise ValueError("Invalid or corrupted payload (bad magic header)")
-
-    # Extract salt and derive seed
-    salt = header_bytes[4:20]
-    seed = int.from_bytes(salt[:4], byteorder="big")
-
-    # Extract full header to get payload size
-    header_size = 48  # 4 (magic) + 16 (salt) + 24 (nonce) + 4 (length)
-    header_bytes = extract_payload(image_path, header_size, seed)
-
-    # Parse ciphertext length from header
-    ct_length = struct.unpack(">I", header_bytes[44:48])[0]
-    total_payload_size = header_size + ct_length
-
-    # Extract full payload
-    payload = extract_payload(image_path, total_payload_size, seed)
-    return payload
 
 
 @click.group()
@@ -2271,6 +2236,374 @@ def filter(
     except DecryptionError:
         click.echo("Error: Wrong passphrase", err=True)
         sys.exit(1)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@main.group()
+def gallery() -> None:
+    """
+    Manage multiple vaults in a gallery.
+
+    Gallery provides centralized management of multiple vault images
+    with metadata storage and cross-vault search capabilities.
+    """
+    pass
+
+
+@gallery.command()
+@click.option(
+    "--db-path",
+    "-d",
+    type=click.Path(),
+    help="Gallery database path (default: ~/.stegvault/gallery.db)",
+)
+def init(db_path: Optional[str]) -> None:
+    """
+    Initialize a new gallery database.
+
+    Creates the SQLite database for storing vault metadata.
+
+    \b
+    Example:
+        stegvault gallery init
+        stegvault gallery init --db-path ./my-gallery.db
+    """
+    from stegvault.gallery import Gallery
+    from pathlib import Path
+
+    try:
+        # Default path
+        if not db_path:
+            db_path = os.path.expanduser("~/.stegvault/gallery.db")
+            os.makedirs(os.path.dirname(db_path), exist_ok=True)
+
+        # Check if already exists
+        if os.path.exists(db_path):
+            click.echo(f"Gallery database already exists: {db_path}")
+            if not click.confirm("Overwrite?"):
+                sys.exit(0)
+            os.remove(db_path)
+
+        # Initialize
+        with Gallery(db_path) as g:
+            click.echo(f"Gallery initialized: {db_path}")
+
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@gallery.command()
+@click.argument("vault_image", type=click.Path(exists=True))
+@click.option("--name", "-n", required=True, help="Unique name for the vault")
+@click.option("--description", "-d", help="Vault description")
+@click.option("--tag", "-t", multiple=True, help="Tags (can be specified multiple times)")
+@click.option(
+    "--passphrase", prompt=True, hide_input=True, help="Vault passphrase to cache entries"
+)
+@click.option(
+    "--db-path",
+    type=click.Path(),
+    help="Gallery database path (default: ~/.stegvault/gallery.db)",
+)
+def add(
+    vault_image: str,
+    name: str,
+    description: Optional[str],
+    tag: tuple,
+    passphrase: str,
+    db_path: Optional[str],
+) -> None:
+    """
+    Add a vault to the gallery.
+
+    Adds a vault image to the gallery with metadata and caches
+    its entries for fast cross-vault search.
+
+    \b
+    Example:
+        stegvault gallery add vault.png --name gmail-vault --tag personal
+        stegvault gallery add work.png -n work-vault -t work -t important
+    """
+    from stegvault.gallery import Gallery
+    from stegvault.gallery.operations import GalleryOperationError
+
+    try:
+        # Default path
+        if not db_path:
+            db_path = os.path.expanduser("~/.stegvault/gallery.db")
+
+        if not os.path.exists(db_path):
+            click.echo(
+                "Error: Gallery not initialized. Run 'stegvault gallery init' first.", err=True
+            )
+            sys.exit(1)
+
+        with Gallery(db_path) as g:
+            click.echo(f"Adding vault '{name}'...")
+            vault = g.add_vault(name, vault_image, description, list(tag) if tag else None)
+
+            # Cache entries
+            click.echo("Caching entries...")
+            vault = g.refresh_vault(name, passphrase)
+
+            click.echo(f"\nVault added successfully!")
+            click.echo(f"Name: {vault.name}")
+            click.echo(f"Path: {vault.image_path}")
+            click.echo(f"Entries: {vault.entry_count}")
+            if vault.tags:
+                click.echo(f"Tags: {', '.join(vault.tags)}")
+
+    except GalleryOperationError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+    except DecryptionError:
+        click.echo("Error: Wrong passphrase", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@gallery.command()
+@click.option(
+    "--db-path",
+    type=click.Path(),
+    help="Gallery database path (default: ~/.stegvault/gallery.db)",
+)
+@click.option("--tag", "-t", help="Filter by tag")
+def list(db_path: Optional[str], tag: Optional[str]) -> None:
+    """
+    List all vaults in the gallery.
+
+    \b
+    Example:
+        stegvault gallery list
+        stegvault gallery list --tag work
+    """
+    from stegvault.gallery import Gallery
+
+    try:
+        # Default path
+        if not db_path:
+            db_path = os.path.expanduser("~/.stegvault/gallery.db")
+
+        if not os.path.exists(db_path):
+            click.echo(
+                "Error: Gallery not initialized. Run 'stegvault gallery init' first.", err=True
+            )
+            sys.exit(1)
+
+        with Gallery(db_path) as g:
+            vaults = g.list_vaults(tag)
+
+            if not vaults:
+                click.echo("No vaults in gallery")
+                return
+
+            click.echo(f"\n{len(vaults)} vault(s) in gallery:")
+            click.echo("=" * 80)
+
+            for vault in vaults:
+                click.echo(f"\nName: {vault.name}")
+                click.echo(f"Path: {vault.image_path}")
+                click.echo(f"Entries: {vault.entry_count}")
+                if vault.description:
+                    click.echo(f"Description: {vault.description}")
+                if vault.tags:
+                    click.echo(f"Tags: {', '.join(vault.tags)}")
+                if vault.last_accessed:
+                    click.echo(
+                        f"Last accessed: {vault.last_accessed.strftime('%Y-%m-%d %H:%M:%S')}"
+                    )
+
+            click.echo("\n" + "=" * 80)
+
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@gallery.command()
+@click.argument("name")
+@click.option(
+    "--db-path",
+    type=click.Path(),
+    help="Gallery database path (default: ~/.stegvault/gallery.db)",
+)
+def remove(name: str, db_path: Optional[str]) -> None:
+    """
+    Remove a vault from the gallery.
+
+    This removes the vault from gallery metadata but does NOT delete
+    the actual vault image file.
+
+    \b
+    Example:
+        stegvault gallery remove gmail-vault
+    """
+    from stegvault.gallery import Gallery
+
+    try:
+        # Default path
+        if not db_path:
+            db_path = os.path.expanduser("~/.stegvault/gallery.db")
+
+        if not os.path.exists(db_path):
+            click.echo(
+                "Error: Gallery not initialized. Run 'stegvault gallery init' first.", err=True
+            )
+            sys.exit(1)
+
+        with Gallery(db_path) as g:
+            if not click.confirm(f"Remove vault '{name}' from gallery?"):
+                click.echo("Cancelled")
+                sys.exit(0)
+
+            if g.remove_vault(name):
+                click.echo(f"Vault '{name}' removed from gallery")
+            else:
+                click.echo(f"Vault '{name}' not found", err=True)
+                sys.exit(1)
+
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@gallery.command()
+@click.argument("name")
+@click.option("--passphrase", prompt=True, hide_input=True, help="Vault passphrase")
+@click.option(
+    "--db-path",
+    type=click.Path(),
+    help="Gallery database path (default: ~/.stegvault/gallery.db)",
+)
+def refresh(name: str, passphrase: str, db_path: Optional[str]) -> None:
+    """
+    Refresh vault metadata by re-reading the vault image.
+
+    Updates cached entry metadata for cross-vault search.
+
+    \b
+    Example:
+        stegvault gallery refresh gmail-vault
+    """
+    from stegvault.gallery import Gallery
+    from stegvault.gallery.operations import GalleryOperationError
+
+    try:
+        # Default path
+        if not db_path:
+            db_path = os.path.expanduser("~/.stegvault/gallery.db")
+
+        if not os.path.exists(db_path):
+            click.echo(
+                "Error: Gallery not initialized. Run 'stegvault gallery init' first.", err=True
+            )
+            sys.exit(1)
+
+        with Gallery(db_path) as g:
+            click.echo(f"Refreshing vault '{name}'...")
+            vault = g.refresh_vault(name, passphrase)
+
+            click.echo(f"\nVault refreshed successfully!")
+            click.echo(f"Entries: {vault.entry_count}")
+
+    except GalleryOperationError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+    except DecryptionError:
+        click.echo("Error: Wrong passphrase", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@gallery.command()
+@click.argument("query")
+@click.option("--vault", "-v", help="Search only in specific vault")
+@click.option(
+    "--fields",
+    "-f",
+    multiple=True,
+    type=click.Choice(["key", "username", "url"], case_sensitive=False),
+    help="Fields to search (default: all)",
+)
+@click.option(
+    "--db-path",
+    type=click.Path(),
+    help="Gallery database path (default: ~/.stegvault/gallery.db)",
+)
+def search(
+    query: str,
+    vault: Optional[str],
+    fields: tuple,
+    db_path: Optional[str],
+) -> None:
+    """
+    Search for entries across all vaults in the gallery.
+
+    Searches cached entry metadata for fast cross-vault search.
+    To update cache, use 'stegvault gallery refresh'.
+
+    \b
+    Example:
+        stegvault gallery search github
+        stegvault gallery search work --vault gmail-vault
+        stegvault gallery search user@example.com --fields username
+    """
+    from stegvault.gallery import Gallery
+
+    try:
+        # Default path
+        if not db_path:
+            db_path = os.path.expanduser("~/.stegvault/gallery.db")
+
+        if not os.path.exists(db_path):
+            click.echo(
+                "Error: Gallery not initialized. Run 'stegvault gallery init' first.", err=True
+            )
+            sys.exit(1)
+
+        # Map field names
+        field_map = {"key": "entry_key", "username": "username", "url": "url"}
+        search_fields = [field_map[f] for f in fields] if fields else None
+
+        with Gallery(db_path) as g:
+            results = g.search(query, vault, search_fields)
+
+            if not results:
+                click.echo("No entries found")
+                return
+
+            click.echo(f"\nFound {len(results)} matching entries:")
+            click.echo("=" * 80)
+
+            current_vault = None
+            for result in results:
+                if result["vault_name"] != current_vault:
+                    if current_vault is not None:
+                        click.echo("")
+                    click.echo(f"\n[{result['vault_name']}]")
+                    current_vault = result["vault_name"]
+
+                click.echo(f"\nKey: {result['entry_key']}")
+                if result["username"]:
+                    click.echo(f"Username: {result['username']}")
+                if result["url"]:
+                    click.echo(f"URL: {result['url']}")
+                if result["tags"]:
+                    click.echo(f"Tags: {', '.join(result['tags'])}")
+                if result["has_totp"]:
+                    click.echo("Has TOTP: Yes")
+
+            click.echo("\n" + "=" * 80)
+            click.echo(f"Total: {len(results)} entries")
+
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)

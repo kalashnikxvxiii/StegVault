@@ -11,6 +11,7 @@ from stegvault.utils.payload import (
     calculate_payload_size,
     get_max_message_size,
     validate_payload_capacity,
+    extract_full_payload,
     PayloadError,
     PayloadFormatError,
 )
@@ -22,6 +23,7 @@ __all__ = [
     "calculate_payload_size",
     "get_max_message_size",
     "validate_payload_capacity",
+    "extract_full_payload",
     "PayloadError",
     "PayloadFormatError",
 ]

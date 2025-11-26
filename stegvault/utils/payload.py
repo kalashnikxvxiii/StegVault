@@ -203,3 +203,49 @@ def validate_payload_capacity(image_capacity: int, plaintext_size: int) -> bool:
     """
     required = calculate_payload_size(plaintext_size + 16)  # +16 for AEAD tag
     return image_capacity >= required
+
+
+def extract_full_payload(image_path: str) -> bytes:
+    """
+    Extract full payload from image following the standard pattern.
+
+    This handles the multi-step extraction process:
+    1. Extract header to determine payload size
+    2. Derive seed from salt
+    3. Extract full payload with correct seed
+
+    Args:
+        image_path: Path to image file
+
+    Returns:
+        Complete payload bytes
+
+    Raises:
+        ValueError: If magic header is invalid
+        PayloadFormatError: If payload format is corrupted
+    """
+    from stegvault.stego import extract_payload
+
+    # Extract just enough to get magic + salt (first 20 bytes)
+    initial_extract_size = 20
+    header_bytes = extract_payload(image_path, initial_extract_size, seed=0)
+
+    # Validate magic header
+    if header_bytes[:4] != b"SPW1":
+        raise ValueError("Invalid or corrupted payload (bad magic header)")
+
+    # Extract salt and derive seed
+    salt = header_bytes[4:20]
+    seed = int.from_bytes(salt[:4], byteorder="big")
+
+    # Extract full header to get payload size
+    header_size = 48  # 4 (magic) + 16 (salt) + 24 (nonce) + 4 (length)
+    header_bytes = extract_payload(image_path, header_size, seed)
+
+    # Parse ciphertext length from header
+    ct_length = struct.unpack(">I", header_bytes[44:48])[0]
+    total_payload_size = header_size + ct_length
+
+    # Extract full payload
+    payload = extract_payload(image_path, total_payload_size, seed)
+    return payload

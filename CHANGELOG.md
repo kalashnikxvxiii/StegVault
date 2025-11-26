@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-11-26
+
+### Added - Gallery Foundation
+- **🖼️ Gallery Management System**
+  - New `gallery` command group for managing multiple vault images
+  - SQLite-backed metadata database for vault organization
+  - Centralized gallery at `~/.stegvault/gallery.db`
+  - 6 new CLI commands: `init`, `add`, `list`, `remove`, `refresh`, `search`
+
+- **🔍 Cross-Vault Search**
+  - Search across all vaults simultaneously
+  - Cached entry metadata for instant search results
+  - Filter search by specific vault or search all
+  - Field-specific search (key, username, URL)
+
+- **🗄️ Vault Metadata Management**
+  - Track vault entry counts, tags, and descriptions
+  - Last accessed timestamps for vault usage tracking
+  - Tag-based vault organization and filtering
+  - Automatic metadata caching on vault add/refresh
+
+### New Modules
+- `stegvault/gallery/` - Complete gallery management system
+  - `core.py` - Gallery, VaultMetadata, VaultEntryCache classes
+  - `db.py` - SQLite database operations (88% coverage)
+  - `operations.py` - High-level gallery operations (72% coverage)
+  - `search.py` - Cross-vault search functionality (40% coverage)
+
+### Testing
+- 22 new comprehensive gallery tests (100% pass rate)
+- Total tests: 324 → 346 (+22 tests)
+- Overall coverage: 84% → 78% (new gallery code added)
+- Gallery module coverage: 82% average
+
+### Changed
+- Moved `extract_full_payload()` to `utils/payload.py` for code reuse
+- Updated CLI to import shared `extract_full_payload()` function
+- Reorganized documentation with Gallery Mode section
+
 ## [0.4.1] - 2025-11-24
 
 ### Added

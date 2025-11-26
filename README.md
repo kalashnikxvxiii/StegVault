@@ -3,14 +3,14 @@
 > Secure password manager using steganography to embed encrypted credentials within images
 
 [![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)](https://github.com/kalashnikxvxiii-collab/StegVault/releases/tag/v0.4.0)
+[![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)](https://github.com/kalashnikxvxiii-collab/StegVault/releases/tag/v0.5.0)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-324_passing-brightgreen.svg)](tests/)
-[![Coverage](https://img.shields.io/badge/coverage-84%25-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-346_passing-brightgreen.svg)](tests/)
+[![Coverage](https://img.shields.io/badge/coverage-78%25-brightgreen.svg)](tests/)
 
 **StegVault** is a full-featured password manager that combines modern cryptography with steganography. It can store either a single password or an entire vault of credentials, all encrypted using battle-tested algorithms (XChaCha20-Poly1305 + Argon2id) and hidden within ordinary PNG images using LSB steganography.
 
-**Latest Features (v0.4.0):** Complete password manager with vault import/export, secure clipboard integration, TOTP/2FA authenticator with QR codes, and realistic password strength validation using zxcvbn!
+**Latest Features (v0.5.0):** Gallery Foundation - Manage multiple vaults with centralized metadata storage, cross-vault search, and SQLite-backed organization!
 
 ## Features
 
@@ -19,7 +19,7 @@
 - 🖼️ **Invisible Storage**: LSB steganography with sequential pixel ordering
 - 🔒 **Zero-Knowledge**: All operations performed locally, no cloud dependencies
 - ✅ **Authenticated**: AEAD tag ensures data integrity
-- 🧪 **Well-Tested**: 324 unit tests with 84% overall coverage (all passing)
+- 🧪 **Well-Tested**: 346 unit tests with 78% overall coverage (all passing)
 - ⏱️ **User-Friendly**: Progress indicators for long operations
 
 ### Vault Mode
@@ -33,6 +33,16 @@
 - 📋 **Clipboard Support**: Copy passwords to clipboard with auto-clear
 - 🔐 **TOTP/2FA**: Built-in authenticator with QR code support
 - 🛡️ **Password Strength**: Realistic validation using zxcvbn with actionable feedback
+- 🔍 **Search & Filter**: Find entries by query or filter by tags/URL
+
+### Gallery Mode (v0.5.0)
+- 🖼️ **Multi-Vault Management**: Organize multiple vault images in one gallery
+- 🗄️ **SQLite Metadata**: Centralized database for vault information and entry cache
+- 🔍 **Cross-Vault Search**: Search across all vaults simultaneously
+- 🏷️ **Tagging System**: Organize vaults with custom tags
+- ⚡ **Fast Search**: Cached entry metadata for instant results
+- 📊 **Vault Statistics**: Track entry counts, last accessed times
+- 🔄 **Auto-Refresh**: Update cache when vault contents change
 
 ## Quick Start
 
@@ -153,6 +163,59 @@ stegvault vault filter vault.png --tag work --tag email --match-all
 
 # Filter by URL pattern
 stegvault vault filter vault.png --url github.com
+```
+
+### Gallery Management (v0.5.0)
+
+**Manage multiple vaults in one place:**
+
+```bash
+# Initialize gallery database
+stegvault gallery init
+# Creates ~/.stegvault/gallery.db
+
+# Add vaults to gallery
+stegvault gallery add work_vault.png --name work-vault --tag work
+stegvault gallery add personal_vault.png --name personal-vault --tag personal
+
+# List all vaults
+stegvault gallery list
+# Output:
+# 2 vault(s) in gallery:
+#
+# Name: personal-vault
+# Path: /path/to/personal_vault.png
+# Entries: 5
+# Tags: personal
+#
+# Name: work-vault
+# Path: /path/to/work_vault.png
+# Entries: 12
+# Tags: work
+
+# Search across ALL vaults
+stegvault gallery search "github"
+# Output:
+# Found 2 matching entries:
+#
+# [work-vault]
+# Key: github-work
+# Username: work@company.com
+# URL: https://github.com
+#
+# [personal-vault]
+# Key: github-personal
+# Username: myusername
+# URL: https://github.com
+
+# Search in specific vault only
+stegvault gallery search "email" --vault work-vault
+
+# Refresh vault metadata after changes
+stegvault gallery refresh work-vault
+
+# Remove vault from gallery (doesn't delete the image)
+stegvault gallery remove old-vault
 ```
 
 ## How It Works
@@ -308,20 +371,30 @@ stegvault/
 │   ├── batch/           # Batch operations
 │   │   ├── __init__.py
 │   │   └── processor.py
+│   ├── gallery/         # Multi-vault management (v0.5.0)
+│   │   ├── __init__.py
+│   │   ├── core.py      # Gallery and metadata classes
+│   │   ├── db.py        # SQLite database operations
+│   │   ├── operations.py # Gallery CRUD operations
+│   │   └── search.py    # Cross-vault search
 │   ├── __init__.py
 │   └── cli.py           # Command-line interface
-├── tests/               # Test suite (324 tests, 84% coverage)
+├── tests/               # Test suite (346 tests, 78% coverage)
 │   ├── unit/
 │   │   ├── test_crypto.py              # 26 tests
 │   │   ├── test_payload.py             # 22 tests
 │   │   ├── test_stego.py               # 16 tests
 │   │   ├── test_config.py              # 28 tests
 │   │   ├── test_batch.py               # 20 tests
-│   │   ├── test_vault.py               # 49 tests (vault module)
-│   │   ├── test_cli.py                 # 53 tests (core CLI)
-│   │   ├── test_vault_cli.py           # 38 tests (vault CLI)
-│   │   ├── test_totp.py                # 19 tests (TOTP/2FA)
-│   │   └── test_password_strength.py   # 24 tests (password validation)
+│   │   ├── test_vault.py                  # 49 tests (vault module)
+│   │   ├── test_cli.py                    # 53 tests (core CLI)
+│   │   ├── test_vault_cli.py              # 46 tests (vault CLI + TOTP)
+│   │   ├── test_totp.py                   # 19 tests (TOTP/2FA)
+│   │   ├── test_password_strength.py      # 24 tests (password validation)
+│   │   ├── test_vault_search.py           # 24 tests (search/filter backend)
+│   │   ├── test_vault_search_filter_cli.py # 5 tests (search/filter CLI)
+│   │   ├── test_vault_update_delete_cli.py # 12 tests (update/delete CLI)
+│   │   └── test_gallery.py                # 22 tests (gallery management)
 │   └── __init__.py
 ├── docs/                # Documentation
 ├── examples/            # Example images

@@ -5,7 +5,7 @@ A secure password manager that embeds encrypted credentials within images
 using steganographic techniques.
 """
 
-__version__ = "0.4.1"
+__version__ = "0.5.0"
 __author__ = "Kalashnikxv"
 
 from stegvault.crypto import encrypt_data, decrypt_data
