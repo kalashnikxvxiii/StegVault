@@ -34,7 +34,8 @@ def calculate_capacity(image: Union[str, "PIL.Image.Image"]) -> int:  # type: ig
 
         # Save to temp file to detect format
         suffix = ".png" if image.format == "PNG" else ".jpg"
-        temp_path = tempfile.mktemp(suffix=suffix)
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            temp_path = tmp.name
         try:
             image.save(temp_path)
             fmt = detect_format(temp_path)
