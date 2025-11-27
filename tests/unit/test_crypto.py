@@ -82,6 +82,19 @@ class TestKeyDerivation:
         with pytest.raises(CryptoError, match="parallelism must be >= 1"):
             derive_key("test", salt, parallelism=0)
 
+    def test_derive_key_argon2_failure(self, monkeypatch):
+        """Should raise CryptoError when Argon2 fails internally."""
+        salt = generate_salt()
+
+        # Mock hash_secret_raw in the crypto.core module to raise an exception
+        def mock_hash_secret_raw(*args, **kwargs):
+            raise RuntimeError("Simulated Argon2 internal failure")
+
+        monkeypatch.setattr("stegvault.crypto.core.hash_secret_raw", mock_hash_secret_raw)
+
+        with pytest.raises(CryptoError, match="Key derivation failed"):
+            derive_key("test", salt)
+
 
 class TestRandomGeneration:
     """Tests for random salt and nonce generation."""
@@ -146,6 +159,29 @@ class TestEncryption:
         ciphertext, salt, nonce = encrypt_data(plaintext, passphrase)
 
         assert len(ciphertext) == 16  # Just the Poly1305 tag
+
+    def test_encrypt_nacl_failure(self, monkeypatch):
+        """Should raise CryptoError when NaCl encryption fails."""
+        from unittest import mock
+        import nacl.secret
+
+        plaintext = b"test data"
+        passphrase = "strong-passphrase"
+
+        # Mock SecretBox.encrypt to raise an exception
+        original_secretbox = nacl.secret.SecretBox
+
+        class MockSecretBox:
+            def __init__(self, key):
+                pass
+
+            def encrypt(self, plaintext, nonce):
+                raise RuntimeError("Simulated NaCl encryption failure")
+
+        monkeypatch.setattr(nacl.secret, "SecretBox", MockSecretBox)
+
+        with pytest.raises(CryptoError, match="Encryption failed"):
+            encrypt_data(plaintext, passphrase)
 
 
 class TestDecryption:
@@ -217,6 +253,31 @@ class TestDecryption:
         with pytest.raises(CryptoError, match="Nonce must be exactly"):
             decrypt_data(b"data", generate_salt(), b"short", "passphrase")
 
+    def test_decrypt_generic_failure(self, monkeypatch):
+        """Should raise CryptoError for non-NaCl exceptions during decryption."""
+        from unittest import mock
+        import nacl.secret
+
+        # First encrypt some data properly
+        plaintext = b"test data"
+        passphrase = "strong-passphrase"
+        ciphertext, salt, nonce = encrypt_data(plaintext, passphrase)
+
+        # Mock SecretBox.decrypt to raise a generic exception (not nacl.exceptions.CryptoError)
+        original_secretbox = nacl.secret.SecretBox
+
+        class MockSecretBox:
+            def __init__(self, key):
+                pass
+
+            def decrypt(self, ciphertext, nonce):
+                raise RuntimeError("Simulated generic decryption failure")
+
+        monkeypatch.setattr(nacl.secret, "SecretBox", MockSecretBox)
+
+        with pytest.raises(CryptoError, match="Decryption failed"):
+            decrypt_data(ciphertext, salt, nonce, passphrase)
+
 
 class TestRoundtrip:
     """End-to-end encryption/decryption tests."""
@@ -257,6 +318,21 @@ class TestPassphraseStrength:
         """Strong passphrase should pass."""
         valid, msg = verify_passphrase_strength("MyStrong123Pass")
         assert valid is True
+
+    def test_acceptable_passphrase(self):
+        """Acceptable passphrase (score 2) should pass with tip."""
+        # These are known to get zxcvbn score 2 (acceptable)
+        # Verified via testing: hjklzx123456, mnbvcx789456, trewqs123456
+        valid, msg = verify_passphrase_strength("hjklzx123456")
+
+        # Score 2 is acceptable, so should be valid
+        assert valid is True
+        assert "acceptable" in msg.lower()
+
+        # Should include a tip from suggestions
+        # zxcvbn feedback for this: "Add another word or two. Uncommon words are better."
+        # The code shows tip if suggestions exist: message += f" (tip: {suggestions[0]})"
+        assert "tip:" in msg.lower() or "suggestions" in msg.lower() or len(msg) > 30
 
     def test_short_passphrase(self):
         """Short passphrase should fail."""

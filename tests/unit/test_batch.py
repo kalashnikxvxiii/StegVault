@@ -201,6 +201,44 @@ class TestBatchConfigLoading:
             except OSError:
                 pass
 
+    def test_load_config_with_restore_jobs(self, test_image):
+        """Should successfully load config with restore jobs."""
+        config_data = {
+            "passphrase": "TestPass123",
+            "backups": [],
+            "restores": [
+                {
+                    "image": test_image,
+                    "output": "restored1.txt",
+                    "label": "Restore Job 1",
+                },
+                {
+                    "image": test_image,
+                    "label": "Restore Job 2",
+                    # No output specified
+                },
+            ],
+        }
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, encoding="utf-8"
+        ) as tmp:
+            json.dump(config_data, tmp)
+            config_path = tmp.name
+
+        try:
+            batch_config = load_batch_config(config_path)
+            assert len(batch_config.restore_jobs) == 2
+            assert batch_config.restore_jobs[0].image == test_image
+            assert batch_config.restore_jobs[0].output == "restored1.txt"
+            assert batch_config.restore_jobs[0].label == "Restore Job 1"
+            assert batch_config.restore_jobs[1].output is None
+        finally:
+            try:
+                os.unlink(config_path)
+            except OSError:
+                pass
+
 
 class TestBatchBackup:
     """Tests for batch backup operations."""
@@ -351,6 +389,39 @@ class TestBatchBackup:
             assert failed == 1
             assert len(errors) == 1
             assert "too small" in errors[0].lower()
+
+        finally:
+            try:
+                if os.path.exists(output):
+                    os.unlink(output)
+            except OSError:
+                pass
+
+    def test_batch_backup_with_invalid_config(self, test_image, monkeypatch):
+        """Should use default config when config file is invalid."""
+        from stegvault.config import ConfigError
+
+        output = tempfile.mktemp(suffix=".png")
+
+        # Mock load_config to raise ConfigError
+        def mock_load_config():
+            raise ConfigError("Invalid config file")
+
+        monkeypatch.setattr("stegvault.batch.core.load_config", mock_load_config)
+
+        config = BatchConfig(
+            passphrase="TestPass123!",
+            backup_jobs=[BackupJob("Password1", test_image, output, "Job 1")],
+            restore_jobs=[],
+        )
+
+        try:
+            # Should use default config and succeed
+            successful, failed, errors = process_batch_backup(config, stop_on_error=False)
+
+            assert successful == 1
+            assert failed == 0
+            assert os.path.exists(output)
 
         finally:
             try:
@@ -545,6 +616,240 @@ class TestBatchRestore:
                     os.unlink(backup)
             except OSError:
                 pass
+
+    def test_batch_restore_corrupted_payload(self, test_image):
+        """Should fail restore with corrupted payload."""
+        from stegvault.stego import embed_payload
+
+        backup = tempfile.mktemp(suffix=".png")
+        output = tempfile.mktemp(suffix=".txt")
+
+        try:
+            # Create image with corrupted payload (invalid magic header)
+            bad_payload = b"XXXX" + b"\x00" * 44  # Invalid magic
+            stego_img = embed_payload(test_image, bad_payload, seed=0)
+            stego_img.save(backup)
+
+            # Try to restore
+            restore_config = BatchConfig(
+                passphrase="TestPass123!",
+                backup_jobs=[],
+                restore_jobs=[RestoreJob(backup, output, "Restore 1")],
+            )
+
+            successful, failed, errors, recovered = process_batch_restore(
+                restore_config, stop_on_error=False
+            )
+
+            assert successful == 0
+            assert failed == 1
+            assert len(errors) == 1
+
+        finally:
+            for path in [backup, output]:
+                try:
+                    if os.path.exists(path):
+                        os.unlink(path)
+                except OSError:
+                    pass
+
+    def test_batch_restore_with_invalid_config(self, test_image, monkeypatch):
+        """Should use default config when config file is invalid."""
+        from stegvault.config import ConfigError
+
+        backup = tempfile.mktemp(suffix=".png")
+        output = tempfile.mktemp(suffix=".txt")
+        passphrase = "TestPass123!"
+        password = "Password1"
+
+        # Create backup
+        backup_config = BatchConfig(
+            passphrase=passphrase,
+            backup_jobs=[BackupJob(password, test_image, backup, "Backup 1")],
+            restore_jobs=[],
+        )
+
+        process_batch_backup(backup_config, stop_on_error=False)
+
+        try:
+            # Mock load_config to raise ConfigError
+            def mock_load_config():
+                raise ConfigError("Invalid config file")
+
+            monkeypatch.setattr("stegvault.batch.core.load_config", mock_load_config)
+
+            # Restore with mocked config (should use default)
+            restore_config = BatchConfig(
+                passphrase=passphrase,
+                backup_jobs=[],
+                restore_jobs=[RestoreJob(backup, output, "Restore 1")],
+            )
+
+            successful, failed, errors, recovered = process_batch_restore(
+                restore_config, stop_on_error=False
+            )
+
+            assert successful == 1
+            assert failed == 0
+            assert recovered["Restore 1"] == password
+
+        finally:
+            for path in [backup, output]:
+                try:
+                    if os.path.exists(path):
+                        os.unlink(path)
+                except OSError:
+                    pass
+
+    def test_batch_restore_with_progress_callback(self, test_image):
+        """Should call progress callback during restore."""
+        from stegvault.batch.core import BackupJob
+
+        backup = tempfile.mktemp(suffix=".png")
+        output = tempfile.mktemp(suffix=".txt")
+        passphrase = "TestPass123!"
+        password = "Password1"
+        progress_calls = []
+
+        def progress_callback(current, total, label):
+            progress_calls.append((current, total, label))
+
+        # Create backup first
+        backup_config = BatchConfig(
+            passphrase=passphrase,
+            backup_jobs=[BackupJob(password, test_image, backup, "Backup 1")],
+            restore_jobs=[],
+        )
+        process_batch_backup(backup_config, stop_on_error=False)
+
+        try:
+            # Restore with progress callback
+            restore_config = BatchConfig(
+                passphrase=passphrase,
+                backup_jobs=[],
+                restore_jobs=[RestoreJob(backup, output, "Restore 1")],
+            )
+
+            successful, failed, errors, recovered = process_batch_restore(
+                restore_config, progress_callback=progress_callback, stop_on_error=False
+            )
+
+            assert successful == 1
+            assert len(progress_calls) == 1
+            assert progress_calls[0] == (1, 1, "Restore 1")
+
+        finally:
+            for path in [backup, output]:
+                try:
+                    if os.path.exists(path):
+                        os.unlink(path)
+                except OSError:
+                    pass
+
+    def test_batch_restore_stop_on_error_with_break(self, test_image):
+        """Should stop and break when stop_on_error=True."""
+        from stegvault.batch.core import BackupJob
+
+        backup1 = tempfile.mktemp(suffix=".png")
+        backup2 = tempfile.mktemp(suffix=".png")
+        output1 = tempfile.mktemp(suffix=".txt")
+        output2 = tempfile.mktemp(suffix=".txt")
+        passphrase = "TestPass123!"
+
+        # Create one valid backup
+        backup_config = BatchConfig(
+            passphrase=passphrase,
+            backup_jobs=[BackupJob("Password1", test_image, backup1, "Backup 1")],
+            restore_jobs=[],
+        )
+        process_batch_backup(backup_config, stop_on_error=False)
+
+        try:
+            # Try to restore: one non-existent, one valid (should not run)
+            restore_config = BatchConfig(
+                passphrase=passphrase,
+                backup_jobs=[],
+                restore_jobs=[
+                    RestoreJob("/nonexistent/image.png", output1, "Restore 1"),
+                    RestoreJob(backup1, output2, "Restore 2"),  # Won't run
+                ],
+            )
+
+            successful, failed, errors, recovered = process_batch_restore(
+                restore_config, stop_on_error=True  # Stop on first error
+            )
+
+            assert successful == 0
+            assert failed == 1
+            assert len(errors) == 1
+            assert "Restore 1" in errors[0]
+            # Second restore should not run (break triggered)
+            assert "Restore 2" not in " ".join(errors)
+
+        finally:
+            for path in [backup1, backup2, output1, output2]:
+                try:
+                    if os.path.exists(path):
+                        os.unlink(path)
+                except OSError:
+                    pass
+
+    def test_batch_restore_payload_exceeds_capacity(self, test_image):
+        """Should fail restore when payload size exceeds image capacity."""
+        from stegvault.stego import embed_payload
+        from stegvault.crypto.core import generate_salt, generate_nonce
+        import struct
+
+        backup = tempfile.mktemp(suffix=".png")
+        output = tempfile.mktemp(suffix=".txt")
+        passphrase = "TestPass123!"
+
+        try:
+            # Create a malicious payload with fake oversized ct_length
+            # Header format: [Magic:4][Salt:16][Nonce:24][Length:4][Ciphertext][Tag:16]
+            magic = b"SPW1"
+            salt = generate_salt()  # 16 bytes
+            nonce = generate_nonce()  # 24 bytes
+
+            # Set ct_length to a huge value (will exceed capacity)
+            fake_ct_length = 999999999  # Ridiculously large
+            ct_length_bytes = struct.pack(">I", fake_ct_length)
+
+            # Create minimal ciphertext + tag (just to have valid structure initially)
+            fake_ciphertext = b"A" * 32  # 32 bytes fake data
+
+            # Build malicious payload
+            malicious_payload = magic + salt + nonce + ct_length_bytes + fake_ciphertext
+
+            # Embed into image
+            stego_img = embed_payload(test_image, malicious_payload, seed=0)
+            stego_img.save(backup)
+
+            # Try to restore - should fail with capacity error
+            restore_config = BatchConfig(
+                passphrase=passphrase,
+                backup_jobs=[],
+                restore_jobs=[RestoreJob(backup, output, "Restore 1")],
+            )
+
+            successful, failed, errors, recovered = process_batch_restore(
+                restore_config, stop_on_error=False
+            )
+
+            assert successful == 0
+            assert failed == 1
+            assert len(errors) == 1
+            assert (
+                "exceeds image capacity" in errors[0].lower() or "payload size" in errors[0].lower()
+            )
+
+        finally:
+            for path in [backup, output]:
+                try:
+                    if os.path.exists(path):
+                        os.unlink(path)
+                except OSError:
+                    pass
 
 
 class TestDataclasses:

@@ -226,6 +226,260 @@ class TestGalleryDB:
 
         db.close()
 
+    def test_db_connect_error(self, monkeypatch):
+        """Should raise GalleryDBError when connection fails."""
+        import sqlite3
+
+        # Mock sqlite3.connect to raise error
+        def mock_connect(*args, **kwargs):
+            raise sqlite3.Error("Connection failed")
+
+        monkeypatch.setattr(sqlite3, "connect", mock_connect)
+
+        with pytest.raises(GalleryDBError, match="Failed to connect"):
+            GalleryDB("/test/path.db")
+
+    def test_schema_initialization_failure(self, temp_db, monkeypatch):
+        """Should handle schema initialization errors."""
+        import sqlite3
+        from unittest.mock import Mock
+
+        # Create a mock connection that raises error on execute
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_cursor.execute.side_effect = sqlite3.Error("Schema creation failed")
+        mock_cursor.executescript.side_effect = sqlite3.Error("Schema creation failed")
+        mock_conn.cursor.return_value = mock_cursor
+
+        original_connect = sqlite3.connect
+
+        def mock_connect(*args, **kwargs):
+            if args[0] == temp_db:
+                return mock_conn
+            return original_connect(*args, **kwargs)
+
+        monkeypatch.setattr(sqlite3, "connect", mock_connect)
+
+        with pytest.raises(GalleryDBError, match="Failed to initialize schema"):
+            GalleryDB(temp_db)
+
+    def test_add_vault_db_error(self, temp_db):
+        """Should handle database errors when adding vault."""
+        from unittest.mock import Mock, patch
+        import sqlite3
+
+        db = GalleryDB(temp_db)
+
+        # Replace conn with a mock that raises error on cursor()
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_cursor.execute.side_effect = sqlite3.Error("Insert failed")
+        mock_conn.cursor.return_value = mock_cursor
+        db.conn = mock_conn
+
+        with pytest.raises(GalleryDBError, match="Failed to add vault"):
+            db.add_vault("test-vault", "/path/to/vault.png")
+
+    def test_get_vault_db_error(self, temp_db):
+        """Should handle database errors when getting vault."""
+        from unittest.mock import Mock
+        import sqlite3
+
+        db = GalleryDB(temp_db)
+
+        # Replace conn with a mock that raises error
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_cursor.execute.side_effect = sqlite3.Error("Query failed")
+        mock_conn.cursor.return_value = mock_cursor
+        db.conn = mock_conn
+
+        with pytest.raises(GalleryDBError, match="Failed to get vault"):
+            db.get_vault("test-vault")
+
+    def test_update_vault_db_error(self, temp_db):
+        """Should handle database errors when updating vault."""
+        from unittest.mock import Mock
+        import sqlite3
+
+        db = GalleryDB(temp_db)
+
+        # Replace conn with a mock that raises error
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_cursor.execute.side_effect = sqlite3.Error("Update failed")
+        mock_conn.cursor.return_value = mock_cursor
+        db.conn = mock_conn
+
+        with pytest.raises(GalleryDBError, match="Failed to update vault"):
+            db.update_vault("test-vault", description="New desc")
+
+    def test_remove_vault_db_error(self, temp_db):
+        """Should handle database errors when removing vault."""
+        from unittest.mock import Mock
+        import sqlite3
+
+        db = GalleryDB(temp_db)
+
+        # Replace conn with a mock that raises error
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_cursor.execute.side_effect = sqlite3.Error("Delete failed")
+        mock_conn.cursor.return_value = mock_cursor
+        db.conn = mock_conn
+
+        with pytest.raises(GalleryDBError, match="Failed to remove vault"):
+            db.remove_vault("test-vault")
+
+    def test_list_vaults_db_error(self, temp_db):
+        """Should handle database errors when listing vaults."""
+        from unittest.mock import Mock
+        import sqlite3
+
+        db = GalleryDB(temp_db)
+
+        # Replace conn with a mock that raises error
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_cursor.execute.side_effect = sqlite3.Error("List failed")
+        mock_conn.cursor.return_value = mock_cursor
+        db.conn = mock_conn
+
+        with pytest.raises(GalleryDBError, match="Failed to list vaults"):
+            db.list_vaults()
+
+    def test_update_last_accessed_db_error(self, temp_db):
+        """Should handle database errors when updating last accessed."""
+        from unittest.mock import Mock
+        import sqlite3
+
+        db = GalleryDB(temp_db)
+
+        # Replace conn with a mock that raises error
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_cursor.execute.side_effect = sqlite3.Error("Update failed")
+        mock_conn.cursor.return_value = mock_cursor
+        db.conn = mock_conn
+
+        with pytest.raises(GalleryDBError, match="Failed to update last accessed"):
+            db.update_last_accessed("test-vault")
+
+    def test_update_vault_no_fields(self, temp_db):
+        """Should return False when no fields to update."""
+        db = GalleryDB(temp_db)
+        db.add_vault("test-vault", "/path/to/vault.png")
+
+        # Call update with no fields
+        result = db.update_vault("test-vault")
+
+        assert result is False
+        db.close()
+
+    def test_add_entry_cache_db_error(self, temp_db):
+        """Should handle database errors when adding entry cache."""
+        from unittest.mock import Mock
+        import sqlite3
+        from stegvault.gallery.core import VaultEntryCache
+
+        db = GalleryDB(temp_db)
+        vault_id = db.add_vault("test-vault", "/path/to/vault.png")
+
+        # Replace conn with a mock that raises error
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_cursor.execute.side_effect = sqlite3.Error("Insert failed")
+        mock_conn.cursor.return_value = mock_cursor
+        db.conn = mock_conn
+
+        cache_entry = VaultEntryCache(
+            vault_id=vault_id,
+            entry_key="test",
+            username="user",
+            url="https://example.com",
+            tags=[],
+            has_totp=False,
+        )
+
+        with pytest.raises(GalleryDBError, match="Failed to add entry cache"):
+            db.add_entry_cache(cache_entry)
+
+    def test_clear_vault_cache_db_error(self, temp_db):
+        """Should handle database errors when clearing vault cache."""
+        from unittest.mock import Mock
+        import sqlite3
+
+        db = GalleryDB(temp_db)
+        vault_id = db.add_vault("test-vault", "/path/to/vault.png")
+
+        # Replace conn with a mock that raises error
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_cursor.execute.side_effect = sqlite3.Error("Delete failed")
+        mock_conn.cursor.return_value = mock_cursor
+        db.conn = mock_conn
+
+        with pytest.raises(GalleryDBError, match="Failed to clear vault cache"):
+            db.clear_vault_cache(vault_id)
+
+    def test_search_entries_db_error(self, temp_db):
+        """Should handle database errors when searching entries."""
+        from unittest.mock import Mock
+        import sqlite3
+
+        db = GalleryDB(temp_db)
+
+        # Replace conn with a mock that raises error
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_cursor.execute.side_effect = sqlite3.Error("Search failed")
+        mock_conn.cursor.return_value = mock_cursor
+        db.conn = mock_conn
+
+        with pytest.raises(GalleryDBError, match="Failed to search entries"):
+            db.search_entries("test")
+
+    def test_get_vault_by_id(self, temp_db):
+        """Should get vault by ID."""
+        db = GalleryDB(temp_db)
+        vault_id = db.add_vault("test-vault", "/path/to/vault.png", "Test description")
+
+        # Get by ID
+        vault = db.get_vault_by_id(vault_id)
+
+        assert vault is not None
+        assert vault.vault_id == vault_id
+        assert vault.name == "test-vault"
+        assert vault.description == "Test description"
+
+        db.close()
+
+    def test_get_vault_by_id_not_found(self, temp_db):
+        """Should return None when vault ID doesn't exist."""
+        db = GalleryDB(temp_db)
+
+        vault = db.get_vault_by_id(99999)
+
+        assert vault is None
+        db.close()
+
+    def test_get_vault_by_id_db_error(self, temp_db):
+        """Should handle database errors when getting vault by ID."""
+        from unittest.mock import Mock
+        import sqlite3
+
+        db = GalleryDB(temp_db)
+
+        # Replace conn with a mock that raises error
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_cursor.execute.side_effect = sqlite3.Error("Query failed")
+        mock_conn.cursor.return_value = mock_cursor
+        db.conn = mock_conn
+
+        with pytest.raises(GalleryDBError, match="Failed to get vault"):
+            db.get_vault_by_id(1)
+
 
 class TestGalleryOperations:
     """Tests for Gallery operations."""
@@ -431,6 +685,81 @@ class TestGalleryOperations:
 
         with pytest.raises(GalleryOperationError, match="not found"):
             refresh_vault(temp_db, "test-vault", passphrase)
+
+    def test_refresh_vault_with_no_entries(self, temp_db):
+        """Should handle vault with None entries (single-password mode)."""
+        from stegvault.gallery.operations import add_vault, refresh_vault
+        from stegvault.crypto import encrypt_data
+        from stegvault.stego import embed_payload
+        from stegvault.utils import serialize_payload
+        import numpy as np
+        from PIL import Image
+
+        # Create single-password vault (not multi-entry vault)
+        cover_path = tempfile.mktemp(suffix=".png")
+        vault_path = tempfile.mktemp(suffix=".png")
+
+        try:
+            # Create cover image
+            img_array = np.random.randint(0, 256, (400, 600, 3), dtype=np.uint8)
+            test_image = Image.fromarray(img_array, mode="RGB")
+            test_image.save(cover_path, format="PNG")
+
+            # Create single-password vault
+            passphrase = "TestPass123!"
+            password = "MySecret123"
+            ciphertext, salt, nonce = encrypt_data(password.encode("utf-8"), passphrase)
+            payload = serialize_payload(salt, nonce, ciphertext)
+            stego_img = embed_payload(cover_path, payload)
+            stego_img.save(vault_path)
+
+            # Add to gallery (temp_db is already a GalleryDB instance)
+            add_vault(temp_db, "single-pass-vault", vault_path)
+
+            # Refresh with passphrase (should handle single-password vault)
+            # This triggers the vault_obj.entries is None path (lines 181-182)
+            refresh_vault(temp_db, "single-pass-vault", passphrase)
+
+            # Verify entry_count is 0 for single-password vaults
+            vault = temp_db.get_vault("single-pass-vault")
+            assert vault.entry_count == 0
+
+        finally:
+            for path in [cover_path, vault_path]:
+                try:
+                    if os.path.exists(path):
+                        os.unlink(path)
+                except (PermissionError, FileNotFoundError):
+                    pass
+
+    def test_refresh_vault_db_error(self, temp_db, temp_vault_image):
+        """Should handle database errors during refresh vault."""
+        from stegvault.gallery.operations import add_vault, refresh_vault
+        from unittest.mock import patch
+
+        vault_path, passphrase = temp_vault_image
+        add_vault(temp_db, "test-vault", vault_path)
+
+        # Mock db.update_last_accessed to raise GalleryDBError
+        with patch.object(
+            temp_db, "update_last_accessed", side_effect=GalleryDBError("Test DB error")
+        ):
+            with pytest.raises(GalleryOperationError, match="Test DB error"):
+                refresh_vault(temp_db, "test-vault", passphrase)
+
+    def test_cache_vault_entries_exception(self, temp_db, temp_vault_image):
+        """Should handle exceptions when caching vault entries."""
+        from stegvault.gallery.operations import add_vault, refresh_vault
+        from unittest.mock import patch
+
+        vault_path, passphrase = temp_vault_image
+        add_vault(temp_db, "test-vault", vault_path)
+
+        # Mock db.add_entry_cache inside _cache_vault_entries to raise an exception
+        # This will trigger after successful decryption/parsing but during caching
+        with patch.object(temp_db, "add_entry_cache", side_effect=Exception("Cache add failed")):
+            with pytest.raises(GalleryOperationError, match="Failed to cache entries"):
+                refresh_vault(temp_db, "test-vault", passphrase)
 
 
 class TestGallerySearch:

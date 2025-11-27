@@ -180,6 +180,20 @@ class TestDefaultConfig:
 class TestLoadConfig:
     """Tests for loading configuration."""
 
+    def test_load_config_tomllib_unavailable(self, temp_config_dir, monkeypatch):
+        """Should raise ConfigError when tomllib is not available."""
+        # Create config file first
+        config_path = temp_config_dir / "config.toml"
+        config_path.write_text("[crypto]\nargon2_time_cost = 5\n")
+
+        # Mock tomllib to be None (simulating Python <3.11 without tomli installed)
+        import stegvault.config.core
+
+        monkeypatch.setattr(stegvault.config.core, "tomllib", None)
+
+        with pytest.raises(ConfigError, match="TOML support not available"):
+            load_config()
+
     def test_load_config_file_not_exists(self, temp_config_dir):
         """Should return default config when file doesn't exist."""
         config = load_config()
@@ -274,6 +288,24 @@ argon2_time_cost = 7
         assert config.crypto.argon2_memory_cost == 65536
         assert config.cli.check_strength is True
 
+    def test_load_config_io_error(self, temp_config_dir, monkeypatch):
+        """Should raise ConfigError when file read fails."""
+        config_path = temp_config_dir / "config.toml"
+        config_path.write_text("[crypto]\nargon2_time_cost = 5\n")
+
+        # Mock open to raise IOError
+        original_open = open
+
+        def mock_open(path, *args, **kwargs):
+            if "config.toml" in str(path):
+                raise IOError("Permission denied")
+            return original_open(path, *args, **kwargs)
+
+        monkeypatch.setattr("builtins.open", mock_open)
+
+        with pytest.raises(ConfigError, match="Failed to read config file"):
+            load_config()
+
 
 class TestSaveConfig:
     """Tests for saving configuration."""
@@ -326,6 +358,48 @@ class TestSaveConfig:
         loaded = load_config()
         assert loaded.crypto.argon2_time_cost == 7
         assert loaded.cli.verbose is True
+
+    def test_save_config_io_error(self, temp_config_dir, monkeypatch):
+        """Should raise ConfigError when file write fails."""
+        config = get_default_config()
+
+        # Mock open to raise IOError during write
+        original_open = open
+
+        def mock_open(path, mode="r", *args, **kwargs):
+            if "config.toml" in str(path) and "w" in mode:
+                raise IOError("Disk full")
+            return original_open(path, mode, *args, **kwargs)
+
+        monkeypatch.setattr("builtins.open", mock_open)
+
+        with pytest.raises(ConfigError, match="Failed to write config file"):
+            save_config(config)
+
+    def test_save_config_serialization_error(self, temp_config_dir, monkeypatch):
+        """Should raise ConfigError when serialization fails."""
+        config = get_default_config()
+
+        # Mock tomli_w.dump to raise Exception
+        def mock_dump(*args, **kwargs):
+            raise ValueError("Invalid config data")
+
+        monkeypatch.setattr("tomli_w.dump", mock_dump)
+
+        with pytest.raises(ConfigError, match="Failed to serialize config"):
+            save_config(config)
+
+    def test_save_config_tomli_w_unavailable(self, temp_config_dir, monkeypatch):
+        """Should raise ConfigError when tomli_w is not available."""
+        config = get_default_config()
+
+        # Mock tomli_w to be None (simulating system without tomli_w)
+        import stegvault.config.core
+
+        monkeypatch.setattr(stegvault.config.core, "tomli_w", None)
+
+        with pytest.raises(ConfigError, match="TOML write support not available"):
+            save_config(config)
 
 
 class TestEnsureConfigExists:

@@ -13,7 +13,7 @@ from dataclasses import dataclass, asdict
 # Python 3.11+ has tomllib in stdlib, earlier versions need tomli
 if sys.version_info >= (3, 11):
     import tomllib
-else:
+else:  # pragma: no cover
     try:
         import tomli as tomllib  # type: ignore
     except ImportError:
@@ -22,7 +22,7 @@ else:
 # For writing TOML, we need tomli_w regardless of Python version
 try:
     import tomli_w
-except ImportError:
+except ImportError:  # pragma: no cover
     tomli_w = None  # type: ignore
 
 

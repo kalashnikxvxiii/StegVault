@@ -182,6 +182,36 @@ class TestBackupCommand:
         assert "Keep both the image AND passphrase safe" in result.output
         assert "Losing either means permanent data loss" in result.output
 
+    def test_backup_with_invalid_config(self, runner, test_image, temp_output, monkeypatch):
+        """Should fallback to default config when config file is invalid."""
+        from stegvault.config import ConfigError
+
+        # Mock load_config to raise ConfigError
+        def mock_load_config():
+            raise ConfigError("Invalid config file")
+
+        monkeypatch.setattr("stegvault.cli.load_config", mock_load_config)
+
+        # Should use default config and succeed
+        result = runner.invoke(
+            backup,
+            [
+                "--image",
+                test_image,
+                "--output",
+                temp_output,
+                "--password",
+                "TestPassword123",
+                "--passphrase",
+                "StrongPassphrase!@#456",
+                "--no-check-strength",
+            ],
+        )
+
+        assert "Warning: Failed to load config" in result.output
+        assert "Using default settings" in result.output
+        assert result.exit_code == 0
+
 
 class TestRestoreCommand:
     """Tests for restore command."""
@@ -360,6 +390,113 @@ class TestRestoreCommand:
         assert restore_result.exit_code == 0
         assert password in restore_result.output
 
+    def test_restore_corrupted_payload(self, runner, test_image, temp_output):
+        """Should fail with corrupted payload format."""
+        from stegvault.stego import embed_payload
+
+        # Create a stego image with invalid payload format (wrong magic header)
+        bad_payload = b"XXXX" + b"\x00" * 44  # Invalid magic header (not "SPW1")
+        stego_img = embed_payload(test_image, bad_payload, seed=0)
+        stego_img.save(temp_output)
+
+        result = runner.invoke(
+            restore,
+            [
+                "--image",
+                temp_output,
+                "--passphrase",
+                "AnyPassphrase123!",
+            ],
+        )
+
+        assert result.exit_code == 1
+        assert "Invalid or corrupted payload" in result.output
+
+    def test_restore_extraction_error(self, runner, test_image):
+        """Should fail with extraction error for non-stego image."""
+        # Try to restore from plain image (no embedded data)
+        result = runner.invoke(
+            restore,
+            [
+                "--image",
+                test_image,
+                "--passphrase",
+                "AnyPassphrase123!",
+            ],
+        )
+
+        # Should fail during extraction
+        assert result.exit_code == 1
+        assert (
+            "Invalid or corrupted payload" in result.output or "bad magic header" in result.output
+        )
+
+    def test_restore_parse_error(self, runner, test_image, temp_output):
+        """Should fail when parse_payload fails."""
+        from stegvault.stego import embed_payload
+        from stegvault.utils import serialize_payload
+
+        # Create a payload with invalid salt/nonce sizes (will fail parsing)
+        bad_payload = b"SPW1" + b"\x00" * 10  # Too short for salt+nonce+length
+        stego_img = embed_payload(test_image, bad_payload, seed=0)
+        stego_img.save(temp_output)
+
+        result = runner.invoke(
+            restore,
+            [
+                "--image",
+                temp_output,
+                "--passphrase",
+                "AnyPassphrase123!",
+            ],
+        )
+
+        # Should fail during parsing
+        assert result.exit_code == 1
+
+    def test_restore_with_invalid_config(self, runner, test_image, temp_output, monkeypatch):
+        """Should fallback to default config when config file is invalid."""
+        from stegvault.config import ConfigError
+
+        # Create a valid backup first
+        password = "TestPassword123"
+        passphrase = "TestPassphrase!@#456"
+        runner.invoke(
+            backup,
+            [
+                "--image",
+                test_image,
+                "--output",
+                temp_output,
+                "--password",
+                password,
+                "--passphrase",
+                passphrase,
+                "--no-check-strength",
+            ],
+        )
+
+        # Mock load_config to raise ConfigError
+        def mock_load_config():
+            raise ConfigError("Invalid config file")
+
+        monkeypatch.setattr("stegvault.cli.load_config", mock_load_config)
+
+        # Should use default config and succeed
+        result = runner.invoke(
+            restore,
+            [
+                "--image",
+                temp_output,
+                "--passphrase",
+                passphrase,
+            ],
+        )
+
+        assert "Warning: Failed to load config" in result.output
+        assert "Using default settings" in result.output
+        assert result.exit_code == 0
+
 
 class TestCheckCommand:
     """Tests for check command."""
@@ -430,6 +567,29 @@ class TestCheckCommand:
         finally:
             try:
                 os.unlink(gray_image)
+            except (PermissionError, FileNotFoundError):
+                pass
+
+    def test_check_medium_capacity_note(self, runner):
+        """Should show note for medium-capacity images (100-500 bytes)."""
+        # Create image with ~200 bytes capacity (26x26 RGB = 676 pixels * 3 / 8 = 253 bytes)
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+            medium_image = tmp.name
+            img_array = np.random.randint(0, 256, (26, 26, 3), dtype=np.uint8)
+            img = Image.fromarray(img_array, mode="RGB")
+            img.save(medium_image, format="PNG")
+            img.close()
+
+        try:
+            result = runner.invoke(check, ["--image", medium_image])
+
+            assert result.exit_code == 0
+            # Should show limited capacity note (100-500 bytes range)
+            assert "Note:" in result.output or "limited" in result.output.lower()
+
+        finally:
+            try:
+                os.unlink(medium_image)
             except (PermissionError, FileNotFoundError):
                 pass
 

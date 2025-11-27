@@ -227,6 +227,83 @@ class TestVaultCreateCommand:
         assert result.exit_code == 2  # Click uses exit code 2 for bad parameters
         assert "Error:" in result.output or "does not exist" in result.output
 
+    def test_create_with_totp_generate(self, runner, test_image, temp_output):
+        """Should successfully create vault with generated TOTP secret."""
+        result = runner.invoke(
+            vault,
+            [
+                "create",
+                "--image",
+                test_image,
+                "--output",
+                temp_output,
+                "--passphrase",
+                "StrongVaultPass123!",
+                "--key",
+                "github_totp",
+                "--password",
+                "MyPassword123",
+                "--totp-generate",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Generated TOTP secret" in result.output
+        assert "Vault created successfully" in result.output
+        assert os.path.exists(temp_output)
+
+    def test_create_with_totp_secret(self, runner, test_image, temp_output):
+        """Should successfully create vault with explicit TOTP secret."""
+        totp_secret = "JBSWY3DPEHPK3PXP"  # Valid base32
+        result = runner.invoke(
+            vault,
+            [
+                "create",
+                "--image",
+                test_image,
+                "--output",
+                temp_output,
+                "--passphrase",
+                "StrongVaultPass123!",
+                "--key",
+                "github_totp",
+                "--password",
+                "MyPassword123",
+                "--totp-secret",
+                totp_secret,
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Vault created successfully" in result.output
+        assert os.path.exists(temp_output)
+
+    def test_create_totp_conflict(self, runner, test_image, temp_output):
+        """Should fail when both --totp-generate and --totp-secret are used."""
+        totp_secret = "JBSWY3DPEHPK3PXP"
+        result = runner.invoke(
+            vault,
+            [
+                "create",
+                "--image",
+                test_image,
+                "--output",
+                temp_output,
+                "--passphrase",
+                "StrongVaultPass123!",
+                "--key",
+                "test",
+                "--password",
+                "MyPassword123",
+                "--totp-generate",
+                "--totp-secret",
+                totp_secret,
+            ],
+        )
+
+        assert result.exit_code == 1
+        assert "Cannot use both --totp-generate and --totp-secret" in result.output
+
 
 class TestVaultAddCommand:
     """Tests for vault add command."""
@@ -461,6 +538,31 @@ class TestVaultAddCommand:
                 os.unlink(new_vault)
             except (PermissionError, FileNotFoundError):
                 pass
+
+    def test_add_totp_conflict(self, runner, vault_image, temp_output):
+        """Should fail when both --totp-generate and --totp-secret are used."""
+        totp_secret = "JBSWY3DPEHPK3PXP"
+        result = runner.invoke(
+            vault,
+            [
+                "add",
+                vault_image,
+                "--output",
+                temp_output,
+                "--passphrase",
+                "VaultPass123!",
+                "--key",
+                "test",
+                "--password",
+                "MyPassword123",
+                "--totp-generate",
+                "--totp-secret",
+                totp_secret,
+            ],
+        )
+
+        assert result.exit_code == 1
+        assert "Cannot use both --totp-generate and --totp-secret" in result.output
 
 
 class TestVaultGetCommand:

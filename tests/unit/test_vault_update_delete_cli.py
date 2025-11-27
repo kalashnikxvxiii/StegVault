@@ -305,6 +305,60 @@ class TestVaultUpdateCLI:
         finally:
             cleanup_file(output_path)
 
+    def test_update_multiple_totp_flags(self, test_vault_image, runner):
+        """Test update fails with multiple TOTP flags."""
+        vault_image, passphrase, cover_path = test_vault_image
+        output_path = tempfile.mktemp(suffix=".png")
+
+        try:
+            result = runner.invoke(
+                vault_cli,
+                [
+                    "update",
+                    vault_image,
+                    "-o",
+                    output_path,
+                    "-k",
+                    "test_entry",
+                    "--totp-generate",
+                    "--totp-remove",
+                    "--passphrase",
+                    passphrase,
+                ],
+            )
+
+            assert result.exit_code == 1
+            assert "Only one of --totp-secret, --totp-generate, or --totp-remove" in result.output
+
+        finally:
+            cleanup_file(output_path)
+
+    def test_update_no_fields_specified(self, test_vault_image, runner):
+        """Test update fails when no fields are specified."""
+        vault_image, passphrase, cover_path = test_vault_image
+        output_path = tempfile.mktemp(suffix=".png")
+
+        try:
+            result = runner.invoke(
+                vault_cli,
+                [
+                    "update",
+                    vault_image,
+                    "-o",
+                    output_path,
+                    "-k",
+                    "test_entry",
+                    "--passphrase",
+                    passphrase,
+                ],
+            )
+
+            assert result.exit_code == 1
+            assert "At least one field must be specified" in result.output
+
+        finally:
+            cleanup_file(output_path)
+
 
 class TestVaultDeleteCLI:
     """Test vault delete CLI command."""

@@ -386,6 +386,29 @@ class TestImageFormatHandling:
 class TestBitPadding:
     """Tests for bit padding in payload conversion."""
 
+    def test_bits_to_bytes_with_padding(self):
+        """Test _bits_to_bytes function directly with non-multiple of 8 bits."""
+        from stegvault.stego.png_lsb import _bits_to_bytes
+
+        # Test with 3 bits (not multiple of 8) - should pad to 8
+        bits = [1, 0, 1]  # 3 bits
+        result = _bits_to_bytes(bits)
+        # 101 + 5 padding zeros = 10100000 = 0xA0 = 160
+        assert result == b"\xa0"
+
+        # Test with 10 bits - should pad to 16
+        bits = [1, 1, 0, 0, 1, 1, 0, 0, 1, 0]  # 10 bits
+        result = _bits_to_bytes(bits)
+        # First byte: 11001100 = 0xCC
+        # Second byte: 10 + 6 padding zeros = 10000000 = 0x80
+        assert result == b"\xcc\x80"
+
+        # Test with 5 bits
+        bits = [1, 1, 1, 1, 1]  # 5 bits
+        result = _bits_to_bytes(bits)
+        # 11111 + 3 padding zeros = 11111000 = 0xF8 = 248
+        assert result == b"\xf8"
+
     def test_payload_not_multiple_of_8_bits(self, test_image_medium):
         """Should handle payload that requires bit padding."""
         # Create payload with length not multiple of 8 bits
