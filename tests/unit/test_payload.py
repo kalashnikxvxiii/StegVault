@@ -278,8 +278,7 @@ class TestExtractFullPayload:
 
         # Embed payload with wrong magic header (not "SPW1")
         bad_payload = b"XXXX" + b"\x00" * 44  # Wrong magic header
-        stego_img = embed_payload(str(img_path), bad_payload, seed=0)
-        stego_img.save(str(img_path))
+        embed_payload(str(img_path), bad_payload, seed=0, output_path=str(img_path))
 
         # Should raise ValueError for bad magic header
         with pytest.raises(ValueError, match="Invalid or corrupted payload"):

@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2025-11-27
+
+### Added - JPEG DCT Steganography
+- **🖼️ Dual Format Support**
+  - JPEG steganography using DCT coefficient modification
+  - Automatic format detection (PNG LSB vs JPEG DCT)
+  - All vault commands now support both PNG and JPEG images
+  - Works with `.png` and `.jpg`/`.jpeg` extensions seamlessly
+
+- **📊 JPEG Implementation Details**
+  - DCT coefficient modification in 8x8 blocks across Y, Cb, Cr channels
+  - Anti-shrinkage: only modifies coefficients with |value| > 1
+  - Robust against JPEG recompression (frequency domain approach)
+  - Lower capacity than PNG (~20%) but more resilient
+  - Typical capacity: ~18KB for 400x600 Q85 JPEG vs ~90KB for PNG
+
+### New Modules
+- `stegvault/stego/jpeg_dct.py` - JPEG DCT steganography implementation (303 lines)
+- `stegvault/stego/dispatcher.py` - Automatic PNG/JPEG routing
+- `stegvault/utils/image_format.py` - Image format detection utilities
+
+### Dependencies
+- Added `jpeglib>=1.0.0` for DCT coefficient access and manipulation
+
+### Changed
+- Modified `stegvault/stego/__init__.py` to use dispatcher instead of direct PNG LSB
+- Updated all CLI commands to support both PNG and JPEG transparently
+- Dispatcher handles both path strings and PIL Image objects
+
+### Testing & Coverage
+- Coverage improved: 88% → 91% (+3%)
+- Total tests: 429 → 451 (+22 tests)
+- All 451 tests passing (100% pass rate)
+- 21 out of 22 modules at 100% coverage
+
+### Documentation
+- Updated README with JPEG support explanation
+- Added PNG vs JPEG comparison with capacity metrics
+- Updated security considerations for format-specific warnings
+- Added JPEG DCT technique description with code examples
+
 ## [0.5.0] - 2025-11-26
 
 ### Added - Gallery Foundation

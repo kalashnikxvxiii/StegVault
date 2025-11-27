@@ -1730,8 +1730,7 @@ class TestVaultTOTPCommand:
             payload = serialize_payload(salt, nonce, ciphertext)
 
             # Embed in image
-            stego_img = embed_payload(cover_path, payload)
-            stego_img.save(temp_output)
+            embed_payload(cover_path, payload, output_path=temp_output)
 
             yield temp_output, passphrase
 

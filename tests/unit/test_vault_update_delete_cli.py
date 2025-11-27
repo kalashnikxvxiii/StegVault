@@ -68,8 +68,7 @@ def test_vault_image():
         vault_json = vault_to_json(vault_obj)
         ciphertext, salt, nonce = encrypt_data(vault_json.encode("utf-8"), passphrase)
         payload = serialize_payload(salt, nonce, ciphertext)
-        stego_img = embed_payload(cover_path, payload)
-        stego_img.save(temp_output)
+        embed_payload(cover_path, payload, output_path=temp_output)
 
         yield temp_output, passphrase, cover_path
 

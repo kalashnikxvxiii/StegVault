@@ -3,23 +3,24 @@
 > Secure password manager using steganography to embed encrypted credentials within images
 
 [![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)](https://github.com/kalashnikxvxiii-collab/StegVault/releases/tag/v0.5.0)
+[![Version](https://img.shields.io/badge/version-0.5.1-blue.svg)](https://github.com/kalashnikxvxiii-collab/StegVault)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-346_passing-brightgreen.svg)](tests/)
-[![Coverage](https://img.shields.io/badge/coverage-78%25-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-451_passing-brightgreen.svg)](tests/)
+[![Coverage](https://img.shields.io/badge/coverage-91%25-brightgreen.svg)](tests/)
 
-**StegVault** is a full-featured password manager that combines modern cryptography with steganography. It can store either a single password or an entire vault of credentials, all encrypted using battle-tested algorithms (XChaCha20-Poly1305 + Argon2id) and hidden within ordinary PNG images using LSB steganography.
+**StegVault** is a full-featured password manager that combines modern cryptography with steganography. It can store either a single password or an entire vault of credentials, all encrypted using battle-tested algorithms (XChaCha20-Poly1305 + Argon2id) and hidden within ordinary **PNG or JPEG** images.
 
-**Latest Features (v0.5.0):** Gallery Foundation - Manage multiple vaults with centralized metadata storage, cross-vault search, and SQLite-backed organization!
+**Latest Features (v0.5.1):** JPEG DCT Steganography - Now supports both PNG LSB and JPEG DCT coefficient modification for maximum flexibility!
 
 ## Features
 
 ### Core Features
 - 🔐 **Strong Encryption**: XChaCha20-Poly1305 AEAD with Argon2id KDF
-- 🖼️ **Invisible Storage**: LSB steganography with sequential pixel ordering
+- 🖼️ **Dual Steganography**: PNG LSB + JPEG DCT coefficient modification
+- 🎯 **Auto-Detection**: Automatically detects image format (PNG/JPEG)
 - 🔒 **Zero-Knowledge**: All operations performed locally, no cloud dependencies
 - ✅ **Authenticated**: AEAD tag ensures data integrity
-- 🧪 **Well-Tested**: 346 unit tests with 78% overall coverage (all passing)
+- 🧪 **Well-Tested**: 451 unit tests with 91% overall coverage (all passing)
 - ⏱️ **User-Friendly**: Progress indicators for long operations
 
 ### Vault Mode
@@ -77,12 +78,18 @@ stegvault backup -i cover.png -o backup.png
 stegvault restore backup.png
 ```
 
-#### Mode 2: Vault (Multiple Passwords) - NEW!
+#### Mode 2: Vault (Multiple Passwords)
+
+> **Note**: All commands work with both PNG and JPEG! Simply use `.jpg` extension:
+> ```bash
+> stegvault vault create -i cover.jpg -o vault.jpg -k gmail --generate
+> ```
 
 **1. Create Vault with First Entry**
 ```bash
 stegvault vault create -i cover.png -o vault.png -k gmail --generate
 # Automatically generates a secure password for Gmail
+# Works with JPEG too: -i cover.jpg -o vault.jpg
 ```
 
 **2. Add More Passwords**
@@ -279,22 +286,44 @@ Binary structure embedded in images:
 └────────────────────────────────────────────────────┘
 ```
 
-### Steganography Technique
+### Steganography Techniques
 
-**LSB (Least Significant Bit) Embedding**:
+StegVault automatically detects image format and uses the appropriate method:
+
+#### **PNG: LSB (Least Significant Bit) Embedding**
 
 1. **Sequential Pixel Ordering**: All payload bits stored left-to-right, top-to-bottom for reliability and simplicity
 2. **Distributed Embedding**: Payload bits spread across R, G, B channels
 3. **Minimal Visual Impact**: Only LSB modified (imperceptible to human eye)
-4. **Security Philosophy**: Cryptographic strength (XChaCha20-Poly1305 + Argon2id) provides security, not pixel ordering
+4. **High Capacity**: ~3 bits per pixel (~90KB for 400x600 image)
 
 ```python
-# Simplified example
+# Simplified PNG LSB example
 for y in range(height):
     for x in range(width):
         for channel in [R, G, B]:
             channel_value = (channel_value & 0xFE) | payload_bit
 ```
+
+#### **JPEG: DCT Coefficient Modification**
+
+1. **Frequency Domain**: Modifies DCT (Discrete Cosine Transform) coefficients in 8x8 blocks
+2. **Anti-Shrinkage**: Only uses coefficients with |value| > 1 to prevent artifacts
+3. **Multi-Channel**: Embeds across Y, Cb, Cr channels
+4. **Robust**: More resistant to JPEG recompression than spatial methods
+5. **Lower Capacity**: ~1 bit per suitable coefficient (~18KB for 400x600 Q85 image)
+
+```python
+# Simplified JPEG DCT example
+for block in [Y_blocks, Cb_blocks, Cr_blocks]:
+    for coef in block.AC_coefficients:  # Skip DC
+        if abs(coef) > 1:  # Anti-shrinkage
+            coef_lsb = abs(coef) % 2
+            if coef_lsb != payload_bit:
+                coef += 1 if coef > 0 else -1
+```
+
+**Security Philosophy**: Cryptographic strength (XChaCha20-Poly1305 + Argon2id) provides security, not the embedding method
 
 ## Security Considerations
 
@@ -310,7 +339,9 @@ for y in range(height):
 
 - **Not Invisible**: Advanced steganalysis may detect embedded data
 - **No Deniability**: Payload has identifiable magic header
-- **JPEG Lossy**: Recompressing JPEG images destroys payload (use PNG)
+- **Format-Specific**:
+  - **PNG**: Use lossless formats only; JPEG recompression destroys LSB data
+  - **JPEG**: More robust against recompression but lower capacity (~20% of PNG)
 - **Both Required**: Losing either image OR passphrase = permanent data loss
 - **Offline Attacks**: Attacker with image can attempt brute-force (mitigated by Argon2id)
 

@@ -544,8 +544,7 @@ class TestGalleryOperations:
         vault_json = vault_to_json(vault_obj)
         ciphertext, salt, nonce = encrypt_data(vault_json.encode("utf-8"), passphrase)
         payload = serialize_payload(salt, nonce, ciphertext)
-        stego_img = embed_payload(cover_path, payload)
-        stego_img.save(vault_path)
+        embed_payload(cover_path, payload, output_path=vault_path)
 
         yield vault_path, passphrase
 
@@ -710,8 +709,7 @@ class TestGalleryOperations:
             password = "MySecret123"
             ciphertext, salt, nonce = encrypt_data(password.encode("utf-8"), passphrase)
             payload = serialize_payload(salt, nonce, ciphertext)
-            stego_img = embed_payload(cover_path, payload)
-            stego_img.save(vault_path)
+            embed_payload(cover_path, payload, output_path=vault_path)
 
             # Add to gallery (temp_db is already a GalleryDB instance)
             add_vault(temp_db, "single-pass-vault", vault_path)
@@ -827,8 +825,7 @@ class TestGallerySearch:
             vault_json = vault_to_json(vault_obj)
             ciphertext, salt, nonce = encrypt_data(vault_json.encode("utf-8"), passphrase)
             payload = serialize_payload(salt, nonce, ciphertext)
-            stego_img = embed_payload(cover_path, payload)
-            stego_img.save(vault_path)
+            embed_payload(cover_path, payload, output_path=vault_path)
 
             # Add to gallery
             gallery.add_vault(vault_name, vault_path, tags=[vault_name.split("-")[0]])

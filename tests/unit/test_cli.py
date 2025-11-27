@@ -396,8 +396,7 @@ class TestRestoreCommand:
 
         # Create a stego image with invalid payload format (wrong magic header)
         bad_payload = b"XXXX" + b"\x00" * 44  # Invalid magic header (not "SPW1")
-        stego_img = embed_payload(test_image, bad_payload, seed=0)
-        stego_img.save(temp_output)
+        embed_payload(test_image, bad_payload, seed=0, output_path=temp_output)
 
         result = runner.invoke(
             restore,
@@ -438,8 +437,7 @@ class TestRestoreCommand:
 
         # Create a payload with invalid salt/nonce sizes (will fail parsing)
         bad_payload = b"SPW1" + b"\x00" * 10  # Too short for salt+nonce+length
-        stego_img = embed_payload(test_image, bad_payload, seed=0)
-        stego_img.save(temp_output)
+        embed_payload(test_image, bad_payload, seed=0, output_path=temp_output)
 
         result = runner.invoke(
             restore,

@@ -627,8 +627,7 @@ class TestBatchRestore:
         try:
             # Create image with corrupted payload (invalid magic header)
             bad_payload = b"XXXX" + b"\x00" * 44  # Invalid magic
-            stego_img = embed_payload(test_image, bad_payload, seed=0)
-            stego_img.save(backup)
+            embed_payload(test_image, bad_payload, seed=0, output_path=backup)
 
             # Try to restore
             restore_config = BatchConfig(
@@ -822,8 +821,7 @@ class TestBatchRestore:
             malicious_payload = magic + salt + nonce + ct_length_bytes + fake_ciphertext
 
             # Embed into image
-            stego_img = embed_payload(test_image, malicious_payload, seed=0)
-            stego_img.save(backup)
+            embed_payload(test_image, malicious_payload, seed=0, output_path=backup)
 
             # Try to restore - should fail with capacity error
             restore_config = BatchConfig(
