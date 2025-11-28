@@ -15,6 +15,8 @@ from stegvault.utils.payload import (
     PayloadError,
     PayloadFormatError,
 )
+from stegvault.utils.json_output import JSONOutput
+from stegvault.utils.passphrase import get_passphrase, validate_passphrase_sources
 
 __all__ = [
     "PayloadFormat",
@@ -26,4 +28,7 @@ __all__ = [
     "extract_full_payload",
     "PayloadError",
     "PayloadFormatError",
+    "JSONOutput",
+    "get_passphrase",
+    "validate_passphrase_sources",
 ]

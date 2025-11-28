@@ -764,7 +764,7 @@ class TestVaultGetCommand:
         assert "Warning: --clipboard-timeout ignored without --clipboard flag" in result.output
 
     def test_get_negative_clipboard_timeout(self, runner, vault_image):
-        """Should error with negative clipboard timeout."""
+        """Should error with negative clipboard timeout (validation error)."""
         result = runner.invoke(
             vault,
             [
@@ -780,7 +780,7 @@ class TestVaultGetCommand:
             ],
         )
 
-        assert result.exit_code == 1
+        assert result.exit_code == 2  # Validation error
         assert "Clipboard timeout must be >= 0" in result.output
 
 

@@ -408,7 +408,8 @@ def restore(image: str, passphrase: str, output: Any) -> None:
 @click.option(
     "--image", "-i", required=True, type=click.Path(exists=True), help="Image file to check"
 )
-def check(image: str) -> None:
+@click.option("--json", "json_output", is_flag=True, help="Output in JSON format")
+def check(image: str, json_output: bool) -> None:
     """
     Check image capacity for password storage.
 
@@ -417,44 +418,73 @@ def check(image: str) -> None:
     \b
     Example:
         stegvault check -i myimage.png
+        stegvault check -i myimage.png --json
     """
     try:
         from PIL import Image
+        from stegvault.utils.json_output import JSONOutput, check_success
 
         if not os.path.exists(image):
-            click.echo(f"Error: Image file not found: {image}", err=True)
+            if json_output:
+                click.echo(
+                    JSONOutput.error(f"Image file not found: {image}", error_type="file_not_found")
+                )
+            else:
+                click.echo(f"Error: Image file not found: {image}", err=True)
             sys.exit(1)
 
         img = Image.open(image)
 
-        click.echo(f"Image: {image}")
-        click.echo(f"Format: {img.format}")
-        click.echo(f"Mode: {img.mode}")
-        click.echo(f"Size: {img.width}x{img.height} pixels")
-
         if img.mode not in ("RGB", "RGBA"):
-            click.echo(f"\nWarning: Unsupported mode '{img.mode}'. Convert to RGB first.")
+            if json_output:
+                click.echo(
+                    JSONOutput.error(
+                        f"Unsupported image mode '{img.mode}'. Convert to RGB first.",
+                        error_type="unsupported_mode",
+                        mode=img.mode,
+                    )
+                )
+            else:
+                click.echo(f"\nWarning: Unsupported mode '{img.mode}'. Convert to RGB first.")
             img.close()
             sys.exit(1)
 
         capacity = calculate_capacity(img)
+        max_password = capacity - 64  # Accounting for overhead
+
+        if json_output:
+            click.echo(
+                check_success(
+                    image_path=image,
+                    image_format=img.format or "unknown",
+                    mode=img.mode,
+                    size=(img.width, img.height),
+                    capacity=capacity,
+                    max_password_size=max_password,
+                )
+            )
+        else:
+            click.echo(f"Image: {image}")
+            click.echo(f"Format: {img.format}")
+            click.echo(f"Mode: {img.mode}")
+            click.echo(f"Size: {img.width}x{img.height} pixels")
+            click.echo(f"\nCapacity: {capacity} bytes ({capacity / 1024:.2f} KB)")
+            click.echo(f"Max password size: ~{max_password} bytes ({max_password} characters)")
+
+            if capacity < 100:
+                click.echo("\nWarning: Image is very small. Consider using a larger image.")
+            elif capacity < 500:
+                click.echo("\nNote: Image capacity is limited. Suitable for short passwords only.")
+            else:
+                click.echo("\n[OK] Image has sufficient capacity for password storage.")
+
         img.close()
 
-        click.echo(f"\nCapacity: {capacity} bytes ({capacity / 1024:.2f} KB)")
-
-        # Calculate max password sizes
-        max_password = capacity - 64  # Accounting for overhead
-        click.echo(f"Max password size: ~{max_password} bytes ({max_password} characters)")
-
-        if capacity < 100:
-            click.echo("\nWarning: Image is very small. Consider using a larger image.")
-        elif capacity < 500:
-            click.echo("\nNote: Image capacity is limited. Suitable for short passwords only.")
-        else:
-            click.echo("\n[OK] Image has sufficient capacity for password storage.")
-
     except Exception as e:
-        click.echo(f"Error: {e}", err=True)
+        if json_output:
+            click.echo(JSONOutput.error(str(e), error_type="error"))
+        else:
+            click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
 
@@ -1116,7 +1146,8 @@ def add(
 
 @vault.command()
 @click.argument("vault_image", type=click.Path(exists=True))
-@click.option("--passphrase", prompt=True, hide_input=True, help="Vault passphrase")
+@click.option("--passphrase", default=None, help="Vault passphrase (or use --passphrase-file/env)")
+@click.option("--passphrase-file", type=click.Path(exists=True), help="Read passphrase from file")
 @click.option("--key", "-k", required=True, help="Entry key to retrieve")
 @click.option(
     "--clipboard", "-c", is_flag=True, help="Copy password to clipboard instead of displaying"
@@ -1127,8 +1158,15 @@ def add(
     default=0,
     help="Auto-clear clipboard after N seconds (0 = no auto-clear)",
 )
+@click.option("--json", "json_output", is_flag=True, help="Output in JSON format")
 def get(
-    vault_image: str, passphrase: str, key: str, clipboard: bool, clipboard_timeout: int
+    vault_image: str,
+    passphrase: Optional[str],
+    passphrase_file: Optional[str],
+    key: str,
+    clipboard: bool,
+    clipboard_timeout: int,
+    json_output: bool,
 ) -> None:
     """
     Retrieve a password from the vault.
@@ -1141,19 +1179,46 @@ def get(
         stegvault vault get vault.png -k gmail
         stegvault vault get vault.png -k gmail --clipboard
         stegvault vault get vault.png -k gmail --clipboard --clipboard-timeout 30
+        stegvault vault get vault.png -k gmail --json
     """
     try:
         from stegvault.vault import get_entry, parse_payload as parse_vault_payload
         from stegvault.utils.payload import parse_payload as parse_binary_payload
+        from stegvault.utils.json_output import JSONOutput, vault_get_success
+        from stegvault.utils.passphrase import get_passphrase
         import pyperclip
+
+        # Get passphrase from file/env/prompt
+        actual_passphrase = get_passphrase(
+            passphrase=passphrase,
+            passphrase_file=passphrase_file,
+            prompt_text="Vault passphrase",
+            hide_input=True,
+            confirmation_prompt=False,
+        )
 
         # Validate clipboard_timeout
         if clipboard_timeout < 0:
-            click.echo("Error: Clipboard timeout must be >= 0", err=True)
-            sys.exit(1)
+            if json_output:
+                click.echo(
+                    JSONOutput.error("Clipboard timeout must be >= 0", error_type="validation")
+                )
+            else:
+                click.echo("Error: Clipboard timeout must be >= 0", err=True)
+            sys.exit(2)
 
         if clipboard_timeout > 0 and not clipboard:
-            click.echo("Warning: --clipboard-timeout ignored without --clipboard flag", err=True)
+            if not json_output:
+                click.echo(
+                    "Warning: --clipboard-timeout ignored without --clipboard flag", err=True
+                )
+
+        # JSON output incompatible with clipboard mode
+        if json_output and clipboard:
+            click.echo(
+                JSONOutput.error("Cannot use --json with --clipboard", error_type="validation")
+            )
+            sys.exit(2)
 
         # Load configuration
         try:
@@ -1164,7 +1229,8 @@ def get(
             config = get_default_config()
 
         # Extract and decrypt
-        click.echo("Decrypting vault...")
+        if not json_output:
+            click.echo("Decrypting vault...")
         payload = extract_full_payload(vault_image)
         salt, nonce, ciphertext = parse_binary_payload(payload)
 
@@ -1172,7 +1238,7 @@ def get(
             ciphertext,
             salt,
             nonce,
-            passphrase,
+            actual_passphrase,
             time_cost=config.crypto.argon2_time_cost,
             memory_cost=config.crypto.argon2_memory_cost,
             parallelism=config.crypto.argon2_parallelism,
@@ -1181,7 +1247,15 @@ def get(
         # Parse vault
         parsed = parse_vault_payload(decrypted.decode("utf-8"))
         if isinstance(parsed, str):
-            click.echo("Error: This image contains a single password, not a vault", err=True)
+            if json_output:
+                click.echo(
+                    JSONOutput.error(
+                        "This image contains a single password, not a vault",
+                        error_type="wrong_format",
+                    )
+                )
+            else:
+                click.echo("Error: This image contains a single password, not a vault", err=True)
             sys.exit(1)
 
         vault_obj = parsed
@@ -1189,21 +1263,40 @@ def get(
         # Get entry
         entry = get_entry(vault_obj, key)
         if not entry:
-            click.echo(f"Error: Entry '{key}' not found", err=True)
-            click.echo(f"Available keys: {', '.join(vault_obj.list_keys())}", err=True)
+            if json_output:
+                click.echo(
+                    JSONOutput.error(
+                        f"Entry '{key}' not found",
+                        error_type="entry_not_found",
+                        available_keys=vault_obj.list_keys(),
+                    )
+                )
+            else:
+                click.echo(f"Error: Entry '{key}' not found", err=True)
+                click.echo(f"Available keys: {', '.join(vault_obj.list_keys())}", err=True)
             sys.exit(1)
 
-        # Display entry info (always show metadata, conditionally show password)
-        click.echo(f"\nEntry: {key}")
-        if entry.username:
-            click.echo(f"Username: {entry.username}")
-        if entry.url:
-            click.echo(f"URL: {entry.url}")
-
-        if clipboard:
+        # Output
+        if json_output:
+            click.echo(
+                vault_get_success(
+                    key=key,
+                    password=entry.password,
+                    username=entry.username,
+                    url=entry.url,
+                    notes=entry.notes,
+                    has_totp=bool(entry.totp_secret),
+                )
+            )
+        elif clipboard:
             # Copy to clipboard instead of displaying
             try:
                 pyperclip.copy(entry.password)
+                click.echo(f"\nEntry: {key}")
+                if entry.username:
+                    click.echo(f"Username: {entry.username}")
+                if entry.url:
+                    click.echo(f"URL: {entry.url}")
                 click.echo(f"Password: ********** (copied to clipboard)")
                 click.echo("\n[OK] Password copied to clipboard")
 
@@ -1219,33 +1312,63 @@ def get(
                 click.echo(f"Password: {entry.password}")  # Fallback to display
         else:
             # Display password on screen
+            click.echo(f"\nEntry: {key}")
+            if entry.username:
+                click.echo(f"Username: {entry.username}")
+            if entry.url:
+                click.echo(f"URL: {entry.url}")
             click.echo(f"Password: {entry.password}")
 
-        if entry.notes:
+        if not json_output and entry.notes:
             click.echo(f"Notes: {entry.notes}")
 
     except DecryptionError:
-        click.echo("Error: Wrong passphrase", err=True)
+        if json_output:
+            click.echo(
+                JSONOutput.error("Wrong passphrase or corrupted data", error_type="decryption")
+            )
+        else:
+            click.echo("Error: Wrong passphrase", err=True)
         sys.exit(1)
     except Exception as e:
-        click.echo(f"Error: {e}", err=True)
+        if json_output:
+            click.echo(JSONOutput.error(str(e), error_type="error"))
+        else:
+            click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
 
 @vault.command()
 @click.argument("vault_image", type=click.Path(exists=True))
-@click.option("--passphrase", prompt=True, hide_input=True, help="Vault passphrase")
-def list(vault_image: str, passphrase: str) -> None:
+@click.option("--passphrase", default=None, help="Vault passphrase (or use --passphrase-file/env)")
+@click.option("--passphrase-file", type=click.Path(exists=True), help="Read passphrase from file")
+@click.option("--json", "json_output", is_flag=True, help="Output in JSON format")
+def list(
+    vault_image: str, passphrase: Optional[str], passphrase_file: Optional[str], json_output: bool
+) -> None:
     """
     List all entry keys in the vault (without showing passwords).
 
     \b
     Example:
         stegvault vault list vault.png
+        stegvault vault list vault.png --json
+        stegvault vault list vault.png --passphrase-file ~/.vault_pass
     """
     try:
         from stegvault.vault import list_entries, parse_payload as parse_vault_payload
         from stegvault.utils.payload import parse_payload as parse_binary_payload
+        from stegvault.utils.json_output import JSONOutput, vault_list_success
+        from stegvault.utils.passphrase import get_passphrase
+
+        # Get passphrase from file/env/prompt
+        actual_passphrase = get_passphrase(
+            passphrase=passphrase,
+            passphrase_file=passphrase_file,
+            prompt_text="Vault passphrase",
+            hide_input=True,
+            confirmation_prompt=False,
+        )
 
         # Load configuration
         try:
@@ -1256,7 +1379,8 @@ def list(vault_image: str, passphrase: str) -> None:
             config = get_default_config()
 
         # Extract and decrypt
-        click.echo("Decrypting vault...")
+        if not json_output:
+            click.echo("Decrypting vault...")
         payload = extract_full_payload(vault_image)
         salt, nonce, ciphertext = parse_binary_payload(payload)
 
@@ -1264,7 +1388,7 @@ def list(vault_image: str, passphrase: str) -> None:
             ciphertext,
             salt,
             nonce,
-            passphrase,
+            actual_passphrase,
             time_cost=config.crypto.argon2_time_cost,
             memory_cost=config.crypto.argon2_memory_cost,
             parallelism=config.crypto.argon2_parallelism,
@@ -1273,7 +1397,15 @@ def list(vault_image: str, passphrase: str) -> None:
         # Parse vault
         parsed = parse_vault_payload(decrypted.decode("utf-8"))
         if isinstance(parsed, str):
-            click.echo("Error: This image contains a single password, not a vault", err=True)
+            if json_output:
+                click.echo(
+                    JSONOutput.error(
+                        "This image contains a single password, not a vault",
+                        error_type="wrong_format",
+                    )
+                )
+            else:
+                click.echo("Error: This image contains a single password, not a vault", err=True)
             sys.exit(1)
 
         vault_obj = parsed
@@ -1281,17 +1413,39 @@ def list(vault_image: str, passphrase: str) -> None:
         # List entries
         keys = list_entries(vault_obj)
 
-        click.echo(f"\nVault contains {len(keys)} entries:")
-        for i, entry_key in enumerate(keys, 1):
-            entry = vault_obj.get_entry(entry_key)
-            username_part = f" ({entry.username})" if entry and entry.username else ""
-            click.echo(f"  {i}. {entry_key}{username_part}")
+        if json_output:
+            entries = []
+            for entry_key in keys:
+                entry = vault_obj.get_entry(entry_key)
+                entries.append(
+                    {
+                        "key": entry_key,
+                        "username": entry.username if entry else None,
+                        "url": entry.url if entry else None,
+                        "has_totp": bool(entry.totp_secret) if entry else False,
+                    }
+                )
+            click.echo(vault_list_success(entries=entries, entry_count=len(keys)))
+        else:
+            click.echo(f"\nVault contains {len(keys)} entries:")
+            for i, entry_key in enumerate(keys, 1):
+                entry = vault_obj.get_entry(entry_key)
+                username_part = f" ({entry.username})" if entry and entry.username else ""
+                click.echo(f"  {i}. {entry_key}{username_part}")
 
     except DecryptionError:
-        click.echo("Error: Wrong passphrase", err=True)
+        if json_output:
+            click.echo(
+                JSONOutput.error("Wrong passphrase or corrupted data", error_type="decryption")
+            )
+        else:
+            click.echo("Error: Wrong passphrase", err=True)
         sys.exit(1)
     except Exception as e:
-        click.echo(f"Error: {e}", err=True)
+        if json_output:
+            click.echo(JSONOutput.error(str(e), error_type="error"))
+        else:
+            click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
 

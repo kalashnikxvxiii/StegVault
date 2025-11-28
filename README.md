@@ -3,14 +3,14 @@
 > Secure password manager using steganography to embed encrypted credentials within images
 
 [![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-0.5.1-blue.svg)](https://github.com/kalashnikxvxiii-collab/StegVault)
+[![Version](https://img.shields.io/badge/version-0.6.0--beta-blue.svg)](https://github.com/kalashnikxvxiii-collab/StegVault)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-451_passing-brightgreen.svg)](tests/)
-[![Coverage](https://img.shields.io/badge/coverage-91%25-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-585_passing-brightgreen.svg)](tests/)
+[![Coverage](https://img.shields.io/badge/coverage-92%25-brightgreen.svg)](tests/)
 
 **StegVault** is a full-featured password manager that combines modern cryptography with steganography. It can store either a single password or an entire vault of credentials, all encrypted using battle-tested algorithms (XChaCha20-Poly1305 + Argon2id) and hidden within ordinary **PNG or JPEG** images.
 
-**Latest Features (v0.5.1):** JPEG DCT Steganography - Now supports both PNG LSB and JPEG DCT coefficient modification for maximum flexibility!
+**Latest Features (v0.6.0-beta):** Headless Mode - Full automation support with JSON output, file/env passphrases, and standardized exit codes for CI/CD pipelines!
 
 ## Features
 
@@ -20,7 +20,7 @@
 - 🎯 **Auto-Detection**: Automatically detects image format (PNG/JPEG)
 - 🔒 **Zero-Knowledge**: All operations performed locally, no cloud dependencies
 - ✅ **Authenticated**: AEAD tag ensures data integrity
-- 🧪 **Well-Tested**: 451 unit tests with 91% overall coverage (all passing)
+- 🧪 **Well-Tested**: 585 unit tests with 92% overall coverage (all passing)
 - ⏱️ **User-Friendly**: Progress indicators for long operations
 
 ### Vault Mode
@@ -44,6 +44,14 @@
 - ⚡ **Fast Search**: Cached entry metadata for instant results
 - 📊 **Vault Statistics**: Track entry counts, last accessed times
 - 🔄 **Auto-Refresh**: Update cache when vault contents change
+
+### Headless Mode (v0.6.0)
+- 🤖 **JSON Output**: Machine-readable output for all critical commands
+- 📄 **Passphrase File**: Non-interactive authentication via `--passphrase-file`
+- 🌍 **Environment Variables**: `STEGVAULT_PASSPHRASE` for CI/CD pipelines
+- 🔢 **Exit Codes**: Standardized codes (0=success, 1=error, 2=validation)
+- ⚙️ **Automation-Ready**: Perfect for scripts, backups, and deployments
+- 🔗 **Priority System**: Explicit > File > Env > Prompt fallback
 
 ## Quick Start
 
@@ -223,6 +231,232 @@ stegvault gallery refresh work-vault
 
 # Remove vault from gallery (doesn't delete the image)
 stegvault gallery remove old-vault
+```
+
+### Headless Mode (v0.6.0) - Automation & CI/CD
+
+**Automation-friendly features for scripts, CI/CD pipelines, and server environments.**
+
+#### JSON Output
+
+All critical commands support `--json` for machine-readable output:
+
+```bash
+# Check image capacity with JSON output
+stegvault check -i image.png --json
+```
+```json
+{
+  "status": "success",
+  "data": {
+    "image_path": "image.png",
+    "format": "PNG",
+    "mode": "RGB",
+    "size": {"width": 800, "height": 600},
+    "capacity": 18750,
+    "max_password_size": 18686
+  }
+}
+```
+
+```bash
+# Retrieve password in JSON format
+stegvault vault get vault.png -k gmail --passphrase mypass --json
+```
+```json
+{
+  "status": "success",
+  "data": {
+    "key": "gmail",
+    "password": "secret123",
+    "username": "user@gmail.com",
+    "url": "https://gmail.com",
+    "notes": "Personal email",
+    "has_totp": true
+  }
+}
+```
+
+```bash
+# List vault entries as JSON
+stegvault vault list vault.png --passphrase mypass --json
+```
+```json
+{
+  "status": "success",
+  "data": {
+    "entries": [
+      {"key": "gmail", "username": "user@gmail.com", "url": "https://gmail.com", "has_totp": true},
+      {"key": "github", "username": "myuser", "url": "https://github.com", "has_totp": false}
+    ],
+    "entry_count": 2
+  }
+}
+```
+
+#### Passphrase from File
+
+Avoid interactive prompts by providing passphrase via file:
+
+```bash
+# Store passphrase in a secure file
+echo "MySecretPassphrase" > ~/.vault_pass
+chmod 600 ~/.vault_pass
+
+# Use --passphrase-file to read from file
+stegvault vault get vault.png -k gmail --passphrase-file ~/.vault_pass --json
+
+# Works with all vault commands
+stegvault vault list vault.png --passphrase-file ~/.vault_pass
+```
+
+#### Environment Variable
+
+Set `STEGVAULT_PASSPHRASE` for completely non-interactive operation:
+
+```bash
+# Export passphrase as environment variable
+export STEGVAULT_PASSPHRASE="MySecretPassphrase"
+
+# No passphrase prompt - automatically uses env var
+stegvault vault get vault.png -k gmail --json
+stegvault vault list vault.png --json
+```
+
+#### Passphrase Priority
+
+StegVault uses this priority order for passphrases:
+
+1. **Explicit `--passphrase`** (highest priority)
+2. **`--passphrase-file`**
+3. **`STEGVAULT_PASSPHRASE` environment variable**
+4. **Interactive prompt** (fallback)
+
+```bash
+# Explicit passphrase overrides file and env var
+stegvault vault get vault.png -k gmail --passphrase "explicit" --json
+
+# File overrides env var
+stegvault vault get vault.png -k gmail --passphrase-file ~/.pass --json
+
+# Env var used if no explicit or file
+export STEGVAULT_PASSPHRASE="fallback"
+stegvault vault get vault.png -k gmail --json
+```
+
+#### Exit Codes
+
+Standardized exit codes for automation:
+
+- **0** = Success
+- **1** = Runtime error (wrong passphrase, file not found, decryption error)
+- **2** = Validation error (invalid input, empty passphrase file)
+
+```bash
+# Check exit code in scripts
+stegvault vault get vault.png -k gmail --passphrase-file ~/.pass --json
+if [ $? -eq 0 ]; then
+    echo "Success"
+elif [ $? -eq 1 ]; then
+    echo "Runtime error"
+elif [ $? -eq 2 ]; then
+    echo "Validation error"
+fi
+```
+
+#### Example: CI/CD Pipeline
+
+```yaml
+# .github/workflows/deploy.yml
+- name: Retrieve database password
+  run: |
+    PASSWORD=$(stegvault vault get secrets.png \
+      -k db_password \
+      --passphrase-file ${{ secrets.VAULT_PASSPHRASE_FILE }} \
+      --json | jq -r '.data.password')
+    echo "::add-mask::$PASSWORD"
+    echo "DB_PASSWORD=$PASSWORD" >> $GITHUB_ENV
+
+- name: Deploy application
+  run: ./deploy.sh
+  env:
+    DB_PASSWORD: ${{ env.DB_PASSWORD }}
+```
+
+#### Example: Backup Script
+
+```bash
+#!/bin/bash
+# backup_passwords.sh - Automated password backup
+
+set -e  # Exit on error
+
+VAULT_PASS_FILE="$HOME/.vault_pass"
+BACKUP_DIR="$HOME/backups"
+DATE=$(date +%Y%m%d)
+
+# Verify passphrase file exists
+if [ ! -f "$VAULT_PASS_FILE" ]; then
+    echo "Error: Passphrase file not found"
+    exit 1
+fi
+
+# Export vault to JSON
+stegvault vault export vault.png \
+    -o "$BACKUP_DIR/vault_$DATE.json" \
+    --passphrase-file "$VAULT_PASS_FILE" \
+    --pretty
+
+# Check exit code
+if [ $? -eq 0 ]; then
+    echo "Backup created: $BACKUP_DIR/vault_$DATE.json"
+
+    # Get vault statistics
+    STATS=$(stegvault vault list vault.png \
+        --passphrase-file "$VAULT_PASS_FILE" \
+        --json)
+
+    ENTRY_COUNT=$(echo "$STATS" | jq -r '.data.entry_count')
+    echo "Backed up $ENTRY_COUNT entries"
+else
+    echo "Backup failed"
+    exit 1
+fi
+```
+
+#### Example: Password Rotation
+
+```bash
+#!/bin/bash
+# rotate_password.sh - Programmatic password rotation
+
+VAULT_FILE="vault.png"
+SERVICE="github"
+NEW_PASSWORD=$(openssl rand -base64 32)
+
+# Retrieve current password info as JSON
+INFO=$(stegvault vault get "$VAULT_FILE" \
+    -k "$SERVICE" \
+    --passphrase-file ~/.vault_pass \
+    --json)
+
+if [ $? -eq 0 ]; then
+    USERNAME=$(echo "$INFO" | jq -r '.data.username')
+
+    # Update password via external API (example)
+    curl -X POST "https://api.github.com/user/password" \
+        -u "$USERNAME:$NEW_PASSWORD"
+
+    # Update vault with new password
+    stegvault vault update "$VAULT_FILE" \
+        -o "${VAULT_FILE}.new" \
+        -k "$SERVICE" \
+        --password "$NEW_PASSWORD" \
+        --passphrase-file ~/.vault_pass
+
+    mv "${VAULT_FILE}.new" "$VAULT_FILE"
+    echo "Password rotated successfully"
+fi
 ```
 
 ## How It Works

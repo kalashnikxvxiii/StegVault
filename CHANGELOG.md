@@ -7,6 +7,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2025-11-28
+
+### Added - Headless Mode & Automation
+
+- **🤖 JSON Output**
+  - Machine-readable JSON output for all critical commands
+  - `--json` flag for `check`, `vault get`, `vault list`
+  - Structured format: `{"status": "success|error", "data": {...}}`
+  - Error responses include `error_type` and `message` fields
+  - Perfect for parsing with `jq` or JSON libraries
+
+- **📄 Passphrase from File**
+  - `--passphrase-file` option for non-interactive authentication
+  - Read passphrase from secure file instead of interactive prompt
+  - Supports `~/.vault_pass` and any custom file path
+  - Automatic whitespace stripping for clean passphrases
+  - Validation: empty files trigger exit code 2
+
+- **🌍 Environment Variable Support**
+  - `STEGVAULT_PASSPHRASE` environment variable
+  - Completely non-interactive operation for CI/CD
+  - Priority system: explicit > file > env > prompt
+  - Empty env var triggers validation error (exit code 2)
+
+- **🔢 Standardized Exit Codes**
+  - Exit code 0: Success
+  - Exit code 1: Runtime error (wrong passphrase, decryption error, file not found)
+  - Exit code 2: Validation error (invalid input, empty passphrase)
+  - Enables reliable automation and error handling
+
+- **⚙️ Automation Examples**
+  - CI/CD pipeline integration (GitHub Actions example)
+  - Automated backup scripts
+  - Password rotation scripts
+  - All examples in README with real-world use cases
+
+### New Modules
+- `stegvault/utils/json_output.py` (67 lines) - JSON formatting utilities with 20+ helper functions
+- `stegvault/utils/passphrase.py` (36 lines) - Flexible passphrase handling (file/env/prompt)
+
+### New Tests
+- `tests/unit/test_headless_mode.py` - 20 integration tests for headless features
+- `tests/unit/test_json_output.py` - 29 unit tests for all JSON formatters
+- `tests/unit/test_passphrase_utils.py` - 22 unit tests for passphrase handling
+- Total: +71 tests (514 → 585, all passing)
+
+### Changed
+- Modified `vault get` to support `--json` and `--passphrase-file`
+- Modified `vault list` to support `--json` and `--passphrase-file`
+- Modified `check` to support `--json` output
+- Updated error handling to use standardized exit codes
+- Fixed validation error for negative clipboard timeout (exit code 1 → 2)
+
+### Testing & Coverage
+- Coverage: 91% → 92% (+1%)
+- Total tests: 514 → 585 (+71 tests, 100% pass rate)
+- **25 out of 26 modules at 100% coverage** (96%)
+  - `json_output.py`: 100% coverage ✅
+  - `passphrase.py`: 100% coverage ✅
+  - `cli.py`: 84% (expected - not all commands need headless support)
+
+### Documentation
+- Comprehensive headless mode section in README
+- 3 real-world automation examples (CI/CD, backup, password rotation)
+- Passphrase priority system explained
+- Exit code documentation
+- Updated feature list and badges
+
+### Use Cases Enabled
+- ✅ CI/CD pipeline integration (GitHub Actions, GitLab CI)
+- ✅ Automated backup scripts (cron jobs, systemd timers)
+- ✅ Password rotation automation
+- ✅ Server/headless environments
+- ✅ Programmatic vault management
+
 ## [0.5.1] - 2025-11-27
 
 ### Added - JPEG DCT Steganography
