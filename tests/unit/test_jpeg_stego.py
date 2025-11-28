@@ -160,6 +160,113 @@ class TestJPEGDCT:
                 if os.path.exists(output):
                     os.unlink(output)
 
+    def test_jpeglib_not_available_calculate_capacity(self, jpeg_image, monkeypatch):
+        """Should raise JPEGNotAvailableError when jpeglib is not available (calculate_capacity)."""
+        # Mock jpeglib as None to simulate import failure
+        import stegvault.stego.jpeg_dct as jpeg_dct_module
+
+        monkeypatch.setattr(jpeg_dct_module, "jpeglib", None)
+
+        from stegvault.stego.jpeg_dct import JPEGNotAvailableError
+
+        with pytest.raises(JPEGNotAvailableError, match="jpeglib library is not installed"):
+            jpeg_dct.calculate_capacity(jpeg_image)
+
+    def test_jpeglib_not_available_embed(self, jpeg_image, monkeypatch):
+        """Should raise JPEGNotAvailableError when jpeglib is not available (embed_payload)."""
+        import stegvault.stego.jpeg_dct as jpeg_dct_module
+
+        monkeypatch.setattr(jpeg_dct_module, "jpeglib", None)
+
+        from stegvault.stego.jpeg_dct import JPEGNotAvailableError
+
+        with pytest.raises(JPEGNotAvailableError, match="jpeglib library is not installed"):
+            jpeg_dct.embed_payload(jpeg_image, b"test")
+
+    def test_jpeglib_not_available_extract(self, jpeg_image, monkeypatch):
+        """Should raise JPEGNotAvailableError when jpeglib is not available (extract_payload)."""
+        import stegvault.stego.jpeg_dct as jpeg_dct_module
+
+        monkeypatch.setattr(jpeg_dct_module, "jpeglib", None)
+
+        from stegvault.stego.jpeg_dct import JPEGNotAvailableError
+
+        with pytest.raises(JPEGNotAvailableError, match="jpeglib library is not installed"):
+            jpeg_dct.extract_payload(jpeg_image, 100)
+
+    def test_bits_to_bytes_padding(self):
+        """Should pad bits to multiple of 8 when converting to bytes."""
+        # Test the internal _bits_to_bytes function with non-multiple-of-8 bits
+        # This covers line 128 (padding logic)
+        bits = [1, 0, 1, 0, 1]  # 5 bits (not multiple of 8)
+
+        result = jpeg_dct._bits_to_bytes(bits)
+
+        # Should pad with 3 zeros to make 8 bits: [1,0,1,0,1,0,0,0]
+        # This equals byte value: 10101000 = 168
+        assert result == bytes([168])
+
+    def test_embed_generic_error(self, jpeg_image, monkeypatch):
+        """Should raise StegoError for generic errors during embedding."""
+        # This tests lines 245-246: generic exception handler
+        import stegvault.stego.jpeg_dct as jpeg_dct_module
+
+        def mock_read_dct_error(path):
+            raise RuntimeError("Unexpected JPEG read error")
+
+        monkeypatch.setattr(jpeg_dct_module.jpeglib, "read_dct", mock_read_dct_error)
+
+        with pytest.raises(StegoError, match="Embedding failed: Unexpected JPEG read error"):
+            jpeg_dct.embed_payload(jpeg_image, b"test")
+
+    def test_extract_insufficient_bits_error(self, jpeg_image, monkeypatch):
+        """Should raise ExtractionError when cannot extract enough bits."""
+        # This tests line 316: insufficient bits during extraction
+        import stegvault.stego.jpeg_dct as jpeg_dct_module
+
+        def mock_read_dct_small(path):
+            """Mock jpeglib.read_dct to return JPEG with very few usable coefficients."""
+
+            class MockChannel:
+                def __init__(self):
+                    # Create tiny array with very few usable coefficients
+                    self.shape = (1, 1, 8, 8)
+                    # Only one coefficient > 1
+                    self._data = np.ones((1, 1, 8, 8), dtype=np.int16)
+                    self._data[0, 0, 1, 1] = 5  # One usable coefficient
+
+                def __getitem__(self, key):
+                    return self._data[key]
+
+            class MockJPEG:
+                def __init__(self):
+                    self.Y = MockChannel()
+                    self.Cb = None
+                    self.Cr = None
+
+            return MockJPEG()
+
+        monkeypatch.setattr(jpeg_dct_module.jpeglib, "read_dct", mock_read_dct_small)
+
+        from stegvault.stego.jpeg_dct import ExtractionError
+
+        # Request more bytes than available
+        with pytest.raises(ExtractionError, match="Could not extract all payload bits"):
+            jpeg_dct.extract_payload(jpeg_image, 100)
+
+    def test_extract_generic_error(self, jpeg_image, monkeypatch):
+        """Should raise StegoError for generic errors during extraction."""
+        # This tests lines 325-328: generic exception handler
+        import stegvault.stego.jpeg_dct as jpeg_dct_module
+
+        def mock_read_dct_error(path):
+            raise RuntimeError("Unexpected extraction error")
+
+        monkeypatch.setattr(jpeg_dct_module.jpeglib, "read_dct", mock_read_dct_error)
+
+        with pytest.raises(StegoError, match="Extraction failed: Unexpected extraction error"):
+            jpeg_dct.extract_payload(jpeg_image, 10)
+
 
 class TestDispatcher:
     """Tests for format dispatcher module."""
