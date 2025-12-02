@@ -7,6 +7,97 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0-alpha.1] - 2025-12-02
+
+### Added - TUI Phase 2: Vault Loading & Entry Display 🎨
+
+- **🖥️ Terminal User Interface Foundation**
+  - Full-featured TUI using Textual framework (v6.7.1)
+  - Modern, keyboard-driven interface for terminal users
+  - Async/await architecture for smooth interactions
+  - `stegvault tui` command to launch interface
+
+- **📂 File & Authentication Dialogs**
+  - `FileSelectScreen` - Modal file browser with DirectoryTree widget
+  - `PassphraseInputScreen` - Secure password-masked input
+  - 3-step async vault loading flow (file → passphrase → load)
+  - Comprehensive error handling and user feedback
+
+- **📋 Vault Entry Display**
+  - `VaultScreen` - Split view main screen (30% list / 70% detail)
+  - `EntryListItem` - Entry list with tags display
+  - `EntryDetailPanel` - Complete entry details viewer
+  - Password visibility toggle (masked/plaintext)
+  - All entry fields: password, username, URL, notes, tags, TOTP
+  - Timestamps display (created, modified)
+
+- **⌨️ Keyboard Navigation**
+  - **c** - Copy password to clipboard
+  - **v** - Toggle password visibility
+  - **r** - Refresh vault (planned)
+  - **escape** - Back to menu
+  - **q** - Quit application
+  - Mouse support for all interactions
+
+- **📋 Clipboard Integration**
+  - Copy passwords with single keypress (c)
+  - Secure clipboard integration via pyperclip
+  - Copy confirmation notifications
+
+### New Dependencies
+- `textual>=0.47.0` - Modern TUI framework
+- `pytest-asyncio>=0.21.0` - Async test support (dev)
+
+### New Modules
+- `stegvault/tui/__init__.py` - TUI package exports
+- `stegvault/tui/app.py` (165 lines) - Main TUI application
+- `stegvault/tui/widgets.py` (375 lines) - Custom UI widgets
+- `stegvault/tui/screens.py` (214 lines) - Screen layouts
+
+### New Tests
+- `tests/unit/test_tui_app.py` - 14 tests (app initialization, async vault loading)
+- `tests/unit/test_tui_widgets.py` - 27 tests (all widgets with edge cases)
+- `tests/unit/test_tui_screens.py` - 13 tests (screen actions and interactions)
+- +54 tests (621 → 675, all passing)
+
+### Coverage
+- **TUI app.py**: 88% ✅ (exceeds 85% target)
+- **TUI widgets.py**: 88% ✅ (exceeds 85% target)
+- **TUI screens.py**: 66% (compose methods untested - acceptable)
+- **Overall project**: 91% (maintained)
+
+### Technical Details
+- Async/await architecture using Textual's message pump
+- VaultController integration for business logic
+- DOM-based UI with CSS-like styling
+- Comprehensive test mocking for Textual widgets
+- Property-based mocking for `app` context
+
+### What's Working
+✅ Launch TUI with `stegvault tui`
+✅ Open existing vault from image file
+✅ Browse and select vault images
+✅ Enter passphrase securely
+✅ View all vault entries in list
+✅ Display complete entry details
+✅ Toggle password visibility
+✅ Copy passwords to clipboard
+✅ Navigate with keyboard shortcuts
+
+### What's Next (Phase 3)
+- Add new entry dialog
+- Edit existing entry
+- Delete entry with confirmation
+- Entry search/filter
+- Password generator integration
+- TOTP code display
+
+### Known Limitations
+- No entry creation/editing yet (Phase 3)
+- Refresh action not implemented
+- Help screen placeholder only
+- New vault creation not yet available
+
 ## [0.6.1] - 2025-11-28
 
 ### Added - Application Layer Architecture
