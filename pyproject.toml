@@ -52,6 +52,7 @@ dependencies = [
     "qrcode>=7.4.0",
     "zxcvbn>=4.4.28",
     "jpeglib>=1.0.0",
+    "textual>=0.47.0",
 ]
 
 [project.urls]

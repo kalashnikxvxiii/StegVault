@@ -51,6 +51,25 @@ def main() -> None:
 
 
 @main.command()
+def tui() -> None:
+    """Launch the Terminal UI (TUI) interface."""
+    try:
+        from stegvault.tui import StegVaultTUI
+
+        app = StegVaultTUI()
+        app.run()
+    except ImportError:
+        click.echo(
+            "Error: Textual library not installed. Install with: pip install textual",
+            err=True,
+        )
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"Error launching TUI: {e}", err=True)
+        sys.exit(1)
+
+
+@main.command()
 @click.option(
     "--password",
     prompt=True,
