@@ -149,7 +149,7 @@ class VaultController:
                             success=False,
                             error=f"Image capacity ({capacity} bytes) insufficient for vault ({required} bytes required)",
                         )
-                except Exception:
+                except Exception:  # nosec B110
                     # If capacity check fails, continue anyway (will fail at embed if truly insufficient)
                     pass
 
