@@ -222,6 +222,34 @@ class TestVaultController:
         assert "not found" in error or "Unsupported" in error
         assert capacity == 0
 
+    def test_get_vault_entry_not_found(self, controller):
+        """Should return error when entry not found."""
+        vault, _, _ = controller.create_new_vault(key="test", password="pass")
+
+        result = controller.get_vault_entry(vault, "nonexistent")
+
+        assert result.success is False
+        assert "not found" in result.error.lower()
+        assert result.entry is None
+
+    def test_update_vault_entry_not_found(self, controller):
+        """Should fail to update nonexistent entry."""
+        vault, _, _ = controller.create_new_vault(key="test", password="pass")
+
+        vault, success, error = controller.update_vault_entry(vault, "nonexistent", password="new")
+
+        assert success is False
+        assert "not found" in error.lower()
+
+    def test_delete_vault_entry_not_found(self, controller):
+        """Should fail to delete nonexistent entry."""
+        vault, _, _ = controller.create_new_vault(key="test", password="pass")
+
+        vault, success, error = controller.delete_vault_entry(vault, "nonexistent")
+
+        assert success is False
+        assert "not found" in error.lower()
+
     def test_save_vault_insufficient_capacity(self, controller, tmp_path):
         """Should fail to save vault if image too small."""
         # Create very small image (insufficient capacity)

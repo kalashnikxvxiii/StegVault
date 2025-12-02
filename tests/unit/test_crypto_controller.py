@@ -184,3 +184,55 @@ class TestCryptoController:
         assert dec_success
         assert dec_error is None
         assert plaintext == data
+
+    def test_encrypt_generic_exception(self, controller, monkeypatch):
+        """Should handle generic exceptions during encryption."""
+
+        def mock_derive_key(*args, **kwargs):
+            raise RuntimeError("Simulated encryption error")
+
+        monkeypatch.setattr("stegvault.crypto.core.derive_key", mock_derive_key)
+
+        data = b"test"
+        passphrase = "pass"
+
+        result = controller.encrypt(data, passphrase)
+
+        assert result.success is False
+        assert result.error is not None
+        assert "Simulated encryption error" in result.error
+        assert result.ciphertext == b""
+
+    def test_decrypt_generic_exception(self, controller, monkeypatch):
+        """Should handle generic exceptions during decryption."""
+
+        def mock_derive_key(*args, **kwargs):
+            raise RuntimeError("Simulated decryption error")
+
+        monkeypatch.setattr("stegvault.crypto.core.derive_key", mock_derive_key)
+
+        # Use proper salt/nonce sizes
+        result = controller.decrypt(b"cipher", b"s" * 16, b"n" * 24, "pass")
+
+        assert result.success is False
+        assert result.error is not None
+        assert "Simulated decryption error" in result.error
+        assert result.plaintext == b""
+
+    def test_encrypt_with_payload_encryption_failure(self, controller, monkeypatch):
+        """Should handle encryption failure in encrypt_with_payload."""
+
+        def mock_encrypt(*args, **kwargs):
+            from stegvault.app.controllers.crypto_controller import EncryptionResult
+
+            return EncryptionResult(
+                ciphertext=b"", salt=b"", nonce=b"", success=False, error="Mock error"
+            )
+
+        monkeypatch.setattr(controller, "encrypt", mock_encrypt)
+
+        payload, success, error = controller.encrypt_with_payload(b"data", "pass")
+
+        assert success is False
+        assert error == "Mock error"
+        assert payload == b""
