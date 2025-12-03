@@ -793,7 +793,7 @@ class PasswordGeneratorScreen(ModalScreen[Optional[str]]):
         self.use_digits = True
         self.use_symbols = True
         self.exclude_ambiguous = False
-        self.current_password = ""
+        self.current_password = ""  # nosec B105 - not a hardcoded password, just initialization
 
     def compose(self) -> ComposeResult:
         """Compose password generator dialog."""
