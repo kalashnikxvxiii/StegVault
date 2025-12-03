@@ -546,3 +546,268 @@ class TestVaultScreen:
         screen.on_button_pressed(event)
 
         screen.action_save_vault.assert_called_once()
+
+    def test_on_list_view_selected(self):
+        """Should handle entry selection from list view."""
+        from textual.widgets import ListView
+        from stegvault.tui.widgets import EntryListItem, EntryDetailPanel
+
+        entry = VaultEntry(key="test", password="pass")
+        vault = Vault(entries=[entry])
+        controller = VaultController()
+        screen = VaultScreen(vault, "test.png", "passphrase", controller)
+
+        # Mock query_one to return EntryDetailPanel
+        mock_panel = Mock(spec=EntryDetailPanel)
+        screen.query_one = Mock(return_value=mock_panel)
+
+        # Create mock event
+        mock_item = Mock(spec=EntryListItem)
+        mock_item.entry = entry
+        event = Mock(spec=ListView.Selected)
+        event.item = mock_item
+
+        screen.on_list_view_selected(event)
+
+        assert screen.selected_entry == entry
+        mock_panel.show_entry.assert_called_once_with(entry)
+
+    def test_on_list_view_selected_not_entry_item(self):
+        """Should ignore non-EntryListItem selections."""
+        from textual.widgets import ListView
+
+        vault = Vault(entries=[])
+        controller = VaultController()
+        screen = VaultScreen(vault, "test.png", "passphrase", controller)
+
+        # Create mock event with non-EntryListItem
+        mock_item = Mock()  # Not an EntryListItem
+        event = Mock(spec=ListView.Selected)
+        event.item = mock_item
+
+        screen.on_list_view_selected(event)
+
+        # Should not set selected_entry
+        assert screen.selected_entry is None
+
+    def test_get_filtered_entries_no_query(self):
+        """Should return all entries when no search query."""
+        entry1 = VaultEntry(key="gmail", password="pass1")
+        entry2 = VaultEntry(key="github", password="pass2")
+        vault = Vault(entries=[entry1, entry2])
+        controller = VaultController()
+        screen = VaultScreen(vault, "test.png", "passphrase", controller)
+
+        filtered = screen._get_filtered_entries()
+
+        assert len(filtered) == 2
+        assert entry1 in filtered
+        assert entry2 in filtered
+
+    def test_get_filtered_entries_by_key(self):
+        """Should filter entries by key."""
+        entry1 = VaultEntry(key="gmail", password="pass1")
+        entry2 = VaultEntry(key="github", password="pass2")
+        entry3 = VaultEntry(key="aws", password="pass3")
+        vault = Vault(entries=[entry1, entry2, entry3])
+        controller = VaultController()
+        screen = VaultScreen(vault, "test.png", "passphrase", controller)
+
+        screen.search_query = "git"  # Matches github
+        filtered = screen._get_filtered_entries()
+
+        assert len(filtered) == 1
+        assert entry2 in filtered
+        assert entry1 not in filtered
+        assert entry3 not in filtered
+
+    def test_get_filtered_entries_by_username(self):
+        """Should filter entries by username."""
+        entry1 = VaultEntry(key="site1", password="pass1", username="john@gmail.com")
+        entry2 = VaultEntry(key="site2", password="pass2", username="jane@github.com")
+        vault = Vault(entries=[entry1, entry2])
+        controller = VaultController()
+        screen = VaultScreen(vault, "test.png", "passphrase", controller)
+
+        screen.search_query = "john"
+        filtered = screen._get_filtered_entries()
+
+        assert len(filtered) == 1
+        assert entry1 in filtered
+
+    def test_get_filtered_entries_by_url(self):
+        """Should filter entries by URL."""
+        entry1 = VaultEntry(key="site1", password="pass1", url="https://gmail.com")
+        entry2 = VaultEntry(key="site2", password="pass2", url="https://github.com")
+        vault = Vault(entries=[entry1, entry2])
+        controller = VaultController()
+        screen = VaultScreen(vault, "test.png", "passphrase", controller)
+
+        screen.search_query = "gmail"
+        filtered = screen._get_filtered_entries()
+
+        assert len(filtered) == 1
+        assert entry1 in filtered
+
+    def test_get_filtered_entries_by_notes(self):
+        """Should filter entries by notes."""
+        entry1 = VaultEntry(key="site1", password="pass1", notes="Work email")
+        entry2 = VaultEntry(key="site2", password="pass2", notes="Personal project")
+        vault = Vault(entries=[entry1, entry2])
+        controller = VaultController()
+        screen = VaultScreen(vault, "test.png", "passphrase", controller)
+
+        screen.search_query = "work"
+        filtered = screen._get_filtered_entries()
+
+        assert len(filtered) == 1
+        assert entry1 in filtered
+
+    def test_get_filtered_entries_by_tags(self):
+        """Should filter entries by tags."""
+        entry1 = VaultEntry(key="site1", password="pass1", tags=["work", "email"])
+        entry2 = VaultEntry(key="site2", password="pass2", tags=["personal", "dev"])
+        vault = Vault(entries=[entry1, entry2])
+        controller = VaultController()
+        screen = VaultScreen(vault, "test.png", "passphrase", controller)
+
+        screen.search_query = "work"
+        filtered = screen._get_filtered_entries()
+
+        assert len(filtered) == 1
+        assert entry1 in filtered
+
+    def test_action_focus_search(self):
+        """Should focus search input."""
+        from textual.widgets import Input
+
+        vault = Vault(entries=[])
+        controller = VaultController()
+        screen = VaultScreen(vault, "test.png", "passphrase", controller)
+
+        # Mock query_one and focus
+        mock_input = Mock(spec=Input)
+        screen.query_one = Mock(return_value=mock_input)
+
+        screen.action_focus_search()
+
+        screen.query_one.assert_called_once_with("#search-input", Input)
+        mock_input.focus.assert_called_once()
+
+    def test_on_input_changed_search(self):
+        """Should handle search input changes."""
+        from textual.widgets import Input
+
+        entry1 = VaultEntry(key="gmail", password="pass1")
+        entry2 = VaultEntry(key="github", password="pass2")
+        vault = Vault(entries=[entry1, entry2])
+        controller = VaultController()
+        screen = VaultScreen(vault, "test.png", "passphrase", controller)
+
+        # Mock _refresh_entry_list
+        screen._refresh_entry_list = Mock()
+
+        # Create mock event
+        mock_input = Mock(spec=Input)
+        mock_input.id = "search-input"
+        event = Mock(spec=Input.Changed)
+        event.input = mock_input
+        event.value = "gm"
+
+        screen.on_input_changed(event)
+
+        assert screen.search_query == "gm"
+        screen._refresh_entry_list.assert_called_once()
+
+    def test_on_input_changed_clears_filtered_selection(self):
+        """Should clear detail panel if selected entry is filtered out."""
+        from textual.widgets import Input
+        from stegvault.tui.widgets import EntryDetailPanel
+
+        entry1 = VaultEntry(key="gmail", password="pass1")
+        entry2 = VaultEntry(key="github", password="pass2")
+        vault = Vault(entries=[entry1, entry2])
+        controller = VaultController()
+        screen = VaultScreen(vault, "test.png", "passphrase", controller)
+        screen.selected_entry = entry2  # Select github
+
+        # Mock methods
+        screen._refresh_entry_list = Mock()
+        mock_panel = Mock(spec=EntryDetailPanel)
+        screen.query_one = Mock(return_value=mock_panel)
+
+        # Create mock event that filters to only gmail
+        mock_input = Mock(spec=Input)
+        mock_input.id = "search-input"
+        event = Mock(spec=Input.Changed)
+        event.input = mock_input
+        event.value = "gmail"  # This filters out github
+
+        screen.on_input_changed(event)
+
+        # Selected entry (github) should be cleared because it's filtered out
+        assert screen.selected_entry is None
+        mock_panel.clear.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_action_edit_entry_user_cancels(self):
+        """Should handle user cancellation in edit form."""
+        entry = VaultEntry(key="test", password="pass")
+        vault = Vault(entries=[entry])
+        controller = VaultController()
+        screen = VaultScreen(vault, "test.png", "passphrase", controller)
+        screen.selected_entry = entry
+
+        # Mock app using patch.object
+        mock_app = Mock()
+        mock_app.push_screen_wait = AsyncMock(return_value=None)
+
+        with patch.object(type(screen), "app", property(lambda self: mock_app)):
+            await screen.action_edit_entry()
+
+        # Vault should not be modified
+        assert len(vault.entries) == 1
+
+    @pytest.mark.asyncio
+    async def test_action_edit_entry_failure(self):
+        """Should handle edit entry failure."""
+        entry = VaultEntry(key="test", password="pass")
+        vault = Vault(entries=[entry])
+        controller = VaultController()
+        screen = VaultScreen(vault, "test.png", "passphrase", controller)
+        screen.selected_entry = entry
+        screen.notify = Mock()
+
+        # Mock app using patch.object
+        mock_app = Mock()
+        mock_app.push_screen_wait = AsyncMock(return_value={"key": "test", "password": "newpass"})
+
+        # Mock controller to return failure
+        screen.controller.update_vault_entry = Mock(return_value=(vault, False, "Update failed"))
+
+        with patch.object(type(screen), "app", property(lambda self: mock_app)):
+            await screen.action_edit_entry()
+
+        screen.notify.assert_called_with("Failed to update entry: Update failed", severity="error")
+
+    @pytest.mark.asyncio
+    async def test_action_delete_entry_failure(self):
+        """Should handle delete entry failure."""
+        entry = VaultEntry(key="test", password="pass")
+        vault = Vault(entries=[entry])
+        controller = VaultController()
+        screen = VaultScreen(vault, "test.png", "passphrase", controller)
+        screen.selected_entry = entry
+        screen.notify = Mock()
+
+        # Mock app using patch.object
+        mock_app = Mock()
+        mock_app.push_screen_wait = AsyncMock(return_value=True)
+
+        # Mock controller to return failure
+        screen.controller.delete_vault_entry = Mock(return_value=(vault, False, "Delete failed"))
+
+        with patch.object(type(screen), "app", property(lambda self: mock_app)):
+            await screen.action_delete_entry()
+
+        screen.notify.assert_called_with("Failed to delete entry: Delete failed", severity="error")
