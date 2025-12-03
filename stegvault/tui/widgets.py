@@ -460,17 +460,24 @@ class EntryFormScreen(ModalScreen[Optional[dict]]):
                     key_input.disabled = True  # Can't change key in edit mode
                 yield key_input
 
-            # Password field
+            # Password field with generate button
             with Vertical(classes="form-field"):
                 yield Label("Password:", classes="field-label")
-                password_input = Input(
-                    placeholder="Enter password",
-                    password=True,
-                    id="input-password",
-                )
-                if self.entry:
-                    password_input.value = self.entry.password
-                yield password_input
+                with Horizontal():
+                    password_input = Input(
+                        placeholder="Enter password",
+                        password=True,
+                        id="input-password",
+                    )
+                    if self.entry:
+                        password_input.value = self.entry.password
+                    yield password_input
+                    yield Button(
+                        "Generate",
+                        variant="success",
+                        id="btn-generate-password",
+                        classes="form-button",
+                    )
 
             # Username field
             with Vertical(classes="form-field"):
@@ -526,8 +533,19 @@ class EntryFormScreen(ModalScreen[Optional[dict]]):
                 )
                 yield Button("Cancel", variant="default", id="btn-cancel", classes="form-button")
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:
+    async def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button press."""
+        if event.button.id == "btn-generate-password":
+            # Show password generator dialog
+            generated_password = await self.app.push_screen_wait(PasswordGeneratorScreen())
+
+            if generated_password:
+                # Fill password field with generated password
+                password_input = self.query_one("#input-password", Input)
+                password_input.value = generated_password
+                self.app.notify("Password generated successfully", severity="information")
+            return
+
         if event.button.id == "btn-save":
             # Gather form data
             key = self.query_one("#input-key", Input).value.strip()
@@ -646,3 +664,168 @@ class DeleteConfirmationScreen(ModalScreen[bool]):
     def action_cancel(self) -> None:
         """Cancel and close dialog."""
         self.dismiss(False)
+
+
+class PasswordGeneratorScreen(ModalScreen[Optional[str]]):
+    """Modal screen for generating secure passwords."""
+
+    CSS = """
+    PasswordGeneratorScreen {
+        align: center middle;
+    }
+
+    #generator-dialog {
+        width: 70;
+        height: auto;
+        border: thick $primary;
+        background: $surface;
+        padding: 2;
+    }
+
+    #generator-title {
+        text-align: center;
+        text-style: bold;
+        margin-bottom: 1;
+    }
+
+    .generator-section {
+        margin-bottom: 1;
+    }
+
+    .section-label {
+        color: $text-muted;
+        margin-bottom: 0;
+    }
+
+    #password-preview {
+        text-align: center;
+        text-style: bold;
+        color: $success;
+        background: $panel;
+        border: solid $accent;
+        padding: 1;
+        margin-bottom: 1;
+    }
+
+    #length-value {
+        text-align: center;
+        color: $primary;
+        margin-bottom: 1;
+    }
+
+    #button-row {
+        height: 3;
+        align: center middle;
+        margin-top: 1;
+    }
+
+    .gen-button {
+        margin: 0 1;
+    }
+    """
+
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+        Binding("g", "generate", "Generate"),
+    ]
+
+    def __init__(self):
+        """Initialize password generator screen."""
+        super().__init__()
+        self.length = 16
+        self.use_lowercase = True
+        self.use_uppercase = True
+        self.use_digits = True
+        self.use_symbols = True
+        self.exclude_ambiguous = False
+        self.current_password = ""
+
+    def compose(self) -> ComposeResult:
+        """Compose password generator dialog."""
+        with Container(id="generator-dialog"):
+            yield Label("🔐 Password Generator", id="generator-title")
+
+            # Password preview
+            with Vertical(classes="generator-section"):
+                yield Label("Generated Password:", classes="section-label")
+                yield Label(self._generate_password(), id="password-preview")
+
+            # Length control
+            with Vertical(classes="generator-section"):
+                yield Label("Password Length:", classes="section-label")
+                yield Label(f"{self.length} characters", id="length-value")
+                with Horizontal():
+                    yield Button("-", id="btn-length-dec", classes="gen-button")
+                    yield Button("+", id="btn-length-inc", classes="gen-button")
+
+            # Character options (simplified - checkboxes would require custom widgets)
+            with Vertical(classes="generator-section"):
+                yield Label("Options: All character types enabled", classes="section-label")
+                yield Label("(a-z, A-Z, 0-9, symbols)", id="charset-info")
+
+            # Action buttons
+            with Horizontal(id="button-row"):
+                yield Button(
+                    "Generate New", variant="primary", id="btn-generate", classes="gen-button"
+                )
+                yield Button(
+                    "Use This Password", variant="success", id="btn-use", classes="gen-button"
+                )
+                yield Button("Cancel", variant="default", id="btn-cancel", classes="gen-button")
+
+    def _generate_password(self) -> str:
+        """Generate a new password with current settings."""
+        from stegvault.vault.generator import PasswordGenerator
+
+        generator = PasswordGenerator(
+            length=self.length,
+            use_lowercase=self.use_lowercase,
+            use_uppercase=self.use_uppercase,
+            use_digits=self.use_digits,
+            use_symbols=self.use_symbols,
+            exclude_ambiguous=self.exclude_ambiguous,
+        )
+        self.current_password = generator.generate()
+        return self.current_password
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle button press."""
+        if event.button.id == "btn-generate":
+            # Generate new password and update preview
+            new_password = self._generate_password()
+            preview = self.query_one("#password-preview", Label)
+            preview.update(new_password)
+
+        elif event.button.id == "btn-length-dec":
+            # Decrease length (min 8)
+            if self.length > 8:
+                self.length -= 1
+                length_label = self.query_one("#length-value", Label)
+                length_label.update(f"{self.length} characters")
+
+        elif event.button.id == "btn-length-inc":
+            # Increase length (max 64)
+            if self.length < 64:
+                self.length += 1
+                length_label = self.query_one("#length-value", Label)
+                length_label.update(f"{self.length} characters")
+
+        elif event.button.id == "btn-use":
+            # Return current password
+            if self.current_password:
+                self.dismiss(self.current_password)
+            else:
+                self.app.notify("Please generate a password first", severity="warning")
+
+        elif event.button.id == "btn-cancel":
+            self.dismiss(None)
+
+    def action_generate(self) -> None:
+        """Generate new password (keyboard shortcut)."""
+        new_password = self._generate_password()
+        preview = self.query_one("#password-preview", Label)
+        preview.update(new_password)
+
+    def action_cancel(self) -> None:
+        """Cancel and close dialog."""
+        self.dismiss(None)

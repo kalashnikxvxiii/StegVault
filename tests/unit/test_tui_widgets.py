@@ -451,7 +451,8 @@ class TestEntryFormScreen:
 
         screen.dismiss.assert_called_once_with(None)
 
-    def test_on_button_pressed_save_valid_add(self):
+    @pytest.mark.asyncio
+    async def test_on_button_pressed_save_valid_add(self):
         """Should dismiss with form data on valid add."""
         screen = EntryFormScreen(mode="add")
         screen.dismiss = Mock()
@@ -492,7 +493,7 @@ class TestEntryFormScreen:
         event = Mock()
         event.button = button
 
-        screen.on_button_pressed(event)
+        await screen.on_button_pressed(event)
 
         screen.dismiss.assert_called_once()
         form_data = screen.dismiss.call_args[0][0]
@@ -503,7 +504,8 @@ class TestEntryFormScreen:
         assert form_data["notes"] == "Personal email"
         assert form_data["tags"] == ["email", "personal"]
 
-    def test_on_button_pressed_save_empty_key(self):
+    @pytest.mark.asyncio
+    async def test_on_button_pressed_save_empty_key(self):
         """Should notify error for empty key."""
         screen = EntryFormScreen()
         screen.dismiss = Mock()
@@ -533,14 +535,15 @@ class TestEntryFormScreen:
         event.button = button
 
         with patch.object(type(screen), "app", property(lambda self: mock_app)):
-            screen.on_button_pressed(event)
+            await screen.on_button_pressed(event)
 
             mock_app.notify.assert_called_once()
             call_args = mock_app.notify.call_args
             assert "Key is required" in call_args[0][0]
             screen.dismiss.assert_not_called()
 
-    def test_on_button_pressed_save_empty_password(self):
+    @pytest.mark.asyncio
+    async def test_on_button_pressed_save_empty_password(self):
         """Should notify error for empty password."""
         screen = EntryFormScreen()
         screen.dismiss = Mock()
@@ -570,14 +573,15 @@ class TestEntryFormScreen:
         event.button = button
 
         with patch.object(type(screen), "app", property(lambda self: mock_app)):
-            screen.on_button_pressed(event)
+            await screen.on_button_pressed(event)
 
             mock_app.notify.assert_called_once()
             call_args = mock_app.notify.call_args
             assert "Password is required" in call_args[0][0]
             screen.dismiss.assert_not_called()
 
-    def test_on_button_pressed_cancel(self):
+    @pytest.mark.asyncio
+    async def test_on_button_pressed_cancel(self):
         """Should dismiss with None on cancel button."""
         screen = EntryFormScreen()
         screen.dismiss = Mock()
@@ -587,7 +591,7 @@ class TestEntryFormScreen:
         event = Mock()
         event.button = button
 
-        screen.on_button_pressed(event)
+        await screen.on_button_pressed(event)
 
         screen.dismiss.assert_called_once_with(None)
 
@@ -643,3 +647,233 @@ class TestDeleteConfirmationScreen:
         screen.on_button_pressed(event)
 
         screen.dismiss.assert_called_once_with(False)
+
+
+class TestPasswordGeneratorScreen:
+    """Tests for PasswordGeneratorScreen."""
+
+    def test_password_generator_screen_creation(self):
+        """Should create password generator screen with defaults."""
+        from stegvault.tui.widgets import PasswordGeneratorScreen
+
+        screen = PasswordGeneratorScreen()
+
+        assert screen.length == 16
+        assert screen.use_lowercase is True
+        assert screen.use_uppercase is True
+        assert screen.use_digits is True
+        assert screen.use_symbols is True
+        assert screen.exclude_ambiguous is False
+
+    def test_password_generator_screen_bindings(self):
+        """Should have key bindings defined."""
+        from stegvault.tui.widgets import PasswordGeneratorScreen
+
+        screen = PasswordGeneratorScreen()
+
+        binding_keys = [b.key for b in screen.BINDINGS]
+
+        assert "escape" in binding_keys  # cancel
+        assert "g" in binding_keys  # generate
+
+    def test_action_cancel(self):
+        """Should dismiss with None on cancel."""
+        from stegvault.tui.widgets import PasswordGeneratorScreen
+
+        screen = PasswordGeneratorScreen()
+        screen.dismiss = Mock()
+
+        screen.action_cancel()
+
+        screen.dismiss.assert_called_once_with(None)
+
+    def test_generate_password(self):
+        """Should generate password with current settings."""
+        from stegvault.tui.widgets import PasswordGeneratorScreen
+
+        screen = PasswordGeneratorScreen()
+
+        password = screen._generate_password()
+
+        assert len(password) == 16
+        assert password == screen.current_password
+        # Password should contain various character types
+        assert any(c.islower() for c in password)
+        assert any(c.isupper() for c in password)
+        assert any(c.isdigit() for c in password)
+
+    def test_on_button_pressed_generate(self):
+        """Should generate new password on generate button."""
+        from stegvault.tui.widgets import PasswordGeneratorScreen
+
+        screen = PasswordGeneratorScreen()
+
+        # Mock preview label
+        mock_preview = Mock()
+        screen.query_one = Mock(return_value=mock_preview)
+
+        button = Mock()
+        button.id = "btn-generate"
+        event = Mock()
+        event.button = button
+
+        screen.on_button_pressed(event)
+
+        # Should update preview with new password
+        mock_preview.update.assert_called_once()
+        assert len(mock_preview.update.call_args[0][0]) == 16
+
+    def test_on_button_pressed_length_dec(self):
+        """Should decrease password length."""
+        from stegvault.tui.widgets import PasswordGeneratorScreen
+
+        screen = PasswordGeneratorScreen()
+        screen.length = 16
+
+        # Mock length label
+        mock_label = Mock()
+        screen.query_one = Mock(return_value=mock_label)
+
+        button = Mock()
+        button.id = "btn-length-dec"
+        event = Mock()
+        event.button = button
+
+        screen.on_button_pressed(event)
+
+        assert screen.length == 15
+        mock_label.update.assert_called_once_with("15 characters")
+
+    def test_on_button_pressed_length_dec_min(self):
+        """Should not decrease below min length (8)."""
+        from stegvault.tui.widgets import PasswordGeneratorScreen
+
+        screen = PasswordGeneratorScreen()
+        screen.length = 8
+
+        # Mock length label
+        mock_label = Mock()
+        screen.query_one = Mock(return_value=mock_label)
+
+        button = Mock()
+        button.id = "btn-length-dec"
+        event = Mock()
+        event.button = button
+
+        screen.on_button_pressed(event)
+
+        assert screen.length == 8  # Should stay at 8
+        mock_label.update.assert_not_called()
+
+    def test_on_button_pressed_length_inc(self):
+        """Should increase password length."""
+        from stegvault.tui.widgets import PasswordGeneratorScreen
+
+        screen = PasswordGeneratorScreen()
+        screen.length = 16
+
+        # Mock length label
+        mock_label = Mock()
+        screen.query_one = Mock(return_value=mock_label)
+
+        button = Mock()
+        button.id = "btn-length-inc"
+        event = Mock()
+        event.button = button
+
+        screen.on_button_pressed(event)
+
+        assert screen.length == 17
+        mock_label.update.assert_called_once_with("17 characters")
+
+    def test_on_button_pressed_length_inc_max(self):
+        """Should not increase above max length (64)."""
+        from stegvault.tui.widgets import PasswordGeneratorScreen
+
+        screen = PasswordGeneratorScreen()
+        screen.length = 64
+
+        # Mock length label
+        mock_label = Mock()
+        screen.query_one = Mock(return_value=mock_label)
+
+        button = Mock()
+        button.id = "btn-length-inc"
+        event = Mock()
+        event.button = button
+
+        screen.on_button_pressed(event)
+
+        assert screen.length == 64  # Should stay at 64
+        mock_label.update.assert_not_called()
+
+    def test_on_button_pressed_use_with_password(self):
+        """Should dismiss with current password on use button."""
+        from stegvault.tui.widgets import PasswordGeneratorScreen
+
+        screen = PasswordGeneratorScreen()
+        screen.current_password = "Test123!@#"
+        screen.dismiss = Mock()
+
+        button = Mock()
+        button.id = "btn-use"
+        event = Mock()
+        event.button = button
+
+        screen.on_button_pressed(event)
+
+        screen.dismiss.assert_called_once_with("Test123!@#")
+
+    def test_on_button_pressed_use_without_password(self):
+        """Should notify warning if no password generated."""
+        from unittest.mock import patch
+        from stegvault.tui.widgets import PasswordGeneratorScreen
+
+        screen = PasswordGeneratorScreen()
+        screen.current_password = ""
+
+        # Mock app.notify
+        mock_app = Mock()
+
+        button = Mock()
+        button.id = "btn-use"
+        event = Mock()
+        event.button = button
+
+        with patch.object(type(screen), "app", property(lambda self: mock_app)):
+            screen.on_button_pressed(event)
+
+            mock_app.notify.assert_called_once()
+            assert "generate a password first" in mock_app.notify.call_args[0][0]
+
+    def test_on_button_pressed_cancel(self):
+        """Should dismiss with None on cancel button."""
+        from stegvault.tui.widgets import PasswordGeneratorScreen
+
+        screen = PasswordGeneratorScreen()
+        screen.dismiss = Mock()
+
+        button = Mock()
+        button.id = "btn-cancel"
+        event = Mock()
+        event.button = button
+
+        screen.on_button_pressed(event)
+
+        screen.dismiss.assert_called_once_with(None)
+
+    def test_action_generate(self):
+        """Should generate password on keyboard shortcut."""
+        from stegvault.tui.widgets import PasswordGeneratorScreen
+
+        screen = PasswordGeneratorScreen()
+
+        # Mock preview label
+        mock_preview = Mock()
+        screen.query_one = Mock(return_value=mock_preview)
+
+        screen.action_generate()
+
+        # Should update preview
+        mock_preview.update.assert_called_once()
+        assert len(screen.current_password) == 16
