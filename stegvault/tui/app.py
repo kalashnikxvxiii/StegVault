@@ -142,9 +142,72 @@ class StegVaultTUI(App):
         except Exception as e:
             self.notify(f"Error loading vault: {e}", severity="error")
 
-    def action_new_vault(self) -> None:
+    async def action_new_vault(self) -> None:
         """Create new vault."""
-        self.notify("New Vault feature - Coming in Phase 3!", severity="information")
+        # Step 1: Select output image file
+        file_path = await self.push_screen_wait(
+            FileSelectScreen("Select Output Image for New Vault")
+        )
+
+        if not file_path:
+            return  # User cancelled
+
+        # Step 2: Get passphrase for new vault
+        passphrase = await self.push_screen_wait(
+            PassphraseInputScreen("Set Passphrase for New Vault")
+        )
+
+        if not passphrase:
+            return  # User cancelled
+
+        # Step 3: Get first entry data
+        from .widgets import EntryFormScreen
+
+        form_data = await self.push_screen_wait(
+            EntryFormScreen(mode="add", title="Add First Entry to New Vault")
+        )
+
+        if not form_data:
+            return  # User cancelled
+
+        # Step 4: Create vault with first entry
+        self.notify("Creating new vault...", severity="information")
+
+        try:
+            vault, success, error = self.vault_controller.create_new_vault(
+                key=form_data["key"],
+                password=form_data["password"],
+                username=form_data.get("username"),
+                url=form_data.get("url"),
+                notes=form_data.get("notes"),
+                tags=form_data.get("tags"),
+            )
+
+            if not success:
+                self.notify(f"Failed to create vault: {error}", severity="error")
+                return
+
+            # Step 5: Save vault to image
+            result = self.vault_controller.save_vault(vault, file_path, passphrase)
+
+            if not result.success:
+                self.notify(f"Failed to save vault: {result.error}", severity="error")
+                return
+
+            # Step 6: Success! Open the new vault
+            self.current_vault = vault
+            self.current_image_path = file_path
+
+            vault_screen = VaultScreen(vault, file_path, passphrase, self.vault_controller)
+            self.push_screen(vault_screen)
+
+            self.notify(
+                f"Vault created successfully with entry '{form_data['key']}'!",
+                severity="information",
+            )
+
+        except Exception as e:
+            self.notify(f"Error creating vault: {e}", severity="error")
 
     def action_show_help(self) -> None:
         """Show help screen."""

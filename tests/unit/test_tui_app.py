@@ -51,16 +51,152 @@ class TestStegVaultTUI:
 
         app.exit.assert_called_once()
 
-    def test_action_new_vault(self):
-        """Should notify new vault feature."""
+    @pytest.mark.asyncio
+    async def test_action_new_vault_cancel_file(self):
+        """Should handle cancelled file selection for new vault."""
         app = StegVaultTUI()
+        app.push_screen_wait = AsyncMock(return_value=None)
+
+        await app.action_new_vault()
+
+        # Should return early without error
+        app.push_screen_wait.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_action_new_vault_cancel_passphrase(self):
+        """Should handle cancelled passphrase input for new vault."""
+        app = StegVaultTUI()
+        app.push_screen_wait = AsyncMock(side_effect=["output.png", None])
+
+        await app.action_new_vault()
+
+        # Should call push_screen_wait twice (file, then passphrase)
+        assert app.push_screen_wait.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_action_new_vault_cancel_first_entry(self):
+        """Should handle cancelled first entry form."""
+        app = StegVaultTUI()
+        app.push_screen_wait = AsyncMock(side_effect=["output.png", "passphrase", None])
+
+        await app.action_new_vault()
+
+        # Should call push_screen_wait three times (file, passphrase, entry form)
+        assert app.push_screen_wait.call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_action_new_vault_create_failure(self):
+        """Should handle vault creation failure."""
+        app = StegVaultTUI()
+        form_data = {"key": "test", "password": "secret"}
+        app.push_screen_wait = AsyncMock(side_effect=["output.png", "passphrase", form_data])
         app.notify = Mock()
 
-        app.action_new_vault()
+        # Mock controller to return failure
+        app.vault_controller.create_new_vault = Mock(return_value=(None, False, "Test error"))
 
-        app.notify.assert_called_once()
-        call_args = app.notify.call_args
-        assert "Phase 3" in call_args[0][0]
+        await app.action_new_vault()
+
+        # Should notify error
+        app.notify.assert_called()
+        error_calls = [call for call in app.notify.call_args_list if "Failed" in str(call)]
+        assert len(error_calls) > 0
+
+    @pytest.mark.asyncio
+    async def test_action_new_vault_save_failure(self):
+        """Should handle vault save failure."""
+        app = StegVaultTUI()
+        form_data = {"key": "test", "password": "secret"}
+        app.push_screen_wait = AsyncMock(side_effect=["output.png", "passphrase", form_data])
+        app.notify = Mock()
+
+        # Mock create success, save failure
+        mock_vault = Vault(entries=[])
+        app.vault_controller.create_new_vault = Mock(return_value=(mock_vault, True, None))
+
+        from stegvault.app.controllers import VaultSaveResult
+
+        save_result = VaultSaveResult(output_path="", success=False, error="Disk full")
+        app.vault_controller.save_vault = Mock(return_value=save_result)
+
+        await app.action_new_vault()
+
+        # Should notify error
+        app.notify.assert_called()
+        error_calls = [call for call in app.notify.call_args_list if "Failed to save" in str(call)]
+        assert len(error_calls) > 0
+
+    @pytest.mark.asyncio
+    async def test_action_new_vault_success(self):
+        """Should successfully create and open new vault."""
+        app = StegVaultTUI()
+        form_data = {
+            "key": "gmail",
+            "password": "secret123",
+            "username": "user@gmail.com",
+            "url": "https://gmail.com",
+            "notes": "Personal",
+            "tags": ["email"],
+        }
+        app.push_screen_wait = AsyncMock(side_effect=["output.png", "passphrase", form_data])
+        app.push_screen = Mock()
+        app.notify = Mock()
+
+        # Mock successful vault creation and save
+        mock_entry = VaultEntry(key="gmail", password="secret123")
+        mock_vault = Vault(entries=[mock_entry])
+        app.vault_controller.create_new_vault = Mock(return_value=(mock_vault, True, None))
+
+        from stegvault.app.controllers import VaultSaveResult
+
+        save_result = VaultSaveResult(output_path="output.png", success=True)
+        app.vault_controller.save_vault = Mock(return_value=save_result)
+
+        await app.action_new_vault()
+
+        # Should create vault with correct parameters
+        app.vault_controller.create_new_vault.assert_called_once_with(
+            key="gmail",
+            password="secret123",
+            username="user@gmail.com",
+            url="https://gmail.com",
+            notes="Personal",
+            tags=["email"],
+        )
+
+        # Should save vault
+        app.vault_controller.save_vault.assert_called_once_with(
+            mock_vault, "output.png", "passphrase"
+        )
+
+        # Should push vault screen
+        app.push_screen.assert_called_once()
+        assert app.current_vault == mock_vault
+        assert app.current_image_path == "output.png"
+
+        # Should notify success
+        success_calls = [
+            call for call in app.notify.call_args_list if "created successfully" in str(call)
+        ]
+        assert len(success_calls) > 0
+
+    @pytest.mark.asyncio
+    async def test_action_new_vault_exception(self):
+        """Should handle exceptions during vault creation."""
+        app = StegVaultTUI()
+        form_data = {"key": "test", "password": "secret"}
+        app.push_screen_wait = AsyncMock(side_effect=["output.png", "passphrase", form_data])
+        app.notify = Mock()
+
+        # Mock controller to raise exception
+        app.vault_controller.create_new_vault = Mock(side_effect=Exception("Test error"))
+
+        await app.action_new_vault()
+
+        # Should notify error
+        app.notify.assert_called()
+        error_calls = [call for call in app.notify.call_args_list if "Error creating" in str(call)]
+        assert len(error_calls) > 0
 
     def test_action_show_help(self):
         """Should notify help screen feature."""
