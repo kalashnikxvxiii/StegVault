@@ -3,14 +3,14 @@
 > Secure password manager using steganography to embed encrypted credentials within images
 
 [![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-0.6.1--beta-blue.svg)](https://github.com/kalashnikxvxiii-collab/StegVault)
+[![Version](https://img.shields.io/badge/version-0.7.1-blue.svg)](https://github.com/kalashnikxvxiii-collab/StegVault)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-614_passing-brightgreen.svg)](tests/)
-[![Coverage](https://img.shields.io/badge/coverage-92%25-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-761_passing-brightgreen.svg)](tests/)
+[![Coverage](https://img.shields.io/badge/coverage-87%25-brightgreen.svg)](tests/)
 
 **StegVault** is a full-featured password manager that combines modern cryptography with steganography. It can store either a single password or an entire vault of credentials, all encrypted using battle-tested algorithms (XChaCha20-Poly1305 + Argon2id) and hidden within ordinary **PNG or JPEG** images.
 
-**Latest Features (v0.6.1-beta):** Application Layer - Clean architecture with UI-agnostic controllers for CLI/TUI/GUI support!
+**Latest Features (v0.7.1):** Password History - Track password changes with timestamps and reasons, view history via CLI/TUI!
 
 ## Features
 
@@ -20,7 +20,7 @@
 - 🎯 **Auto-Detection**: Automatically detects image format (PNG/JPEG)
 - 🔒 **Zero-Knowledge**: All operations performed locally, no cloud dependencies
 - ✅ **Authenticated**: AEAD tag ensures data integrity
-- 🧪 **Well-Tested**: 614 unit tests with 92% overall coverage (all passing)
+- 🧪 **Well-Tested**: 761 unit tests with 87% overall coverage (all passing)
 - ⏱️ **User-Friendly**: Progress indicators for long operations
 
 ### Vault Mode
@@ -28,6 +28,7 @@
 - 🎯 **Key-Based Access**: Retrieve specific passwords by key (e.g., "gmail", "github")
 - 🔑 **Password Generator**: Cryptographically secure password generation
 - 📋 **Rich Metadata**: Username, URL, notes, tags, timestamps for each entry
+- 🕐 **Password History**: Track password changes with timestamps and reasons (v0.7.1)
 - 🔄 **Dual-Mode**: Choose single password OR vault mode
 - ♻️ **Auto-Detection**: Automatically detects format on restore (backward compatible)
 - 📤 **Import/Export**: Backup and restore vaults via JSON
@@ -99,7 +100,7 @@ stegvault tui
 - ⌨️ Complete keyboard navigation
 
 **Keyboard Shortcuts**:
-- `o` - Open vault | `n` - New vault | `h` - Help
+- `o` - Open vault | `n` - New vault | `h` - View password history
 - `a` - Add entry | `e` - Edit | `d` - Delete
 - `c` - Copy password | `v` - Toggle visibility
 - `s` - Save changes | `/` - Search entries
@@ -214,6 +215,57 @@ stegvault vault filter vault.png --tag work --tag email --match-all
 # Filter by URL pattern
 stegvault vault filter vault.png --url github.com
 ```
+
+### Password History (v0.7.1)
+
+**Track and view password changes over time:**
+
+```bash
+# View password history for an entry
+stegvault vault history vault.png gmail
+# Output:
+# ============================================================
+# Password History for: gmail
+# ============================================================
+# Current password: MyNewSecureP@ss2024
+# Modified: 2025-12-03T17:45:23.456789Z
+#
+# History (2 entries):
+# ------------------------------------------------------------
+#
+# 1. Password: OldPassword123
+#    Changed at: 2025-12-02T10:30:15.123456Z
+#    Reason: scheduled rotation
+#
+# 2. Password: VeryOldPass456
+#    Changed at: 2025-11-15T08:20:00.000000Z
+# ============================================================
+
+# View history with JSON output (for automation)
+stegvault vault history vault.png gmail --json
+# Output: {"status":"success","data":{"key":"gmail","current_password":"...","history_count":2,...}}
+
+# Clear password history for an entry
+stegvault vault history-clear vault.png gmail -o vault_updated.png
+# Confirmation: This will clear 2 historical password(s) for 'gmail'.
+# Are you sure? [y/N]: y
+# Output: Password history cleared for 'gmail'.
+#         Updated vault saved to: vault_updated.png
+
+# Clear history without confirmation (for scripts)
+stegvault vault history-clear vault.png gmail -o vault_updated.png --no-confirm
+
+# Update password with reason for tracking
+stegvault vault update vault.png -o vault_v2.png -k gmail \
+    --password "NewSecurePass123" \
+    --password-change-reason "suspected breach"
+# History automatically tracks: old password + timestamp + reason
+```
+
+**TUI Password History** (Terminal UI):
+- Press `h` with an entry selected to view full password history
+- See inline preview of last 3 changes in detail panel
+- Color-coded display: passwords (yellow), timestamps (gray), reasons (cyan)
 
 ### Gallery Management (v0.5.0)
 

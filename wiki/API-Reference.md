@@ -1,6 +1,6 @@
 # API Reference
 
-Complete API documentation for StegVault v0.6.1.
+Complete API documentation for StegVault v0.7.1.
 
 ## Table of Contents
 
@@ -593,6 +593,8 @@ class VaultEntry:
         notes (Optional[str]): Additional notes
         tags (List[str]): Tags for organization
         totp_secret (Optional[str]): TOTP/2FA secret key
+        password_history (List[dict]): Historical passwords (most recent first) **NEW in v0.7.1**
+        max_history (int): Maximum history entries to keep (default: 5) **NEW in v0.7.1**
         created (str): Creation timestamp (ISO 8601)
         modified (str): Last modification timestamp
         accessed (Optional[str]): Last access timestamp
@@ -610,6 +612,64 @@ class VaultEntry:
 
     def update_accessed(self) -> None:
         """Update accessed timestamp to now."""
+
+    def change_password(self, new_password: str, reason: Optional[str] = None) -> None:
+        """Change password and add current password to history. **NEW in v0.7.1**
+
+        Args:
+            new_password: The new password to set
+            reason: Optional reason for password change
+
+        Example:
+            >>> entry.change_password("NewSecurePass123", reason="scheduled rotation")
+            >>> print(len(entry.password_history))  # 1
+        """
+
+    def get_password_history(self) -> List[PasswordHistoryEntry]:
+        """Get password history as list of PasswordHistoryEntry objects. **NEW in v0.7.1**
+
+        Returns:
+            List of PasswordHistoryEntry objects, most recent first
+
+        Example:
+            >>> history = entry.get_password_history()
+            >>> for hist in history:
+            ...     print(f"{hist.password} - {hist.changed_at}")
+        """
+
+    def clear_password_history(self) -> None:
+        """Clear all password history. **NEW in v0.7.1**"""
+```
+
+#### PasswordHistoryEntry
+
+**NEW in v0.7.1**: Dataclass for tracking password changes.
+
+```python
+from stegvault.vault import PasswordHistoryEntry
+```
+
+```python
+@dataclass
+class PasswordHistoryEntry:
+    """A historical password entry.
+
+    Attributes:
+        password (str): The historical password value
+        changed_at (str): Timestamp when password was changed (ISO 8601)
+        reason (Optional[str]): Optional reason for change
+    """
+
+    password: str
+    changed_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    reason: Optional[str] = None
+
+    def to_dict(self) -> dict:
+        """Convert history entry to dictionary."""
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "PasswordHistoryEntry":
+        """Create history entry from dictionary."""
 ```
 
 ---

@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2025-12-03
+
+### Added - Password History 🕐
+
+**Core Feature**:
+- `PasswordHistoryEntry` dataclass for tracking password changes
+- Automatic password history tracking with timestamps and reasons
+- `max_history` configuration (default: 5 entries per vault entry)
+- Methods: `change_password()`, `get_password_history()`, `clear_password_history()`
+
+**CLI Commands**:
+- `vault history <key>` - View complete password history for an entry
+  - Supports `--json` output for automation
+  - Shows current password, timestamps, and change reasons
+  - Passphrase from file or environment variable
+- `vault history-clear <key>` - Clear password history for an entry
+  - Requires `--output` to save updated vault
+  - Confirmation prompt for safety (use `--no-confirm` to skip)
+  - Preserves current password and other entry data
+
+**TUI Integration**:
+- `PasswordHistoryModal` - Full-screen password history viewer
+- Inline history preview (first 3 entries) in detail panel
+- Key binding `h` for quick access
+- "History (h)" button in action bar
+- Color-coded display: passwords (warning), timestamps (muted), reasons (accent)
+
+**Vault Operations**:
+- `Vault.update_entry()` automatically tracks password changes
+- Optional `password_change_reason` parameter for documenting updates
+- History persists through vault save/load cycles
+- Backward compatible with existing vaults (empty history by default)
+
+### Changed
+- `VaultFormat.V2_1_HISTORY = "2.1"` - New vault format version
+- `VaultEntry` now includes `password_history` and `max_history` fields
+- Vault group help text updated with new history commands
+
+### Testing
+- 761 tests total (+0, all existing tests still pass)
+- 21 comprehensive password history tests
+- 87% overall coverage
+- 100% coverage on vault/core.py ✅
+
 ## [0.7.0] - 2025-12-03
 
 ### Added - TUI Phase 5: Polish & Completion 🎉

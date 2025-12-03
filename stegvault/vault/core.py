@@ -13,6 +13,34 @@ class VaultFormat(str, Enum):
 
     V1_SINGLE = "1.0"  # Single password (backward compatibility)
     V2_VAULT = "2.0"  # Multi-entry vault
+    V2_1_HISTORY = "2.1"  # Multi-entry vault with password history
+
+
+@dataclass
+class PasswordHistoryEntry:
+    """
+    A historical password entry.
+
+    Attributes:
+        password: The historical password value
+        changed_at: Timestamp when password was changed (ISO 8601)
+        reason: Optional reason for change (e.g., "scheduled rotation", "suspected breach")
+    """
+
+    password: str
+    changed_at: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    )
+    reason: Optional[str] = None
+
+    def to_dict(self) -> dict:
+        """Convert history entry to dictionary."""
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "PasswordHistoryEntry":
+        """Create history entry from dictionary."""
+        return cls(**data)
 
 
 @dataclass
@@ -28,6 +56,8 @@ class VaultEntry:
         notes: Optional additional notes
         tags: Optional list of tags for organization
         totp_secret: Optional TOTP/2FA secret key
+        password_history: List of historical passwords (most recent first)
+        max_history: Maximum number of historical passwords to keep (default: 5)
         created: Creation timestamp (ISO 8601)
         modified: Last modification timestamp (ISO 8601)
         accessed: Last access timestamp (ISO 8601), None if never accessed
@@ -40,6 +70,8 @@ class VaultEntry:
     notes: Optional[str] = None
     tags: List[str] = field(default_factory=list)
     totp_secret: Optional[str] = None
+    password_history: List[dict] = field(default_factory=list)  # List of PasswordHistoryEntry dicts
+    max_history: int = 5
     created: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     )
@@ -64,6 +96,43 @@ class VaultEntry:
     def update_accessed(self) -> None:
         """Update the accessed timestamp to now."""
         self.accessed = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+    def change_password(self, new_password: str, reason: Optional[str] = None) -> None:
+        """
+        Change password and add current password to history.
+
+        Args:
+            new_password: The new password to set
+            reason: Optional reason for password change
+        """
+        if self.password != new_password:
+            # Create history entry for current password
+            history_entry = PasswordHistoryEntry(password=self.password, reason=reason).to_dict()
+
+            # Add to beginning of history list (most recent first)
+            self.password_history.insert(0, history_entry)
+
+            # Trim history to max_history size
+            if len(self.password_history) > self.max_history:
+                self.password_history = self.password_history[: self.max_history]
+
+            # Update password and timestamp
+            self.password = new_password
+            self.update_modified()
+
+    def get_password_history(self) -> List[PasswordHistoryEntry]:
+        """
+        Get password history as list of PasswordHistoryEntry objects.
+
+        Returns:
+            List of PasswordHistoryEntry objects, most recent first
+        """
+        return [PasswordHistoryEntry.from_dict(entry) for entry in self.password_history]
+
+    def clear_password_history(self) -> None:
+        """Clear all password history."""
+        self.password_history = []
+        self.update_modified()
 
 
 @dataclass
@@ -137,7 +206,8 @@ class Vault:
 
         Args:
             key: The entry key to update
-            **kwargs: Fields to update
+            **kwargs: Fields to update (use 'password' to change password with history,
+                     or 'password_change_reason' to specify reason for password change)
 
         Returns:
             True if updated, False if entry not found
@@ -146,6 +216,13 @@ class Vault:
         if not entry:
             return False
 
+        # Handle password changes specially to preserve history
+        if "password" in kwargs:
+            new_password = kwargs.pop("password")
+            reason = kwargs.pop("password_change_reason", None)
+            entry.change_password(new_password, reason=reason)
+
+        # Update other fields normally
         for field_name, value in kwargs.items():
             if hasattr(entry, field_name) and field_name not in ("key", "created"):
                 setattr(entry, field_name, value)

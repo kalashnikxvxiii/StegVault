@@ -115,6 +115,7 @@ class VaultScreen(Screen):
         Binding("d", "delete_entry", "Delete Entry"),
         Binding("c", "copy_password", "Copy Password"),
         Binding("v", "toggle_password", "Show/Hide Password"),
+        Binding("h", "view_history", "Password History"),
         Binding("s", "save_vault", "Save Changes"),
         Binding("/", "focus_search", "Search"),
         Binding("q", "quit", "Quit"),
@@ -175,6 +176,9 @@ class VaultScreen(Screen):
                 yield Button(
                     "Show/Hide (v)", variant="default", id="btn-toggle", classes="action-button"
                 )
+                yield Button(
+                    "History (h)", variant="default", id="btn-history", classes="action-button"
+                )
                 yield Button("Save (s)", variant="primary", id="btn-save", classes="action-button")
                 yield Button("Back", variant="default", id="btn-back", classes="action-button")
 
@@ -201,6 +205,8 @@ class VaultScreen(Screen):
             self.action_copy_password()
         elif button_id == "btn-toggle":
             self.action_toggle_password()
+        elif button_id == "btn-history":
+            self.action_view_history()
         elif button_id == "btn-save":
             self.action_save_vault()
         elif button_id == "btn-back":
@@ -227,6 +233,15 @@ class VaultScreen(Screen):
         if self.selected_entry:
             detail_panel = self.query_one(EntryDetailPanel)
             detail_panel.toggle_password_visibility()
+        else:
+            self.notify("No entry selected", severity="warning")
+
+    async def action_view_history(self) -> None:
+        """View password history for selected entry."""
+        if self.selected_entry:
+            from .widgets import PasswordHistoryModal
+
+            await self.app.push_screen_wait(PasswordHistoryModal(self.selected_entry))
         else:
             self.notify("No entry selected", severity="warning")
 

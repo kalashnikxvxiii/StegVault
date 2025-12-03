@@ -310,6 +310,121 @@ class PassphraseInputScreen(ModalScreen[Optional[str]]):
         self.dismiss(None)
 
 
+class PasswordHistoryModal(ModalScreen[None]):
+    """Modal screen for viewing full password history."""
+
+    CSS = """
+    PasswordHistoryModal {
+        align: center middle;
+    }
+
+    #history-dialog {
+        width: 80;
+        height: 30;
+        border: thick $primary;
+        background: $surface;
+        padding: 2;
+    }
+
+    #history-title {
+        text-align: center;
+        text-style: bold;
+        margin-bottom: 1;
+    }
+
+    #history-content {
+        height: 22;
+        border: solid $accent;
+        margin-bottom: 1;
+    }
+
+    .history-entry {
+        margin-bottom: 1;
+        padding: 1;
+        background: $boost;
+    }
+
+    .history-password {
+        color: $warning;
+        text-style: bold;
+    }
+
+    .history-timestamp {
+        color: $text-muted;
+    }
+
+    .history-reason {
+        color: $accent;
+        text-style: italic;
+    }
+
+    #button-row {
+        height: 3;
+        align: center middle;
+    }
+    """
+
+    BINDINGS = [
+        Binding("escape", "close", "Close"),
+    ]
+
+    def __init__(self, entry: VaultEntry):
+        """Initialize password history modal."""
+        super().__init__()
+        self.entry = entry
+
+    def compose(self) -> ComposeResult:
+        """Compose history dialog."""
+        with Container(id="history-dialog"):
+            yield Label(f"Password History: {self.entry.key}", id="history-title")
+
+            password_history = self.entry.get_password_history()
+
+            if not password_history:
+                yield ScrollableContainer(
+                    Label("No password history available.", classes="history-timestamp"),
+                    id="history-content",
+                )
+            else:
+                history_widgets = []
+                history_widgets.append(
+                    Label(f"Current Password: {self.entry.password}", classes="history-password")
+                )
+                history_widgets.append(
+                    Label(f"Modified: {self.entry.modified}", classes="history-timestamp")
+                )
+                history_widgets.append(Label(""))  # Blank line
+                history_widgets.append(Label(f"Previous Passwords ({len(password_history)}):"))
+                history_widgets.append(Label(""))
+
+                for i, hist_entry in enumerate(password_history, 1):
+                    history_widgets.append(
+                        Label(f"{i}. Password: {hist_entry.password}", classes="history-password")
+                    )
+                    history_widgets.append(
+                        Label(f"   Changed: {hist_entry.changed_at}", classes="history-timestamp")
+                    )
+                    if hist_entry.reason:
+                        history_widgets.append(
+                            Label(f"   Reason: {hist_entry.reason}", classes="history-reason")
+                        )
+                    history_widgets.append(Label(""))  # Blank line between entries
+
+                yield ScrollableContainer(*history_widgets, id="history-content")
+
+            with Horizontal(id="button-row"):
+                yield Button("Close", variant="primary", id="btn-close")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle button press."""
+        if event.button.id == "btn-close":
+            self.dismiss(None)
+
+    def action_close(self) -> None:
+        """Close dialog."""
+        self.dismiss(None)
+
+
 class EntryListItem(ListItem):
     """List item for a vault entry."""
 
@@ -499,6 +614,24 @@ class EntryDetailPanel(Container):
                     Vertical(
                         Label("Modified:", classes="field-label"),
                         Label(entry.modified, classes="field-value"),
+                        classes="detail-field",
+                    )
+                )
+
+            # Password History
+            password_history = entry.get_password_history()
+            if password_history:
+                history_lines = [f"Password History ({len(password_history)} entries):"]
+                for i, hist_entry in enumerate(password_history[:3], 1):  # Show first 3
+                    reason_str = f" - {hist_entry.reason}" if hist_entry.reason else ""
+                    history_lines.append(f"  {i}. {hist_entry.changed_at}{reason_str}")
+                if len(password_history) > 3:
+                    history_lines.append(f"  ... and {len(password_history) - 3} more")
+
+                widgets.append(
+                    Vertical(
+                        Label("Password History:", classes="field-label"),
+                        Label("\n".join(history_lines), classes="field-value"),
                         classes="detail-field",
                     )
                 )

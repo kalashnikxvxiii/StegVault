@@ -775,18 +775,20 @@ def vault() -> None:
 
     \b
     Subcommands:
-      create  - Create a new vault in an image
-      add     - Add an entry to an existing vault
-      get     - Retrieve a password from the vault
-      list    - List all keys in the vault
-      show    - Show entry details (without password)
-      update  - Update an existing entry
-      delete  - Delete an entry from the vault
-      export  - Export vault to JSON file
-      import  - Import vault from JSON file
-      totp    - Generate TOTP (2FA) code for an entry
-      search  - Search vault entries by query
-      filter  - Filter vault entries by tags or URL
+      create         - Create a new vault in an image
+      add            - Add an entry to an existing vault
+      get            - Retrieve a password from the vault
+      list           - List all keys in the vault
+      show           - Show entry details (without password)
+      update         - Update an existing entry
+      delete         - Delete an entry from the vault
+      export         - Export vault to JSON file
+      import         - Import vault from JSON file
+      totp           - Generate TOTP (2FA) code for an entry
+      search         - Search vault entries by query
+      filter         - Filter vault entries by tags or URL
+      history        - View password history for an entry
+      history-clear  - Clear password history for an entry
     """
     pass
 
@@ -2403,6 +2405,199 @@ def filter(
 
         click.echo("\n" + "=" * 60)
         click.echo(f"Total: {len(results_list)} entries")
+
+    except DecryptionError:
+        click.echo("Error: Wrong passphrase", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@vault.command()
+@click.argument("vault_image", type=click.Path(exists=True))
+@click.argument("key")
+@click.option("--passphrase", default=None, help="Vault passphrase (or use --passphrase-file/env)")
+@click.option("--passphrase-file", type=click.Path(exists=True), help="Read passphrase from file")
+@click.option("--json", "json_output", is_flag=True, help="Output in JSON format")
+def history(
+    vault_image: str,
+    key: str,
+    passphrase: Optional[str],
+    passphrase_file: Optional[str],
+    json_output: bool,
+) -> None:
+    """
+    View password history for an entry.
+
+    Shows all previous passwords for the specified entry, including
+    timestamps and reasons for changes (if recorded).
+
+    \b
+    Example:
+        stegvault vault history vault.png gmail
+        stegvault vault history vault.png github --json
+        stegvault vault history vault.png aws --passphrase-file ~/.vault_pass
+    """
+    try:
+        # Get passphrase from various sources
+        passphrase = get_passphrase(
+            passphrase=passphrase,
+            passphrase_file=passphrase_file,
+            env_var="STEGVAULT_PASSPHRASE",
+        )
+
+        # Load and decrypt vault
+        payload = extract_full_payload(vault_image)
+        if not payload:
+            click.echo("Error: No hidden data found in this image", err=True)
+            sys.exit(1)
+
+        decrypted_payload = decrypt_data(payload, passphrase)
+        vault = parse_payload(decrypted_payload)
+
+        # Verify it's a vault, not a single password
+        if isinstance(vault, str):
+            click.echo("Error: This image contains a single password, not a vault", err=True)
+            sys.exit(1)
+
+        # Get the entry
+        entry = vault.get_entry(key)
+        if not entry:
+            click.echo(f"Error: Entry '{key}' not found in vault", err=True)
+            sys.exit(1)
+
+        # Get password history
+        password_history = entry.get_password_history()
+
+        if json_output:
+            # JSON output mode
+            json_data = JSONOutput.success(
+                data={
+                    "key": key,
+                    "current_password": entry.password,
+                    "history_count": len(password_history),
+                    "history": [h.to_dict() for h in password_history],
+                }
+            )
+            click.echo(json_data)
+        else:
+            # Human-readable output
+            click.echo(f"\n{'='*60}")
+            click.echo(f"Password History for: {key}")
+            click.echo(f"{'='*60}")
+            click.echo(f"Current password: {entry.password}")
+            click.echo(f"Modified: {entry.modified}")
+
+            if not password_history:
+                click.echo("\nNo password history available.")
+            else:
+                click.echo(f"\nHistory ({len(password_history)} entries):")
+                click.echo(f"{'-'*60}")
+                for i, hist_entry in enumerate(password_history, 1):
+                    click.echo(f"\n{i}. Password: {hist_entry.password}")
+                    click.echo(f"   Changed at: {hist_entry.changed_at}")
+                    if hist_entry.reason:
+                        click.echo(f"   Reason: {hist_entry.reason}")
+                click.echo(f"\n{'='*60}")
+
+    except DecryptionError:
+        if json_output:
+            click.echo(JSONOutput.error("Wrong passphrase"))
+        else:
+            click.echo("Error: Wrong passphrase", err=True)
+        sys.exit(1)
+    except Exception as e:
+        if json_output:
+            click.echo(JSONOutput.error(str(e)))
+        else:
+            click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@vault.command(name="history-clear")
+@click.argument("vault_image", type=click.Path(exists=True))
+@click.argument("key")
+@click.option(
+    "--output", "-o", required=True, type=click.Path(), help="Output path for updated vault image"
+)
+@click.option("--passphrase", default=None, help="Vault passphrase (or use --passphrase-file/env)")
+@click.option("--passphrase-file", type=click.Path(exists=True), help="Read passphrase from file")
+@click.option(
+    "--confirm/--no-confirm",
+    default=True,
+    help="Confirm before clearing history (default: yes)",
+)
+def history_clear(
+    vault_image: str,
+    key: str,
+    output: str,
+    passphrase: Optional[str],
+    passphrase_file: Optional[str],
+    confirm: bool,
+) -> None:
+    """
+    Clear password history for an entry.
+
+    Removes all historical passwords for the specified entry.
+    The current password and other entry data are not affected.
+
+    \b
+    Example:
+        stegvault vault history-clear vault.png gmail -o vault_updated.png
+        stegvault vault history-clear vault.png github -o updated.png --no-confirm
+    """
+    try:
+        # Get passphrase from various sources
+        passphrase = get_passphrase(
+            passphrase=passphrase,
+            passphrase_file=passphrase_file,
+            env_var="STEGVAULT_PASSPHRASE",
+        )
+
+        # Load and decrypt vault
+        payload = extract_full_payload(vault_image)
+        if not payload:
+            click.echo("Error: No hidden data found in this image", err=True)
+            sys.exit(1)
+
+        decrypted_payload = decrypt_data(payload, passphrase)
+        vault = parse_payload(decrypted_payload)
+
+        # Verify it's a vault, not a single password
+        if isinstance(vault, str):
+            click.echo("Error: This image contains a single password, not a vault", err=True)
+            sys.exit(1)
+
+        # Get the entry
+        entry = vault.get_entry(key)
+        if not entry:
+            click.echo(f"Error: Entry '{key}' not found in vault", err=True)
+            sys.exit(1)
+
+        # Check if there's history to clear
+        if not entry.password_history:
+            click.echo(f"Entry '{key}' has no password history to clear.")
+            sys.exit(0)
+
+        # Confirm before clearing (unless --no-confirm)
+        if confirm:
+            history_count = len(entry.password_history)
+            click.echo(f"\nThis will clear {history_count} historical password(s) for '{key}'.")
+            if not click.confirm("Are you sure?", default=False):
+                click.echo("Cancelled.")
+                sys.exit(0)
+
+        # Clear the history
+        entry.clear_password_history()
+
+        # Re-encrypt and save
+        vault_json = vault_to_json(vault)
+        encrypted_payload = encrypt_data(vault_json.encode("utf-8"), passphrase)
+        embed_full_payload(vault_image, output, encrypted_payload)
+
+        click.echo(f"Password history cleared for '{key}'.")
+        click.echo(f"Updated vault saved to: {output}")
 
     except DecryptionError:
         click.echo("Error: Wrong passphrase", err=True)

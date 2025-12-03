@@ -5,7 +5,7 @@ This module provides password vault functionality for storing multiple
 credentials in a single encrypted payload.
 """
 
-from .core import Vault, VaultEntry, VaultFormat
+from .core import Vault, VaultEntry, VaultFormat, PasswordHistoryEntry
 from .operations import (
     create_vault,
     add_entry,
@@ -43,6 +43,7 @@ __all__ = [
     "Vault",
     "VaultEntry",
     "VaultFormat",
+    "PasswordHistoryEntry",
     "create_vault",
     "add_entry",
     "get_entry",
