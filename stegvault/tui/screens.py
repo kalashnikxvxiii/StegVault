@@ -4,6 +4,7 @@ TUI screens for StegVault.
 Provides main application screens for vault management.
 """
 
+from pathlib import Path
 from typing import Optional
 
 from textual.app import ComposeResult
@@ -15,96 +16,185 @@ from textual.binding import Binding
 from stegvault.vault import Vault, VaultEntry
 from stegvault.app.controllers import VaultController
 
-from .widgets import EntryListItem, EntryDetailPanel, EntryFormScreen, DeleteConfirmationScreen
+from .widgets import (
+    EntryListItem,
+    EntryDetailPanel,
+    EntryFormScreen,
+    DeleteConfirmationScreen,
+    UnsavedChangesScreen,
+)
 
 
 class VaultScreen(Screen):
     """Main vault management screen."""
 
     CSS = """
+    /* Cyberpunk Vault Screen - Fullscreen responsive */
     VaultScreen {
-        background: $surface;
+        background: #000000;
     }
 
     #vault-container {
+        width: 100%;
         height: 100%;
     }
 
     #vault-header {
         height: 3;
-        background: $primary;
-        color: $text;
+        background: #0a0a0a;
+        border-bottom: heavy #00ffff;
+        color: #00ffff;
         padding: 0 2;
         dock: top;
     }
 
     #vault-title {
         text-style: bold;
+        color: #00ffff;
     }
 
     #vault-path {
-        color: $text-muted;
+        color: #ff00ff;
         margin-left: 2;
+        text-style: italic;
     }
 
     #main-panel {
+        width: 100%;
         height: 1fr;
     }
 
+    /* Entry List - Neon cyan theme */
     #entry-list-container {
         width: 30%;
-        border-right: solid $accent;
+        border-right: heavy #00ffff;
+        background: #0a0a0a;
     }
 
     #entry-list-header {
         height: 3;
-        background: $panel;
+        background: #0a0a0a;
+        border-bottom: solid #ff00ff;
         padding: 0 1;
     }
 
+    #entry-list-header Static {
+        color: #ffff00;
+        text-style: bold;
+    }
+
     #entry-count {
-        color: $text-muted;
+        color: #ff00ff;
+        text-style: bold;
     }
 
     #search-container {
-        height: 3;
-        background: $panel;
+        height: auto;
+        background: #0a0a0a;
+        border-bottom: solid #00ffff;
         padding: 0 1;
     }
 
     #search-input {
         width: 100%;
+        height: 3;
+        background: #000000;
+        border: solid #00ffff;
+        color: #00ffff;
+    }
+
+    #search-input:focus {
+        border: heavy #00ffff;
+        background: #0a0a0a;
     }
 
     #entry-list {
         height: 1fr;
+        background: #0a0a0a;
     }
 
+    /* Detail Panel - Magenta accent */
     #detail-container {
         width: 70%;
+        background: #0a0a0a;
     }
 
     .entry-item {
         padding: 0 1;
+        color: #00ffff;
+        border-left: solid transparent;
     }
 
     .entry-item:hover {
-        background: $primary 20%;
+        background: #00ffff20;
+        border-left: heavy #00ffff;
     }
 
     ListItem.--highlight {
-        background: $primary;
+        background: #00ffff30;
+        border-left: double #00ffff;
+        color: #ffffff;
+        text-style: bold;
     }
 
-    #action-bar {
-        height: 3;
-        background: $panel;
+    /* Action Bar - Bottom panel with 2 rows */
+    #action-bar-container {
+        width: 100%;
+        height: auto;
+        min-height: 7;
+        background: #0a0a0a;
+        border-top: solid #ff00ff;
         dock: bottom;
-        padding: 0 2;
+        padding: 0;
+    }
+
+    #action-bar-rows {
+        width: 100%;
+        height: auto;
+        align: center middle;
+    }
+
+    .action-row {
+        width: 100%;
+        height: 3;
+        align: center middle;
     }
 
     .action-button {
-        margin: 0 1;
+        margin: 0;
+        padding: 0 1;
+        height: 3;
+        width: 1fr;  /* Each button takes equal fraction of available space */
+        border: solid #00ffff;
+        background: #000000;
+        color: #00ffff;
+        min-width: 9;
+        text-align: center;
+        text-style: bold;
+    }
+
+    .action-button:hover {
+        background: #00ffff20;
+    }
+
+    .action-button.danger {
+        border-left: solid #ff0080;
+        border-right: solid #ff0080;
+        color: #ff0080;
+    }
+
+    .action-button.danger:hover {
+        background: #ff008020;
+    }
+
+    .action-button.success {
+        border-left: solid #00ff9f;
+        border-right: solid #00ff9f;
+        color: #00ff9f;
+    }
+
+    .action-button.success:hover {
+        background: #00ff9f20;
     }
     """
 
@@ -130,6 +220,7 @@ class VaultScreen(Screen):
         self.controller = controller
         self.selected_entry: Optional[VaultEntry] = None
         self.search_query: str = ""
+        self.has_unsaved_changes: bool = False
 
     def compose(self) -> ComposeResult:
         """Compose vault screen layout."""
@@ -138,51 +229,51 @@ class VaultScreen(Screen):
         with Container(id="vault-container"):
             # Vault header
             with Horizontal(id="vault-header"):
-                yield Label(f"Vault: {self.vault.name or 'Unnamed'}", id="vault-title")
-                yield Label(f"📁 {self.image_path}", id="vault-path")
+                vault_name = Path(self.image_path).stem.upper() if self.image_path else "UNNAMED"
+                yield Label(f"🔒🔒 VAULT: {vault_name} 🔒🔒", id="vault-title")
+                yield Label(f">> {self.image_path}", id="vault-path")
 
             # Main panel with entry list and details
             with Horizontal(id="main-panel"):
                 # Entry list
                 with Vertical(id="entry-list-container"):
                     with Horizontal(id="entry-list-header"):
-                        yield Label("Entries", id="entry-list-title")
-                        yield Label(f"({len(self.vault.entries)})", id="entry-count")
+                        yield Label(">> CREDENTIALS", id="entry-list-title")
+                        yield Label(f"[{len(self.vault.entries)}]", id="entry-count")
 
                     # Search box
                     with Horizontal(id="search-container"):
                         yield Input(
-                            placeholder="🔍 Search entries... (press / to focus)",
+                            placeholder="⚡⚡ NEURAL SEARCH (/) ...",
                             id="search-input",
                         )
 
-                    entry_list = ListView(id="entry-list")
-                    for entry in self.vault.entries:
-                        entry_list.append(EntryListItem(entry))
-                    yield entry_list
+                    # Entry list - populate in on_mount()
+                    yield ListView(id="entry-list")
 
                 # Detail panel
                 with Container(id="detail-container"):
                     yield EntryDetailPanel()
 
-            # Action bar
-            with Horizontal(id="action-bar"):
-                yield Button("Add (a)", variant="success", id="btn-add", classes="action-button")
-                yield Button("Edit (e)", variant="warning", id="btn-edit", classes="action-button")
-                yield Button(
-                    "Delete (d)", variant="error", id="btn-delete", classes="action-button"
-                )
-                yield Button("Copy (c)", variant="primary", id="btn-copy", classes="action-button")
-                yield Button(
-                    "Show/Hide (v)", variant="default", id="btn-toggle", classes="action-button"
-                )
-                yield Button(
-                    "History (h)", variant="default", id="btn-history", classes="action-button"
-                )
-                yield Button("Save (s)", variant="primary", id="btn-save", classes="action-button")
-                yield Button("Back", variant="default", id="btn-back", classes="action-button")
+            # Action bar - 2 rows of 4 buttons each
+            with Container(id="action-bar-container"):
+                with Vertical(id="action-bar-rows"):
+                    with Horizontal(classes="action-row"):
+                        yield Button("ADD", id="btn-add", classes="action-button success")
+                        yield Button("EDIT", id="btn-edit", classes="action-button")
+                        yield Button("DELETE", id="btn-delete", classes="action-button danger")
+                        yield Button("COPY", id="btn-copy", classes="action-button")
+                    with Horizontal(classes="action-row"):
+                        yield Button("SHOW", id="btn-toggle", classes="action-button")
+                        yield Button("HISTORY", id="btn-history", classes="action-button")
+                        yield Button("SAVE", id="btn-save", classes="action-button success")
+                        yield Button("BACK", id="btn-back", classes="action-button")
 
         yield Footer()
+
+    def on_mount(self) -> None:
+        """Called when screen is mounted. Populate entry list."""
+        self._refresh_entry_list()
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         """Handle entry selection."""
@@ -236,7 +327,11 @@ class VaultScreen(Screen):
         else:
             self.notify("No entry selected", severity="warning")
 
-    async def action_view_history(self) -> None:
+    def action_view_history(self) -> None:
+        """View password history (wrapper for async)."""
+        self.run_worker(self._async_view_history())
+
+    async def _async_view_history(self) -> None:
         """View password history for selected entry."""
         if self.selected_entry:
             from .widgets import PasswordHistoryModal
@@ -245,7 +340,11 @@ class VaultScreen(Screen):
         else:
             self.notify("No entry selected", severity="warning")
 
-    async def action_add_entry(self) -> None:
+    def action_add_entry(self) -> None:
+        """Add new entry (wrapper for async)."""
+        self.run_worker(self._async_add_entry())
+
+    async def _async_add_entry(self) -> None:
         """Add new entry to vault."""
         # Show add entry form
         form_data = await self.app.push_screen_wait(EntryFormScreen(mode="add"))
@@ -270,12 +369,17 @@ class VaultScreen(Screen):
 
         # Update vault reference
         self.vault = updated_vault
+        self.has_unsaved_changes = True
 
         # Refresh entry list
         self._refresh_entry_list()
         self.notify(f"Entry '{form_data['key']}' added successfully", severity="information")
 
-    async def action_edit_entry(self) -> None:
+    def action_edit_entry(self) -> None:
+        """Edit selected entry (wrapper for async)."""
+        self.run_worker(self._async_edit_entry())
+
+    async def _async_edit_entry(self) -> None:
         """Edit selected entry."""
         if not self.selected_entry:
             self.notify("No entry selected", severity="warning")
@@ -306,6 +410,7 @@ class VaultScreen(Screen):
 
         # Update vault reference and refresh
         self.vault = updated_vault
+        self.has_unsaved_changes = True
         self._refresh_entry_list()
 
         # Update detail panel if same entry is still selected
@@ -318,7 +423,11 @@ class VaultScreen(Screen):
 
         self.notify(f"Entry '{form_data['key']}' updated successfully", severity="information")
 
-    async def action_delete_entry(self) -> None:
+    def action_delete_entry(self) -> None:
+        """Delete selected entry (wrapper for async)."""
+        self.run_worker(self._async_delete_entry())
+
+    async def _async_delete_entry(self) -> None:
         """Delete selected entry."""
         if not self.selected_entry:
             self.notify("No entry selected", severity="warning")
@@ -343,6 +452,7 @@ class VaultScreen(Screen):
 
         # Update vault reference and refresh
         self.vault = updated_vault
+        self.has_unsaved_changes = True
         self.selected_entry = None
 
         # Clear detail panel
@@ -353,7 +463,11 @@ class VaultScreen(Screen):
         self._refresh_entry_list()
         self.notify(f"Entry '{entry_key}' deleted successfully", severity="information")
 
-    async def action_save_vault(self) -> None:
+    def action_save_vault(self) -> None:
+        """Save vault changes to disk (wrapper for async)."""
+        self.run_worker(self._async_save_vault())
+
+    async def _async_save_vault(self) -> None:
         """Save vault changes to disk."""
         self.notify("Saving vault...", severity="information")
 
@@ -364,6 +478,7 @@ class VaultScreen(Screen):
             self.notify(f"Failed to save vault: {result.error}", severity="error")
             return
 
+        self.has_unsaved_changes = False
         self.notify("Vault saved successfully!", severity="information")
 
     def _get_filtered_entries(self) -> list[VaultEntry]:
@@ -389,6 +504,10 @@ class VaultScreen(Screen):
 
     def _refresh_entry_list(self) -> None:
         """Refresh the entry list view with current search filter."""
+        # Check if screen is mounted before attempting refresh
+        if not self.is_mounted:
+            return
+
         # Get entry list and clear it
         entry_list = self.query_one("#entry-list", ListView)
         entry_list.clear()
@@ -427,9 +546,41 @@ class VaultScreen(Screen):
         self.notify("Refresh feature - Coming soon!", severity="information")
 
     def action_back(self) -> None:
-        """Return to welcome screen."""
-        self.app.pop_screen()
+        """Return to welcome screen (wrapper for async)."""
+        self.run_worker(self._async_back())
+
+    async def _async_back(self) -> None:
+        """Check for unsaved changes before going back."""
+        if self.has_unsaved_changes:
+            choice = await self.app.push_screen_wait(UnsavedChangesScreen())
+            if choice == "save":
+                # Save and exit
+                await self._async_save_vault()
+                self.app.pop_screen()
+            elif choice == "dont_save":
+                # Exit without saving
+                self.app.pop_screen()
+            # If "cancel", do nothing
+        else:
+            # No unsaved changes, just exit
+            self.app.pop_screen()
 
     def action_quit(self) -> None:
-        """Quit application."""
-        self.app.exit()
+        """Quit application (wrapper for async)."""
+        self.run_worker(self._async_quit())
+
+    async def _async_quit(self) -> None:
+        """Check for unsaved changes before quitting."""
+        if self.has_unsaved_changes:
+            choice = await self.app.push_screen_wait(UnsavedChangesScreen())
+            if choice == "save":
+                # Save and quit
+                await self._async_save_vault()
+                self.app.exit()
+            elif choice == "dont_save":
+                # Quit without saving
+                self.app.exit()
+            # If "cancel", do nothing
+        else:
+            # No unsaved changes, just quit
+            self.app.exit()

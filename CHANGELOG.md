@@ -7,6 +7,128 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.3] - 2025-12-12
+
+### Fixed - Critical TUI Stability Improvements 🐛
+
+**PasswordGeneratorScreen Terminal Crash** (Critical):
+- **Issue**: Pressing 'q' in PasswordGeneratorScreen caused immediate terminal blackout, requiring force-close
+- **Root Cause**: Modal's event handlers were completely bypassed by app's global 'q' binding with `priority=True`
+- **Debug Discovery**:
+  - Modal's `on_key()` was never called (no notification appeared)
+  - Modal's BINDINGS were not registered (footer showed parent screen bindings)
+  - Event propagation went directly to app, skipping modal entirely
+- **Solution**: App-level interception in `action_quit()`
+  ```python
+  if isinstance(self.screen, PasswordGeneratorScreen):
+      self.notify("Press ESC to close this modal first")
+      return  # Block quit, keep modal open
+  ```
+- **Result**: ✅ Notification appears, modal stays open, no crash
+- **Affected File**: `stegvault/tui/app.py` (lines 300-310)
+
+**VaultScreen Button Border Overflow**:
+- **Issue**:
+  - First row: 2-character border overflow (duplicated ASCII chars at line end)
+  - Second row: 1-character overflow (duplicated ASCII char at line end)
+  - Buttons slightly off-center to the left
+- **Root Cause**: Unicode emoji characters (`➕`, `✏️`, `🗑️`, etc.) causing width miscalculations
+  - Terminal width calculation inconsistent with emoji rendering
+  - `width: 1fr` with emojis exceeded 100% container width
+- **Solution**: Removed all emojis from button labels
+  - `➕ ADD` → `ADD`
+  - `✏️ EDIT` → `EDIT`
+  - `🗑️ DEL` → `DELETE`
+  - `📋 COPY` → `COPY`
+  - `👁️ SHOW` → `SHOW`
+  - `🕐 HIST` → `HISTORY`
+  - `💾 SAVE` → `SAVE`
+  - `◀◀ BACK` → `BACK`
+- **CSS Optimization**:
+  - Removed `max-width` constraints that caused centering issues
+  - `width: 1fr` now distributes buttons evenly (25% each)
+  - Full-width button bar with perfect centering
+  - Maintains responsiveness on window resize
+- **Result**: ✅ No overflow, perfect centering, responsive layout
+- **Affected File**: `stegvault/tui/screens.py` (lines 264-272, 151-174)
+
+### Changed
+- VaultScreen action buttons: ASCII labels for terminal rendering stability
+- Button layout: Full-width responsive distribution without emoji-related width issues
+- PasswordGeneratorScreen: Quit action gracefully handled with user notification
+
+### Technical Details
+- **Event Handling**: Discovered Textual ModalScreen doesn't process key events when `priority=True` bindings exist at app level
+- **Unicode Rendering**: Terminal emulators calculate emoji width inconsistently, causing layout bugs
+- **Workaround**: App-level screen type checking + ASCII-only UI elements for stability
+
+### Testing
+- 119 TUI tests (100% pass rate) ✅
+- Manual testing: Windows Terminal, PowerShell
+- Both issues resolved and verified stable
+
+## [0.7.2] - 2025-12-03
+
+### Changed - Cyberpunk UI Redesign ⚡
+
+**Visual Overhaul**:
+- Complete TUI redesign with cyberpunk/dystopian aesthetic
+- Neon color palette: cyan (#00ffff), magenta (#ff00ff), yellow (#ffff00), hot pink (#ff0080)
+- Dark background (#0a0a0f, #16213e, #1a1a2e) with neon accents
+- Heavy borders with glow effects (text-shadow, box-shadow)
+- ASCII art STEGVAULT logo on welcome screen
+- Cyberpunk-themed labels and iconography throughout
+
+**Welcome Screen**:
+- Large ASCII art "STEGVAULT" logo in magenta
+- Title: "⚡ STEGVAULT ⚡ Neural Security Terminal"
+- Subtitle: "⚡ Steganography-based password vault in a surveillance state ⚡"
+- Tagline: "「 Hide in plain sight. Encrypt everything. Trust no one. 」"
+- Redesigned buttons with emoji: 🔓 UNLOCK VAULT, ⚡ NEW VAULT, ❓ HELP
+
+**Vault Screen**:
+- Header: "🔒 VAULT: [NAME] 🔒" with cyan neon glow
+- Entry list: "▸ CREDENTIALS" with magenta border
+- Search input: "⚡ NEURAL SEARCH (/) ..." placeholder
+- Action buttons with emoji: ➕ ADD, ✏️ EDIT, 🗑️ DEL, 📋 COPY, 👁️ SHOW, 🕐 HIST, 💾 SAVE, ◀ BACK
+
+**Entry Detail Panel**:
+- Title: "▸ ENTRY: [KEY]" with cyan glow and magenta border
+- Field labels with emoji:
+  - 🔑 PASSWORD (magenta masked bullets ●●●●)
+  - 👤 USERNAME
+  - 🌐 URL
+  - 🏷️ TAGS
+  - 📝 NOTES
+  - ⏱️ TOTP CODE (🔐 code [Xs])
+  - 📅 CREATED
+  - 📝 MODIFIED
+  - 🕐 PASSWORD HISTORY
+- All fields with yellow labels, white values, cyan borders
+
+**Theme Elements**:
+- Footer: Magenta key bindings, cyan descriptions
+- Hover effects: Background glow with border intensification
+- Focus states: Double borders with enhanced glow
+- Notifications: Colored borders (cyan=info, pink=error, yellow=warning, green=success)
+- Button variants: danger (pink), success (green), warning (yellow)
+
+**Thematic Concept**:
+- "Privacy as a luxury in a surveillance state"
+- Underground hacker terminal aesthetic
+- Neural security terminal narrative
+- Steganography as digital camouflage
+- Trust no one, encrypt everything philosophy
+
+### Fixed
+- NoActiveWorker bug: action_new_vault() and action_open_vault() now use run_worker()
+- Button press handlers properly execute async actions in worker context
+
+### Testing
+- 761 tests total (100% pass rate)
+- 87% overall coverage
+- Updated test for new title and subtitle
+
 ## [0.7.1] - 2025-12-03
 
 ### Added - Password History 🕐

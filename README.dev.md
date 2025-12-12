@@ -45,6 +45,53 @@ mypy stegvault
 bandit -r stegvault
 ```
 
+## AI-Assisted Development
+
+StegVault leverages AI assistance (Claude by Anthropic) for enhanced development workflows:
+
+### Testing & Quality Assurance
+- **Test Generation**: AI assists in creating comprehensive test suites
+  - Edge case identification and coverage improvement
+  - Mock object creation and test fixture design
+  - Async test patterns for TUI components (pytest-asyncio)
+  - Achieved 89% overall coverage with 740+ tests
+
+### Bug Identification & Debugging
+- **Root Cause Analysis**: Deep investigation of complex issues
+  - Terminal rendering bugs (emoji width calculations, border overflows)
+  - Event propagation in Textual framework (ModalScreen bypassing)
+  - Async/await patterns and worker context issues
+- **Debugging Strategies**: Systematic approaches using:
+  - `git diff` analysis for change tracking
+  - `mypy` and `pylint` for static analysis
+  - Manual testing protocols for TUI components
+
+### Technical Decision Support
+- **Architecture Decisions**:
+  - Multi-interface design (CLI, TUI, GUI roadmap)
+  - Application layer controllers for code reuse
+  - Stegano format selection (PNG LSB vs JPEG DCT)
+- **Library Selection**:
+  - Textual framework evaluation for TUI
+  - jpeglib vs jpegio comparison
+  - pytest-asyncio integration
+- **Performance Optimization**:
+  - Parallel tool execution strategies
+  - Test execution efficiency
+  - Coverage improvement techniques
+
+### Code Review & Best Practices
+- **Security Review**: Identifying potential vulnerabilities
+- **Code Quality**: Following PEP 8, type hints, docstrings
+- **Testing Standards**: Maintaining 80%+ coverage target
+- **Documentation**: Comprehensive CHANGELOG and technical docs
+
+### Limitations & Human Oversight
+- All AI suggestions reviewed by maintainer before implementation
+- Critical decisions (security, architecture) require human judgment
+- AI assists but doesn't replace human expertise and domain knowledge
+- Code formatting (Black) and linting (mypy) enforce consistency
+
 ## Pre-Commit Checklist
 
 **IMPORTANT**: Run these checks before every `git commit` and `git push` to avoid CI failures.

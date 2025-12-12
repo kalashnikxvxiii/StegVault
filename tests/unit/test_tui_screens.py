@@ -46,8 +46,8 @@ class TestVaultScreen:
         assert "s" in binding_keys  # save vault
         assert "q" in binding_keys  # quit
 
-    def test_action_back(self):
-        """Should call app.pop_screen."""
+    async def test_action_back(self):
+        """Should check for unsaved changes and call app.pop_screen."""
         vault = Vault(entries=[])
         controller = VaultController()
         screen = VaultScreen(vault, "test.png", "passphrase", controller)
@@ -58,13 +58,14 @@ class TestVaultScreen:
         screen._parent = Mock()
         screen._parent.app = mock_app
 
-        # Patch the app property to return mock_app
+        # Test: no unsaved changes
+        screen.has_unsaved_changes = False
         with patch.object(type(screen), "app", property(lambda self: mock_app)):
-            screen.action_back()
+            await screen._async_back()
             mock_app.pop_screen.assert_called_once()
 
-    def test_action_quit(self):
-        """Should call app.exit."""
+    async def test_action_quit(self):
+        """Should check for unsaved changes and call app.exit."""
         vault = Vault(entries=[])
         controller = VaultController()
         screen = VaultScreen(vault, "test.png", "passphrase", controller)
@@ -75,9 +76,10 @@ class TestVaultScreen:
         screen._parent = Mock()
         screen._parent.app = mock_app
 
-        # Patch the app property to return mock_app
+        # Test: no unsaved changes
+        screen.has_unsaved_changes = False
         with patch.object(type(screen), "app", property(lambda self: mock_app)):
-            screen.action_quit()
+            await screen._async_quit()
             mock_app.exit.assert_called_once()
 
     def test_action_refresh(self):
@@ -159,7 +161,7 @@ class TestVaultScreen:
         assert call_args[1]["severity"] == "warning"
 
     def test_action_toggle_password_success(self):
-        """Should toggle password visibility."""
+        """Should show password temporarily."""
         entry = VaultEntry(key="test", password="secret")
         vault = Vault(entries=[entry])
         controller = VaultController()
@@ -251,7 +253,7 @@ class TestVaultScreen:
         mock_app.push_screen_wait = AsyncMock(return_value=form_data)
 
         with patch.object(type(screen), "app", property(lambda self: mock_app)):
-            await screen.action_add_entry()
+            await screen._async_add_entry()
 
             controller.add_vault_entry.assert_called_once()
             screen._refresh_entry_list.assert_called_once()
@@ -272,7 +274,7 @@ class TestVaultScreen:
         mock_app.push_screen_wait = AsyncMock(return_value=None)
 
         with patch.object(type(screen), "app", property(lambda self: mock_app)):
-            await screen.action_add_entry()
+            await screen._async_add_entry()
 
             screen._refresh_entry_list.assert_not_called()
             screen.notify.assert_not_called()
@@ -296,7 +298,7 @@ class TestVaultScreen:
         mock_app.push_screen_wait = AsyncMock(return_value=form_data)
 
         with patch.object(type(screen), "app", property(lambda self: mock_app)):
-            await screen.action_add_entry()
+            await screen._async_add_entry()
 
             screen.notify.assert_called_once()
             assert "Failed to add entry" in screen.notify.call_args[0][0]
@@ -309,7 +311,7 @@ class TestVaultScreen:
         screen = VaultScreen(vault, "test.png", "passphrase", controller)
         screen.notify = Mock()
 
-        await screen.action_edit_entry()
+        await screen._async_edit_entry()
 
         screen.notify.assert_called_once()
         assert "No entry selected" in screen.notify.call_args[0][0]
@@ -342,7 +344,7 @@ class TestVaultScreen:
         screen.query_one = Mock(return_value=mock_panel)
 
         with patch.object(type(screen), "app", property(lambda self: mock_app)):
-            await screen.action_edit_entry()
+            await screen._async_edit_entry()
 
             controller.update_vault_entry.assert_called_once()
             screen._refresh_entry_list.assert_called_once()
@@ -356,7 +358,7 @@ class TestVaultScreen:
         screen = VaultScreen(vault, "test.png", "passphrase", controller)
         screen.notify = Mock()
 
-        await screen.action_delete_entry()
+        await screen._async_delete_entry()
 
         screen.notify.assert_called_once()
         assert "No entry selected" in screen.notify.call_args[0][0]
@@ -377,7 +379,7 @@ class TestVaultScreen:
         mock_app.push_screen_wait = AsyncMock(return_value=False)
 
         with patch.object(type(screen), "app", property(lambda self: mock_app)):
-            await screen.action_delete_entry()
+            await screen._async_delete_entry()
 
             screen._refresh_entry_list.assert_not_called()
             screen.notify.assert_not_called()
@@ -406,7 +408,7 @@ class TestVaultScreen:
         screen.query_one = Mock(return_value=mock_panel)
 
         with patch.object(type(screen), "app", property(lambda self: mock_app)):
-            await screen.action_delete_entry()
+            await screen._async_delete_entry()
 
             controller.delete_vault_entry.assert_called_once()
             screen._refresh_entry_list.assert_called_once()
@@ -427,11 +429,12 @@ class TestVaultScreen:
         result = VaultSaveResult(output_path="test.png", success=True)
         controller.save_vault = Mock(return_value=result)
 
-        await screen.action_save_vault()
+        await screen._async_save_vault()
 
         controller.save_vault.assert_called_once_with(vault, "test.png", "passphrase")
         screen.notify.assert_called()
         assert "saved successfully" in screen.notify.call_args[0][0]
+        assert screen.has_unsaved_changes is False
 
     @pytest.mark.asyncio
     async def test_action_save_vault_failure(self):
@@ -447,13 +450,15 @@ class TestVaultScreen:
         result = VaultSaveResult(output_path="test.png", success=False, error="Disk full")
         controller.save_vault = Mock(return_value=result)
 
-        await screen.action_save_vault()
+        await screen._async_save_vault()
 
         screen.notify.assert_called()
         assert "Failed to save vault" in screen.notify.call_args[0][0]
 
     def test_refresh_entry_list(self):
         """Should refresh entry list."""
+        from unittest.mock import patch, PropertyMock
+
         entry1 = VaultEntry(key="test1", password="pass1")
         entry2 = VaultEntry(key="test2", password="pass2")
         vault = Vault(entries=[entry1, entry2])
@@ -477,18 +482,21 @@ class TestVaultScreen:
 
         screen.query_one = mock_query_one
 
-        screen._refresh_entry_list()
+        # Mock is_mounted property to return True
+        with patch.object(type(screen), "is_mounted", new_callable=PropertyMock) as mock_mounted:
+            mock_mounted.return_value = True
+            screen._refresh_entry_list()
 
-        mock_list.clear.assert_called_once()
-        assert mock_list.append.call_count == 2
-        mock_label.update.assert_called_once_with("(2)")
+            mock_list.clear.assert_called_once()
+            assert mock_list.append.call_count == 2
+            mock_label.update.assert_called_once_with("(2)")
 
     def test_on_button_pressed_add(self):
         """Should handle add button press."""
         vault = Vault(entries=[])
         controller = VaultController()
         screen = VaultScreen(vault, "test.png", "passphrase", controller)
-        screen.action_add_entry = Mock()
+        screen.run_worker = Mock()
 
         button = Mock()
         button.id = "btn-add"
@@ -497,14 +505,14 @@ class TestVaultScreen:
 
         screen.on_button_pressed(event)
 
-        screen.action_add_entry.assert_called_once()
+        screen.run_worker.assert_called_once()
 
     def test_on_button_pressed_edit(self):
         """Should handle edit button press."""
         vault = Vault(entries=[])
         controller = VaultController()
         screen = VaultScreen(vault, "test.png", "passphrase", controller)
-        screen.action_edit_entry = Mock()
+        screen.run_worker = Mock()
 
         button = Mock()
         button.id = "btn-edit"
@@ -513,14 +521,14 @@ class TestVaultScreen:
 
         screen.on_button_pressed(event)
 
-        screen.action_edit_entry.assert_called_once()
+        screen.run_worker.assert_called_once()
 
     def test_on_button_pressed_delete(self):
         """Should handle delete button press."""
         vault = Vault(entries=[])
         controller = VaultController()
         screen = VaultScreen(vault, "test.png", "passphrase", controller)
-        screen.action_delete_entry = Mock()
+        screen.run_worker = Mock()
 
         button = Mock()
         button.id = "btn-delete"
@@ -529,7 +537,7 @@ class TestVaultScreen:
 
         screen.on_button_pressed(event)
 
-        screen.action_delete_entry.assert_called_once()
+        screen.run_worker.assert_called_once()
 
     def test_on_button_pressed_save(self):
         """Should handle save button press."""
@@ -763,7 +771,7 @@ class TestVaultScreen:
         mock_app.push_screen_wait = AsyncMock(return_value=None)
 
         with patch.object(type(screen), "app", property(lambda self: mock_app)):
-            await screen.action_edit_entry()
+            await screen._async_edit_entry()
 
         # Vault should not be modified
         assert len(vault.entries) == 1
@@ -786,7 +794,7 @@ class TestVaultScreen:
         screen.controller.update_vault_entry = Mock(return_value=(vault, False, "Update failed"))
 
         with patch.object(type(screen), "app", property(lambda self: mock_app)):
-            await screen.action_edit_entry()
+            await screen._async_edit_entry()
 
         screen.notify.assert_called_with("Failed to update entry: Update failed", severity="error")
 
@@ -808,6 +816,6 @@ class TestVaultScreen:
         screen.controller.delete_vault_entry = Mock(return_value=(vault, False, "Delete failed"))
 
         with patch.object(type(screen), "app", property(lambda self: mock_app)):
-            await screen.action_delete_entry()
+            await screen._async_delete_entry()
 
         screen.notify.assert_called_with("Failed to delete entry: Delete failed", severity="error")

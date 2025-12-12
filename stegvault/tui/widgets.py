@@ -18,68 +18,174 @@ from textual.widgets import (
     ListItem,
     DirectoryTree,
 )
+from textual.widgets._directory_tree import DirEntry
 from textual.screen import Screen, ModalScreen
 from textual.binding import Binding
+from rich.text import Text
 
 from stegvault.vault import Vault, VaultEntry
+
+
+class FilteredDirectoryTree(DirectoryTree):
+    """DirectoryTree that filters to show only compatible image files."""
+
+    COMPATIBLE_EXTENSIONS = {".png", ".jpg", ".jpeg"}
+
+    def filter_paths(self, paths: list[Path]) -> list[Path]:
+        """Filter paths to show only directories and compatible image files."""
+        filtered = []
+        for path in paths:
+            if path.is_dir():
+                filtered.append(path)
+            elif path.suffix.lower() in self.COMPATIBLE_EXTENSIONS:
+                filtered.append(path)
+        return filtered
+
+    def render_label(self, node: DirEntry, base_style: str, style: str) -> Text:
+        """Render label with color coding for file types."""
+        label = super().render_label(node, base_style, style)
+
+        # Add file coloring based on extension
+        # node.data contains the DirEntry, which has .path attribute
+        if hasattr(node, "data") and node.data is not None:
+            path = node.data.path
+            if not path.is_dir():
+                ext = path.suffix.lower()
+                if ext == ".png":
+                    label.stylize("yellow")
+                elif ext in {".jpg", ".jpeg"}:
+                    label.stylize("magenta")
+
+        return label
 
 
 class HelpScreen(ModalScreen[None]):
     """Modal screen displaying help and keyboard shortcuts."""
 
     CSS = """
+    /* Cyberpunk Help Screen */
     HelpScreen {
         align: center middle;
+        background: #00000099;
     }
 
     #help-dialog {
         width: 80;
-        height: 30;
-        border: thick $primary;
-        background: $surface;
-        padding: 2;
+        height: auto;
+        border: heavy #ff00ff;
+        background: #0a0a0a;
+        padding: 0;
     }
 
     #help-title {
         text-style: bold;
         text-align: center;
-        color: $primary;
-        margin-bottom: 1;
+        color: #00ffff;
+        margin-bottom: 0;
+        border-bottom: solid #ff00ff;
+        padding-bottom: 0;
     }
 
     #help-content {
-        height: 22;
-        border: solid $accent;
-        padding: 1;
+        height: auto;
+        border: solid #00ffff;
+        padding: 0 1;
+        margin-bottom: 1;
+        background: #000000;
     }
 
     .help-section {
-        margin-bottom: 1;
+        margin: 0;
+        padding: 0;
+        color: #00ff00;
     }
 
     .help-section-title {
         text-style: bold;
-        color: $accent;
+        color: #ff00ff;
     }
 
     .help-item {
         margin-left: 2;
+        color: #00ffff;
     }
 
     .help-key {
         text-style: bold;
-        color: $primary;
+        color: #ffff00;
     }
 
     #help-footer {
         text-align: center;
-        color: $text-muted;
-        margin-top: 1;
+        color: #888888;
+        margin: 0 0 1 0;
+        padding: 0;
+    }
+
+    #button-row {
+        width: 100%;
+        height: 3;
+        align: center middle;
+        margin: 0 0 1 0;
+        padding: 0;
+    }
+
+    .help-button {
+        margin: 0;
+        min-width: 16;
+        height: 3;
+    }
+
+    /* Cyberpunk Button Overrides - Preserve Native Text Rendering */
+    Button {
+        border: solid #00ffff;
+        background: #000000;
+    }
+
+    Button:hover {
+        background: #00ffff20;
+        border: heavy #00ffff;
+    }
+
+    Button.-primary {
+        border: solid #00ff9f;
+    }
+
+    Button.-primary:hover {
+        background: #00ff9f20;
+        border: heavy #00ff9f;
+    }
+
+    Button.-success {
+        border: solid #00ff00;
+    }
+
+    Button.-success:hover {
+        background: #00ff0020;
+        border: heavy #00ff00;
+    }
+
+    Button.-error {
+        border: solid #ff0080;
+    }
+
+    Button.-error:hover {
+        background: #ff008020;
+        border: heavy #ff0080;
+    }
+
+    Button.-warning {
+        border: solid #ffff00;
+    }
+
+    Button.-warning:hover {
+        background: #ffff0020;
+        border: heavy #ffff00;
     }
     """
 
     BINDINGS = [
-        Binding("escape", "dismiss", "Close", priority=True),
+        Binding("escape", "dismiss", "Close"),
     ]
 
     def __init__(self):
@@ -94,32 +200,32 @@ class HelpScreen(ModalScreen[None]):
             with ScrollableContainer(id="help-content"):
                 yield Static(
                     "[bold cyan]Welcome Screen[/bold cyan]\n"
-                    "  [bold]o[/bold] / [bold]Ctrl+O[/bold] - Open existing vault\n"
-                    "  [bold]n[/bold] / [bold]Ctrl+N[/bold] - Create new vault\n"
-                    "  [bold]h[/bold] / [bold]F1[/bold] - Show this help\n"
-                    "  [bold]q[/bold] / [bold]Ctrl+Q[/bold] - Quit application\n\n"
+                    "  [bold yellow]o[/bold yellow] / [bold yellow]Ctrl+O[/bold yellow] - Open existing vault\n"
+                    "  [bold yellow]n[/bold yellow] / [bold yellow]Ctrl+N[/bold yellow] - Create new vault\n"
+                    "  [bold yellow]h[/bold yellow] / [bold yellow]F1[/bold yellow] - Show this help\n"
+                    "  [bold yellow]q[/bold yellow] / [bold yellow]Ctrl+Q[/bold yellow] - Quit application\n\n"
                     "[bold cyan]Vault Screen[/bold cyan]\n"
-                    "  [bold]a[/bold] - Add new entry\n"
-                    "  [bold]e[/bold] - Edit selected entry\n"
-                    "  [bold]d[/bold] - Delete selected entry\n"
-                    "  [bold]c[/bold] - Copy password to clipboard\n"
-                    "  [bold]v[/bold] - Toggle password visibility\n"
-                    "  [bold]s[/bold] - Save vault to disk\n"
-                    "  [bold]Escape[/bold] - Back to welcome screen\n"
-                    "  [bold]q[/bold] - Quit application\n\n"
+                    "  [bold yellow]a[/bold yellow] - Add new entry\n"
+                    "  [bold yellow]e[/bold yellow] - Edit selected entry\n"
+                    "  [bold yellow]d[/bold yellow] - Delete selected entry\n"
+                    "  [bold yellow]c[/bold yellow] - Copy password to clipboard\n"
+                    "  [bold yellow]v[/bold yellow] - Toggle password visibility\n"
+                    "  [bold yellow]s[/bold yellow] - Save vault to disk\n"
+                    "  [bold yellow]Escape[/bold yellow] - Back to welcome screen\n"
+                    "  [bold yellow]q[/bold yellow] - Quit application\n\n"
                     "[bold cyan]Entry Forms[/bold cyan]\n"
-                    "  [bold]Tab[/bold] / [bold]Shift+Tab[/bold] - Navigate fields\n"
-                    "  [bold]Enter[/bold] - Submit form\n"
-                    "  [bold]Escape[/bold] - Cancel and close\n\n"
+                    "  [bold yellow]Tab[/bold yellow] / [bold yellow]Shift+Tab[/bold yellow] - Navigate fields\n"
+                    "  [bold yellow]Enter[/bold yellow] - Submit form\n"
+                    "  [bold yellow]Escape[/bold yellow] - Cancel and close\n\n"
                     "[bold cyan]Password Generator[/bold cyan]\n"
-                    "  [bold]g[/bold] - Generate new password\n"
-                    "  [bold]+[/bold] / [bold]-[/bold] - Adjust password length\n"
-                    "  [bold]Enter[/bold] - Use generated password\n"
-                    "  [bold]Escape[/bold] - Cancel\n\n"
+                    "  [bold yellow]g[/bold yellow] - Generate new password\n"
+                    "  [bold yellow]+[/bold yellow] / [bold yellow]-[/bold yellow] - Adjust password length\n"
+                    "  [bold yellow]Enter[/bold yellow] - Use generated password\n"
+                    "  [bold yellow]Escape[/bold yellow] - Cancel\n\n"
                     "[bold cyan]Navigation[/bold cyan]\n"
-                    "  [bold]↑[/bold] / [bold]↓[/bold] - Navigate entry list\n"
-                    "  [bold]Enter[/bold] - Select entry\n"
-                    "  [bold]Mouse[/bold] - Click to interact\n\n"
+                    "  [bold yellow]↑[/bold yellow] / [bold yellow]↓[/bold yellow] - Navigate entry list\n"
+                    "  [bold yellow]Enter[/bold yellow] - Select entry\n"
+                    "  [bold yellow]Mouse[/bold yellow] - Click to interact\n\n"
                     "[bold cyan]About[/bold cyan]\n"
                     "  StegVault v0.7.0 - Password Manager with Steganography\n"
                     "  Embeds encrypted credentials in images (PNG/JPEG)\n"
@@ -135,7 +241,14 @@ class HelpScreen(ModalScreen[None]):
                 )
 
             yield Static("Press [bold]Escape[/bold] or click Close to return", id="help-footer")
-            yield Button("Close", variant="primary", id="btn-close")
+            with Horizontal(id="button-row"):
+                yield Button("Close", variant="primary", id="btn-close", classes="help-button")
+
+    def on_key(self, event) -> None:
+        """Handle key press - prevent 'q' from propagating to parent."""
+        if event.key == "q":
+            event.stop()
+            self.dismiss(None)
 
     def action_dismiss(self) -> None:
         """Dismiss help screen."""
@@ -151,35 +264,135 @@ class FileSelectScreen(ModalScreen[Optional[str]]):
     """Modal screen for selecting a vault image file."""
 
     CSS = """
+    /* Cyberpunk File Select Dialog */
     FileSelectScreen {
         align: center middle;
+        background: #00000099;
     }
 
     #file-dialog {
-        width: 80;
-        height: 30;
-        border: thick $primary;
-        background: $surface;
-        padding: 1;
+        width: 90;
+        height: auto;
+        min-height: 38;
+        border: heavy #00ffff;
+        background: #0a0a0a;
+        padding: 2;
+    }
+
+    #file-title {
+        width: 100%;
+        text-align: center;
+        text-style: bold;
+        color: #00ffff;
+        margin-bottom: 1;
+        border-bottom: solid #ff00ff;
+        padding-bottom: 1;
     }
 
     #file-tree {
         height: 20;
-        border: solid $accent;
+        border: solid #ff00ff;
         margin-bottom: 1;
+        background: #000000;
+    }
+
+    #file-tree TreeNode {
+        color: #00ffff;
+    }
+
+    #file-tree TreeNode:hover {
+        background: #00ffff30;
+        color: #000000;
+    }
+
+    #file-tree TreeNode.-selected {
+        background: #00ffff30;
+        color: #ffffff;
+        text-style: bold;
+    }
+
+    #file-tree TreeNode.-selected:hover {
+        background: #00ffff50;
+        color: #000000;
+    }
+
+    #file-tree > .tree--cursor {
+        background: #00ffff30;
     }
 
     #file-path-input {
-        margin-bottom: 1;
+        height: 3;
+        margin-bottom: 2;
+        background: #000000;
+        border: solid #00ffff;
+        color: #00ffff;
+    }
+
+    #file-path-input:focus {
+        border: heavy #00ffff;
+    }
+
+    #file-path-input > .input--cursor {
+        background: #00ffff;
     }
 
     #button-row {
-        height: 3;
+        height: auto;
+        min-height: 3;
         align: center middle;
     }
 
     .file-button {
         margin: 0 1;
+        min-width: 16;
+        height: 3;
+    }
+
+    /* Cyberpunk Button Overrides - Preserve Native Text Rendering */
+    Button {
+        border: solid #00ffff;
+        background: #000000;
+    }
+
+    Button:hover {
+        background: #00ffff20;
+        border: heavy #00ffff;
+    }
+
+    Button.-primary {
+        border: solid #00ff9f;
+    }
+
+    Button.-primary:hover {
+        background: #00ff9f20;
+        border: heavy #00ff9f;
+    }
+
+    Button.-success {
+        border: solid #00ff00;
+    }
+
+    Button.-success:hover {
+        background: #00ff0020;
+        border: heavy #00ff00;
+    }
+
+    Button.-error {
+        border: solid #ff0080;
+    }
+
+    Button.-error:hover {
+        background: #ff008020;
+        border: heavy #ff0080;
+    }
+
+    Button.-warning {
+        border: solid #ffff00;
+    }
+
+    Button.-warning:hover {
+        background: #ffff0020;
+        border: heavy #ffff00;
     }
     """
 
@@ -192,19 +405,31 @@ class FileSelectScreen(ModalScreen[Optional[str]]):
         super().__init__()
         self.title = title
         self.selected_path: Optional[str] = None
+        self.last_selected_path: Optional[str] = None
+        self.last_click_time: float = 0
 
     def compose(self) -> ComposeResult:
         """Compose file selection dialog."""
+        from pathlib import Path
+        import time
+
         with Container(id="file-dialog"):
-            yield Label(self.title)
-            yield DirectoryTree(".", id="file-tree")
+            yield Label(f">> {self.title.upper()}", id="file-title")
+            # Start from C:\ root on Windows
+            start_path = "C:\\"
+            yield FilteredDirectoryTree(start_path, id="file-tree")
             yield Input(
-                placeholder="Enter file path or select from tree",
+                placeholder="Type file path or select from tree above",
                 id="file-path-input",
             )
             with Horizontal(id="button-row"):
-                yield Button("Select", variant="primary", id="btn-select", classes="file-button")
-                yield Button("Cancel", variant="default", id="btn-cancel", classes="file-button")
+                yield Button("SELECT", variant="success", id="btn-select", classes="file-button")
+                yield Button("CANCEL", variant="default", id="btn-cancel", classes="file-button")
+
+    def on_mount(self) -> None:
+        """Set focus on input field when screen mounts."""
+        input_field = self.query_one("#file-path-input", Input)
+        input_field.focus()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button press."""
@@ -220,48 +445,134 @@ class FileSelectScreen(ModalScreen[Optional[str]]):
             self.dismiss(None)
 
     def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected) -> None:
-        """Handle file selection from tree."""
+        """Handle file selection from tree (single and double-click)."""
+        import time
+
         input_widget = self.query_one("#file-path-input", Input)
-        input_widget.value = str(event.path)
+        file_path_str = str(event.path)
+        input_widget.value = file_path_str
+
+        # Check for double-click (within 500ms)
+        current_time = time.time()
+        if self.last_selected_path == file_path_str and (current_time - self.last_click_time) < 0.5:
+            # Double-click detected - auto-select file
+            if Path(file_path_str).is_file():
+                self.selected_path = file_path_str
+                self.dismiss(self.selected_path)
+        else:
+            # First click - remember this path
+            self.last_selected_path = file_path_str
+            self.last_click_time = current_time
 
     def action_cancel(self) -> None:
         """Cancel and close dialog."""
         self.dismiss(None)
+
+    def on_key(self, event) -> None:
+        """Handle key press - prevent 'q' from propagating to parent."""
+        if event.key == "q":
+            event.stop()
+            self.dismiss(None)
 
 
 class PassphraseInputScreen(ModalScreen[Optional[str]]):
     """Modal screen for passphrase input."""
 
     CSS = """
+    /* Cyberpunk Passphrase Dialog */
     PassphraseInputScreen {
         align: center middle;
+        background: #00000099;
     }
 
     #passphrase-dialog {
         width: 60;
-        height: 15;
-        border: thick $primary;
-        background: $surface;
+        height: auto;
+        min-height: 15;
+        border: heavy #00ffff;
+        background: #0a0a0a;
         padding: 2;
     }
 
     #passphrase-title {
+        width: 100%;
         text-align: center;
         text-style: bold;
+        color: #00ffff;
         margin-bottom: 1;
+        border-bottom: solid #ff00ff;
+        padding-bottom: 1;
     }
 
     #passphrase-input {
+        height: 3;
         margin-bottom: 2;
+        background: #000000;
+        border: solid #00ffff;
+        color: #00ffff;
+    }
+
+    #passphrase-input:focus {
+        border: heavy #00ffff;
     }
 
     #button-row {
-        height: 3;
+        height: auto;
+        min-height: 3;
         align: center middle;
     }
 
     .pass-button {
         margin: 0 1;
+        min-width: 16;
+        height: 3;
+    }
+
+    /* Cyberpunk Button Overrides - Preserve Native Text Rendering */
+    Button {
+        border: solid #00ffff;
+        background: #000000;
+    }
+
+    Button:hover {
+        background: #00ffff20;
+        border: heavy #00ffff;
+    }
+
+    Button.-primary {
+        border: solid #00ff9f;
+    }
+
+    Button.-primary:hover {
+        background: #00ff9f20;
+        border: heavy #00ff9f;
+    }
+
+    Button.-success {
+        border: solid #00ff00;
+    }
+
+    Button.-success:hover {
+        background: #00ff0020;
+        border: heavy #00ff00;
+    }
+
+    Button.-error {
+        border: solid #ff0080;
+    }
+
+    Button.-error:hover {
+        background: #ff008020;
+        border: heavy #ff0080;
+    }
+
+    Button.-warning {
+        border: solid #ffff00;
+    }
+
+    Button.-warning:hover {
+        background: #ffff0020;
+        border: heavy #ffff00;
     }
     """
 
@@ -309,58 +620,130 @@ class PassphraseInputScreen(ModalScreen[Optional[str]]):
         """Cancel and close dialog."""
         self.dismiss(None)
 
+    def on_key(self, event) -> None:
+        """Handle key press - prevent 'q' from propagating to parent."""
+        if event.key == "q":
+            event.stop()
+            self.dismiss(None)
+
 
 class PasswordHistoryModal(ModalScreen[None]):
     """Modal screen for viewing full password history."""
 
     CSS = """
+    /* Cyberpunk Password History Modal */
     PasswordHistoryModal {
         align: center middle;
+        background: #00000099;
     }
 
     #history-dialog {
         width: 80;
-        height: 30;
-        border: thick $primary;
-        background: $surface;
+        height: auto;
+        min-height: 30;
+        border: heavy #ff00ff;
+        background: #0a0a0a;
         padding: 2;
     }
 
     #history-title {
+        width: 100%;
         text-align: center;
         text-style: bold;
+        color: #00ffff;
         margin-bottom: 1;
+        border-bottom: solid #ff00ff;
+        padding-bottom: 1;
     }
 
     #history-content {
-        height: 22;
-        border: solid $accent;
+        height: auto;
+        min-height: 22;
+        border: solid #00ffff;
         margin-bottom: 1;
+        background: #000000;
+        padding: 1;
     }
 
     .history-entry {
         margin-bottom: 1;
         padding: 1;
-        background: $boost;
+        background: #1a1a1a;
+        border: solid #333333;
     }
 
     .history-password {
-        color: $warning;
+        color: #ffff00;
         text-style: bold;
     }
 
     .history-timestamp {
-        color: $text-muted;
+        color: #888888;
     }
 
     .history-reason {
-        color: $accent;
+        color: #ff00ff;
         text-style: italic;
     }
 
     #button-row {
-        height: 3;
+        height: auto;
+        min-height: 3;
         align: center middle;
+        width: 100%;
+    }
+
+    .history-button {
+        margin: 0 1;
+        min-width: 16;
+        height: 3;
+    }
+
+    /* Cyberpunk Button Overrides - Preserve Native Text Rendering */
+    Button {
+        border: solid #00ffff;
+        background: #000000;
+    }
+
+    Button:hover {
+        background: #00ffff20;
+        border: heavy #00ffff;
+    }
+
+    Button.-primary {
+        border: solid #00ff9f;
+    }
+
+    Button.-primary:hover {
+        background: #00ff9f20;
+        border: heavy #00ff9f;
+    }
+
+    Button.-success {
+        border: solid #00ff00;
+    }
+
+    Button.-success:hover {
+        background: #00ff0020;
+        border: heavy #00ff00;
+    }
+
+    Button.-error {
+        border: solid #ff0080;
+    }
+
+    Button.-error:hover {
+        background: #ff008020;
+        border: heavy #ff0080;
+    }
+
+    Button.-warning {
+        border: solid #ffff00;
+    }
+
+    Button.-warning:hover {
+        background: #ffff0020;
+        border: heavy #ffff00;
     }
     """
 
@@ -413,7 +796,7 @@ class PasswordHistoryModal(ModalScreen[None]):
                 yield ScrollableContainer(*history_widgets, id="history-content")
 
             with Horizontal(id="button-row"):
-                yield Button("Close", variant="primary", id="btn-close")
+                yield Button("Close", variant="primary", id="btn-close", classes="history-button")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button press."""
@@ -423,6 +806,12 @@ class PasswordHistoryModal(ModalScreen[None]):
     def action_close(self) -> None:
         """Close dialog."""
         self.dismiss(None)
+
+    def on_key(self, event) -> None:
+        """Handle key press - prevent 'q' from propagating to parent."""
+        if event.key == "q":
+            event.stop()
+            self.dismiss(None)
 
 
 class EntryListItem(ListItem):
@@ -491,7 +880,7 @@ class EntryDetailPanel(Container):
         """Compose detail panel."""
         yield ScrollableContainer(
             Label("No entry selected", id="no-entry-msg"),
-            id="detail-content",
+            classes="detail-content",
         )
 
     def show_entry(self, entry: VaultEntry) -> None:
@@ -512,7 +901,7 @@ class EntryDetailPanel(Container):
         if not self.current_entry:
             content = ScrollableContainer(
                 Label("No entry selected", id="no-entry-msg"),
-                id="detail-content",
+                classes="detail-content",
             )
         else:
             entry = self.current_entry
@@ -636,11 +1025,13 @@ class EntryDetailPanel(Container):
                     )
                 )
 
-            content = ScrollableContainer(*widgets, id="detail-content")
+            content = ScrollableContainer(*widgets, classes="detail-content")
 
-        # Replace content
-        old_content = self.query_one("#detail-content")
-        old_content.remove()
+        # Replace content - use query to find and replace
+        existing = self.query(".detail-content")
+        if existing:
+            for widget in existing:
+                widget.remove()
         self.mount(content)
 
     def clear(self) -> None:
@@ -689,22 +1080,29 @@ class EntryFormScreen(ModalScreen[Optional[dict]]):
     """Modal screen for adding/editing vault entries."""
 
     CSS = """
+    /* Cyberpunk Entry Form */
     EntryFormScreen {
         align: center middle;
+        background: #00000099;
     }
 
     #form-dialog {
         width: 80;
         height: auto;
-        border: thick $primary;
-        background: $surface;
+        min-height: 30;
+        border: heavy #00ffff;
+        background: #0a0a0a;
         padding: 2;
     }
 
     #form-title {
+        width: 100%;
         text-align: center;
         text-style: bold;
+        color: #00ffff;
         margin-bottom: 1;
+        border-bottom: solid #ff00ff;
+        padding-bottom: 1;
     }
 
     .form-field {
@@ -712,22 +1110,94 @@ class EntryFormScreen(ModalScreen[Optional[dict]]):
     }
 
     .field-label {
-        color: $text-muted;
+        color: #888888;
         margin-bottom: 0;
     }
 
     Input {
         width: 100%;
+        background: #000000;
+        border: solid #00ffff;
+        color: #00ffff;
+    }
+
+    Input:focus {
+        border: heavy #00ffff;
+    }
+
+    .password-row {
+        height: auto;
+        width: 100%;
+    }
+
+    .password-row Input {
+        width: 1fr;
+    }
+
+    .gen-btn {
+        min-width: 10;
+        width: auto;
+        margin-left: 1;
     }
 
     #button-row {
-        height: 3;
+        height: auto;
+        min-height: 3;
         align: center middle;
         margin-top: 1;
     }
 
     .form-button {
         margin: 0 1;
+        min-width: 16;
+        height: 3;
+    }
+
+    /* Cyberpunk Button Overrides - Preserve Native Text Rendering */
+    Button {
+        border: solid #00ffff;
+        background: #000000;
+    }
+
+    Button:hover {
+        background: #00ffff20;
+        border: heavy #00ffff;
+    }
+
+    Button.-primary {
+        border: solid #00ff9f;
+    }
+
+    Button.-primary:hover {
+        background: #00ff9f20;
+        border: heavy #00ff9f;
+    }
+
+    Button.-success {
+        border: solid #00ff00;
+    }
+
+    Button.-success:hover {
+        background: #00ff0020;
+        border: heavy #00ff00;
+    }
+
+    Button.-error {
+        border: solid #ff0080;
+    }
+
+    Button.-error:hover {
+        background: #ff008020;
+        border: heavy #ff0080;
+    }
+
+    Button.-warning {
+        border: solid #ffff00;
+    }
+
+    Button.-warning:hover {
+        background: #ffff0020;
+        border: heavy #ffff00;
     }
     """
 
@@ -774,7 +1244,7 @@ class EntryFormScreen(ModalScreen[Optional[dict]]):
             # Password field with generate button
             with Vertical(classes="form-field"):
                 yield Label("Password:", classes="field-label")
-                with Horizontal():
+                with Horizontal(classes="password-row"):
                     password_input = Input(
                         placeholder="Enter password",
                         password=True,
@@ -784,10 +1254,10 @@ class EntryFormScreen(ModalScreen[Optional[dict]]):
                         password_input.value = self.entry.password
                     yield password_input
                     yield Button(
-                        "Generate",
-                        variant="success",
+                        "GEN",
+                        variant="warning",
                         id="btn-generate-password",
-                        classes="form-button",
+                        classes="gen-btn",
                     )
 
             # Username field
@@ -889,6 +1359,12 @@ class EntryFormScreen(ModalScreen[Optional[dict]]):
         elif event.button.id == "btn-cancel":
             self.dismiss(None)
 
+    def on_key(self, event) -> None:
+        """Handle key press - prevent 'q' from propagating to parent."""
+        if event.key == "q":
+            event.stop()
+            self.dismiss(None)
+
     def action_cancel(self) -> None:
         """Cancel and close dialog."""
         self.dismiss(None)
@@ -898,44 +1374,112 @@ class DeleteConfirmationScreen(ModalScreen[bool]):
     """Modal screen for confirming entry deletion."""
 
     CSS = """
+    /* Cyberpunk Delete Confirmation */
     DeleteConfirmationScreen {
         align: center middle;
+        background: #00000099;
     }
 
     #confirm-dialog {
         width: 60;
-        height: 15;
-        border: thick $error;
-        background: $surface;
-        padding: 2;
+        height: auto;
+        min-height: 12;
+        border: heavy #ff0000;
+        background: #0a0a0a;
+        padding: 1;
     }
 
     #confirm-title {
+        width: 100%;
         text-align: center;
         text-style: bold;
-        color: $error;
-        margin-bottom: 1;
+        color: #ff0000;
+        margin-bottom: 0;
+        border-bottom: solid #ff0000;
+        padding-bottom: 0;
     }
 
     #confirm-message {
+        width: 100%;
         text-align: center;
-        margin-bottom: 2;
+        color: #00ffff;
+        margin-bottom: 0;
+    }
+
+    #confirm-warning {
+        width: 100%;
+        text-align: center;
+        color: #ff0080;
+        margin-bottom: 0;
+        text-style: italic;
     }
 
     #entry-key {
+        width: 100%;
         text-align: center;
         text-style: bold;
-        color: $warning;
-        margin-bottom: 2;
+        color: #ffff00;
+        margin-bottom: 0;
     }
 
     #button-row {
-        height: 3;
+        height: auto;
+        min-height: 3;
         align: center middle;
+        margin: 0;
     }
 
     .confirm-button {
         margin: 0 1;
+        min-width: 16;
+        height: 3;
+    }
+
+    /* Cyberpunk Button Overrides - Preserve Native Text Rendering */
+    Button {
+        border: solid #00ffff;
+        background: #000000;
+    }
+
+    Button:hover {
+        background: #00ffff20;
+        border: heavy #00ffff;
+    }
+
+    Button.-primary {
+        border: solid #00ff9f;
+    }
+
+    Button.-primary:hover {
+        background: #00ff9f20;
+        border: heavy #00ff9f;
+    }
+
+    Button.-success {
+        border: solid #00ff00;
+    }
+
+    Button.-success:hover {
+        background: #00ff0020;
+        border: heavy #00ff00;
+    }
+
+    Button.-error {
+        border: solid #ff0080;
+    }
+
+    Button.-error:hover {
+        background: #ff008020;
+        border: heavy #ff0080;
+    }
+
+    Button.-warning {
+        border: solid #ffff00;
+    }
+
+    Button.-warning:hover {
+        background: #ffff0020;
+        border: heavy #ffff00;
     }
     """
 
@@ -959,7 +1503,7 @@ class DeleteConfirmationScreen(ModalScreen[bool]):
             yield Label("⚠️  Confirm Deletion", id="confirm-title")
             yield Label("Are you sure you want to delete this entry?", id="confirm-message")
             yield Label(f'"{self.entry_key}"', id="entry-key")
-            yield Label("This action cannot be undone.", id="confirm-message")
+            yield Label("This action cannot be undone.", id="confirm-warning")
 
             with Horizontal(id="button-row"):
                 yield Button("Delete", variant="error", id="btn-delete", classes="confirm-button")
@@ -972,72 +1516,344 @@ class DeleteConfirmationScreen(ModalScreen[bool]):
         elif event.button.id == "btn-cancel":
             self.dismiss(False)  # Cancelled
 
+    def on_key(self, event) -> None:
+        """Handle key press - prevent 'q' from propagating to parent."""
+        if event.key == "q":
+            event.stop()
+            self.dismiss(False)
+
     def action_cancel(self) -> None:
         """Cancel and close dialog."""
         self.dismiss(False)
+
+
+class UnsavedChangesScreen(ModalScreen[str]):
+    """Modal screen for unsaved changes warning."""
+
+    CSS = """
+    /* Cyberpunk Unsaved Changes Warning */
+    UnsavedChangesScreen {
+        align: center middle;
+        background: #00000099;
+    }
+
+    #unsaved-dialog {
+        width: 60;
+        height: auto;
+        min-height: 10;
+        border: heavy #ff0080;
+        background: #0a0a0a;
+        padding: 0;
+    }
+
+    #unsaved-title {
+        width: 100%;
+        text-align: center;
+        text-style: bold;
+        color: #ff0080;
+        margin-bottom: 1;
+        border-bottom: solid #ff0080;
+        padding-bottom: 1;
+    }
+
+    #unsaved-message {
+        text-align: center;
+        color: #ffff00;
+        margin-bottom: 0;
+    }
+
+    #unsaved-warning {
+        text-align: center;
+        color: #ff0080;
+        text-style: bold;
+        margin-bottom: 0;
+    }
+
+    #button-row {
+        width: 100%;
+        align: center middle;
+        margin-top: 0;
+    }
+
+    .unsaved-button {
+        margin: 0 1;
+        min-width: 16;
+        height: 3;
+    }
+
+    /* Cyberpunk Button Overrides - Preserve Native Text Rendering */
+    Button {
+        border: solid #00ffff;
+        background: #000000;
+    }
+
+    Button:hover {
+        background: #00ffff20;
+        border: heavy #00ffff;
+    }
+
+    Button.-primary {
+        border: solid #00ff9f;
+    }
+
+    Button.-primary:hover {
+        background: #00ff9f20;
+        border: heavy #00ff9f;
+    }
+
+    Button.-success {
+        border: solid #00ff00;
+    }
+
+    Button.-success:hover {
+        background: #00ff0020;
+        border: heavy #00ff00;
+    }
+
+    Button.-error {
+        border: solid #ff0080;
+    }
+
+    Button.-error:hover {
+        background: #ff008020;
+        border: heavy #ff0080;
+    }
+
+    Button.-warning {
+        border: solid #ffff00;
+    }
+
+    Button.-warning:hover {
+        background: #ffff0020;
+        border: heavy #ffff00;
+    }
+    """
+
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+    ]
+
+    def compose(self) -> ComposeResult:
+        """Compose unsaved changes dialog."""
+        with Container(id="unsaved-dialog"):
+            yield Label("⚠️ UNSAVED CHANGES ⚠️", id="unsaved-title")
+            yield Label(
+                "You have unsaved changes in the vault.",
+                id="unsaved-message",
+            )
+            yield Label(
+                "What do you want to do?",
+                id="unsaved-warning",
+            )
+
+            with Horizontal(id="button-row"):
+                yield Button(
+                    "Save & Exit",
+                    variant="success",
+                    id="btn-save-exit",
+                    classes="unsaved-button",
+                )
+                yield Button(
+                    "Don't Save",
+                    variant="error",
+                    id="btn-dont-save",
+                    classes="unsaved-button",
+                )
+                yield Button(
+                    "Cancel",
+                    variant="default",
+                    id="btn-cancel",
+                    classes="unsaved-button",
+                )
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle button press."""
+        if event.button.id == "btn-save-exit":
+            self.dismiss("save")
+        elif event.button.id == "btn-dont-save":
+            self.dismiss("dont_save")
+        elif event.button.id == "btn-cancel":
+            self.dismiss("cancel")
+
+    def on_key(self, event) -> None:
+        """Handle key press - prevent 'q' from propagating to parent."""
+        if event.key == "q":
+            event.stop()
+            self.dismiss("cancel")
+
+    def action_cancel(self) -> None:
+        """Cancel and close dialog."""
+        self.dismiss("cancel")
 
 
 class PasswordGeneratorScreen(ModalScreen[Optional[str]]):
     """Modal screen for generating secure passwords."""
 
     CSS = """
+    /* Cyberpunk Password Generator */
     PasswordGeneratorScreen {
         align: center middle;
+        background: #00000099;
     }
 
     #generator-dialog {
         width: 70;
         height: auto;
-        border: thick $primary;
-        background: $surface;
-        padding: 2;
+        border: heavy #00ffff;
+        background: #0a0a0a;
+        padding: 1;
     }
 
     #generator-title {
+        width: 100%;
         text-align: center;
         text-style: bold;
+        color: #00ffff;
         margin-bottom: 1;
+        border-bottom: solid #ff00ff;
+        padding-bottom: 1;
     }
 
     .generator-section {
+        width: 100%;
         margin-bottom: 1;
+        padding: 0;
+        height: auto;
     }
 
     .section-label {
-        color: $text-muted;
+        width: 100%;
+        text-align: center;
+        color: #888888;
         margin-bottom: 0;
+        padding: 0;
     }
 
     #password-preview {
+        width: 100%;
         text-align: center;
         text-style: bold;
-        color: $success;
-        background: $panel;
-        border: solid $accent;
+        color: #00ff00;
+        background: #000000;
+        border: solid #00ffff;
         padding: 1;
-        margin-bottom: 1;
+        min-height: 3;
+        content-align: center middle;
+    }
+
+    #password-preview-container {
+        width: 100%;
+        height: auto;
+        align: center middle;
     }
 
     #length-value {
+        width: 100%;
         text-align: center;
-        color: $primary;
-        margin-bottom: 1;
+        color: #ff00ff;
+        margin: 0;
+    }
+
+    #length-value-container {
+        width: 100%;
+        height: auto;
+    }
+
+    #length-controls {
+        width: 100%;
+        height: auto;
+        margin-top: 0;
+        padding: 0;
+        align: center middle;
+    }
+
+    #charset-info {
+        color: #00ffff;
+        text-align: center;
+        margin: 0;
+        padding: 0;
+    }
+
+    .options-grid {
+        width: 100%;
+        height: auto;
+        margin: 0;
+        padding: 0;
+        align: center middle;
+    }
+
+    .option-button {
+        margin: 0 1;
+        min-width: 20;
+        height: 3;
     }
 
     #button-row {
-        height: 3;
-        align: center middle;
+        width: 100%;
+        height: auto;
         margin-top: 1;
+        padding: 0;
+        align: center middle;
     }
 
     .gen-button {
         margin: 0 1;
+        min-width: 16;
+        height: 3;
+    }
+
+    /* Cyberpunk Button Overrides - Preserve Native Text Rendering */
+    Button {
+        border: solid #00ffff;
+        background: #000000;
+    }
+
+    Button:hover {
+        background: #00ffff20;
+        border: heavy #00ffff;
+    }
+
+    Button.-primary {
+        border: solid #00ff9f;
+    }
+
+    Button.-primary:hover {
+        background: #00ff9f20;
+        border: heavy #00ff9f;
+    }
+
+    Button.-success {
+        border: solid #00ff00;
+    }
+
+    Button.-success:hover {
+        background: #00ff0020;
+        border: heavy #00ff00;
+    }
+
+    Button.-error {
+        border: solid #ff0080;
+    }
+
+    Button.-error:hover {
+        background: #ff008020;
+        border: heavy #ff0080;
+    }
+
+    Button.-warning {
+        border: solid #ffff00;
+    }
+
+    Button.-warning:hover {
+        background: #ffff0020;
+        border: heavy #ffff00;
     }
     """
 
     BINDINGS = [
         Binding("escape", "cancel", "Cancel"),
         Binding("g", "generate", "Generate"),
+        Binding("q", "ignore_quit", "Close Modal (ESC)", show=True, priority=True),
     ]
 
     def __init__(self):
@@ -1048,6 +1864,8 @@ class PasswordGeneratorScreen(ModalScreen[Optional[str]]):
         self.use_uppercase = True
         self.use_digits = True
         self.use_symbols = True
+        # Flag to track if we should block quit
+        self._block_quit = True
         self.exclude_ambiguous = False
         self.current_password = ""  # nosec B105 - not a hardcoded password, just initialization
 
@@ -1059,20 +1877,47 @@ class PasswordGeneratorScreen(ModalScreen[Optional[str]]):
             # Password preview
             with Vertical(classes="generator-section"):
                 yield Label("Generated Password:", classes="section-label")
-                yield Label(self._generate_password(), id="password-preview")
+                with Horizontal(id="password-preview-container"):
+                    yield Label(self._generate_password(), id="password-preview")
 
             # Length control
             with Vertical(classes="generator-section"):
                 yield Label("Password Length:", classes="section-label")
-                yield Label(f"{self.length} characters", id="length-value")
-                with Horizontal():
+                with Horizontal(id="length-value-container"):
+                    yield Label(f"{self.length} characters", id="length-value")
+                with Horizontal(id="length-controls"):
                     yield Button("-", id="btn-length-dec", classes="gen-button")
                     yield Button("+", id="btn-length-inc", classes="gen-button")
 
-            # Character options (simplified - checkboxes would require custom widgets)
+            # Character options
             with Vertical(classes="generator-section"):
-                yield Label("Options: All character types enabled", classes="section-label")
-                yield Label("(a-z, A-Z, 0-9, symbols)", id="charset-info")
+                yield Label("Character Options:", classes="section-label")
+                with Horizontal(classes="options-grid"):
+                    yield Button(
+                        "✓ Lowercase (a-z)",
+                        variant="success",
+                        id="btn-opt-lowercase",
+                        classes="option-button",
+                    )
+                    yield Button(
+                        "✓ Uppercase (A-Z)",
+                        variant="success",
+                        id="btn-opt-uppercase",
+                        classes="option-button",
+                    )
+                with Horizontal(classes="options-grid"):
+                    yield Button(
+                        "✓ Digits (0-9)",
+                        variant="success",
+                        id="btn-opt-digits",
+                        classes="option-button",
+                    )
+                    yield Button(
+                        "✓ Symbols (!@#$)",
+                        variant="success",
+                        id="btn-opt-symbols",
+                        classes="option-button",
+                    )
 
             # Action buttons
             with Horizontal(id="button-row"):
@@ -1121,6 +1966,42 @@ class PasswordGeneratorScreen(ModalScreen[Optional[str]]):
                 length_label = self.query_one("#length-value", Label)
                 length_label.update(f"{self.length} characters")
 
+        elif event.button.id == "btn-opt-lowercase":
+            # Toggle lowercase (but keep at least one option enabled)
+            new_value = not self.use_lowercase
+            if not new_value and not (self.use_uppercase or self.use_digits or self.use_symbols):
+                self.app.notify("At least one character type must be enabled", severity="warning")
+                return
+            self.use_lowercase = new_value
+            self._update_option_button(event.button, self.use_lowercase)
+
+        elif event.button.id == "btn-opt-uppercase":
+            # Toggle uppercase (but keep at least one option enabled)
+            new_value = not self.use_uppercase
+            if not new_value and not (self.use_lowercase or self.use_digits or self.use_symbols):
+                self.app.notify("At least one character type must be enabled", severity="warning")
+                return
+            self.use_uppercase = new_value
+            self._update_option_button(event.button, self.use_uppercase)
+
+        elif event.button.id == "btn-opt-digits":
+            # Toggle digits (but keep at least one option enabled)
+            new_value = not self.use_digits
+            if not new_value and not (self.use_lowercase or self.use_uppercase or self.use_symbols):
+                self.app.notify("At least one character type must be enabled", severity="warning")
+                return
+            self.use_digits = new_value
+            self._update_option_button(event.button, self.use_digits)
+
+        elif event.button.id == "btn-opt-symbols":
+            # Toggle symbols (but keep at least one option enabled)
+            new_value = not self.use_symbols
+            if not new_value and not (self.use_lowercase or self.use_uppercase or self.use_digits):
+                self.app.notify("At least one character type must be enabled", severity="warning")
+                return
+            self.use_symbols = new_value
+            self._update_option_button(event.button, self.use_symbols)
+
         elif event.button.id == "btn-use":
             # Return current password
             if self.current_password:
@@ -1131,11 +2012,72 @@ class PasswordGeneratorScreen(ModalScreen[Optional[str]]):
         elif event.button.id == "btn-cancel":
             self.dismiss(None)
 
+    def _update_option_button(self, button: Button, enabled: bool) -> None:
+        """Update option button appearance based on state."""
+        label_map = {
+            "btn-opt-lowercase": ("✓ Lowercase (a-z)", "✗ Lowercase (a-z)"),
+            "btn-opt-uppercase": ("✓ Uppercase (A-Z)", "✗ Uppercase (A-Z)"),
+            "btn-opt-digits": ("✓ Digits (0-9)", "✗ Digits (0-9)"),
+            "btn-opt-symbols": ("✓ Symbols (!@#$)", "✗ Symbols (!@#$)"),
+        }
+
+        enabled_label, disabled_label = label_map.get(button.id, ("", ""))
+        button.label = enabled_label if enabled else disabled_label
+        button.variant = "success" if enabled else "error"
+
     def action_generate(self) -> None:
         """Generate new password (keyboard shortcut)."""
         new_password = self._generate_password()
         preview = self.query_one("#password-preview", Label)
         preview.update(new_password)
+
+    async def key(self, event) -> None:
+        """Override key method - intercept 'q' at lowest level."""
+        try:
+            if event.key == "q":
+                # Block 'q' completely
+                event.stop()
+                event.prevent_default()
+                # Show notification
+                try:
+                    self.app.notify("Press ESC to close this modal", severity="warning", timeout=2)
+                except Exception:
+                    pass
+                # Don't call parent - completely stop processing
+                return
+        except Exception:
+            pass
+        # For other keys, call parent
+        await super().key(event)
+
+    def on_key(self, event) -> None:
+        """Handle key press - block 'q' to prevent terminal crash."""
+        try:
+            if event.key == "q":
+                # Completely block 'q' key - do nothing at all
+                event.stop()
+                event.prevent_default()
+                # Show notification
+                try:
+                    self.app.notify(
+                        "'q' disabled in this modal. Use ESC to close.",
+                        severity="warning",
+                        timeout=3,
+                    )
+                except Exception:
+                    pass
+                return
+        except Exception:
+            # Catch any exception to prevent crash
+            pass
+
+    def action_ignore_quit(self) -> None:
+        """Override quit action - do absolutely nothing."""
+        # Don't exit, don't dismiss, don't do anything
+        try:
+            self.app.notify("Use ESC to close this modal", severity="warning", timeout=2)
+        except Exception:
+            pass
 
     def action_cancel(self) -> None:
         """Cancel and close dialog."""

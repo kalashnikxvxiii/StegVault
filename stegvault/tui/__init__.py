@@ -15,6 +15,7 @@ from .widgets import (
     EntryDetailPanel,
     EntryFormScreen,
     DeleteConfirmationScreen,
+    UnsavedChangesScreen,
     PasswordGeneratorScreen,
 )
 
@@ -28,5 +29,6 @@ __all__ = [
     "EntryDetailPanel",
     "EntryFormScreen",
     "DeleteConfirmationScreen",
+    "UnsavedChangesScreen",
     "PasswordGeneratorScreen",
 ]

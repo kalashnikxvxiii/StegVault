@@ -28,8 +28,8 @@ class TestStegVaultTUI:
         """Should have correct title."""
         app = StegVaultTUI()
 
-        assert app.TITLE == "StegVault TUI"
-        assert "Password Manager" in app.SUB_TITLE
+        assert app.TITLE == "⚡⚡ STEGVAULT ⚡⚡ Neural Security Terminal"
+        assert "Privacy is a luxury" in app.SUB_TITLE
 
     def test_tui_app_bindings(self):
         """Should have key bindings defined."""
@@ -57,7 +57,7 @@ class TestStegVaultTUI:
         app = StegVaultTUI()
         app.push_screen_wait = AsyncMock(return_value=None)
 
-        await app.action_new_vault()
+        await app._async_new_vault()
 
         # Should return early without error
         app.push_screen_wait.assert_called_once()
@@ -68,7 +68,7 @@ class TestStegVaultTUI:
         app = StegVaultTUI()
         app.push_screen_wait = AsyncMock(side_effect=["output.png", None])
 
-        await app.action_new_vault()
+        await app._async_new_vault()
 
         # Should call push_screen_wait twice (file, then passphrase)
         assert app.push_screen_wait.call_count == 2
@@ -79,7 +79,7 @@ class TestStegVaultTUI:
         app = StegVaultTUI()
         app.push_screen_wait = AsyncMock(side_effect=["output.png", "passphrase", None])
 
-        await app.action_new_vault()
+        await app._async_new_vault()
 
         # Should call push_screen_wait three times (file, passphrase, entry form)
         assert app.push_screen_wait.call_count == 3
@@ -95,7 +95,7 @@ class TestStegVaultTUI:
         # Mock controller to return failure
         app.vault_controller.create_new_vault = Mock(return_value=(None, False, "Test error"))
 
-        await app.action_new_vault()
+        await app._async_new_vault()
 
         # Should notify error
         app.notify.assert_called()
@@ -119,7 +119,7 @@ class TestStegVaultTUI:
         save_result = VaultSaveResult(output_path="", success=False, error="Disk full")
         app.vault_controller.save_vault = Mock(return_value=save_result)
 
-        await app.action_new_vault()
+        await app._async_new_vault()
 
         # Should notify error
         app.notify.assert_called()
@@ -152,7 +152,7 @@ class TestStegVaultTUI:
         save_result = VaultSaveResult(output_path="output.png", success=True)
         app.vault_controller.save_vault = Mock(return_value=save_result)
 
-        await app.action_new_vault()
+        await app._async_new_vault()
 
         # Should create vault with correct parameters
         app.vault_controller.create_new_vault.assert_called_once_with(
@@ -191,7 +191,7 @@ class TestStegVaultTUI:
         # Mock controller to raise exception
         app.vault_controller.create_new_vault = Mock(side_effect=Exception("Test error"))
 
-        await app.action_new_vault()
+        await app._async_new_vault()
 
         # Should notify error
         app.notify.assert_called()
@@ -218,7 +218,7 @@ class TestStegVaultTUI:
         app = StegVaultTUI()
         app.push_screen_wait = AsyncMock(return_value=None)
 
-        await app.action_open_vault()
+        await app._async_open_vault()
 
         # Should return early without error
         app.push_screen_wait.assert_called_once()
@@ -229,7 +229,7 @@ class TestStegVaultTUI:
         app = StegVaultTUI()
         app.push_screen_wait = AsyncMock(side_effect=["test.png", None])
 
-        await app.action_open_vault()
+        await app._async_open_vault()
 
         # Should call push_screen_wait twice (file, then passphrase)
         assert app.push_screen_wait.call_count == 2
@@ -247,7 +247,7 @@ class TestStegVaultTUI:
         mock_result.error = "Invalid passphrase"
         app.vault_controller.load_vault = Mock(return_value=mock_result)
 
-        await app.action_open_vault()
+        await app._async_open_vault()
 
         # Should notify error
         app.notify.assert_called()
@@ -269,7 +269,7 @@ class TestStegVaultTUI:
         mock_result.vault = mock_vault
         app.vault_controller.load_vault = Mock(return_value=mock_result)
 
-        await app.action_open_vault()
+        await app._async_open_vault()
 
         # Should push vault screen
         app.push_screen.assert_called_once()
@@ -286,7 +286,7 @@ class TestStegVaultTUI:
         # Mock controller to raise exception
         app.vault_controller.load_vault = Mock(side_effect=Exception("Test error"))
 
-        await app.action_open_vault()
+        await app._async_open_vault()
 
         # Should notify error
         app.notify.assert_called()
@@ -296,7 +296,7 @@ class TestStegVaultTUI:
     def test_on_button_pressed_open(self):
         """Should handle open button press."""
         app = StegVaultTUI()
-        app.action_open_vault = AsyncMock()
+        app.action_open_vault = Mock()
 
         button = Mock()
         button.id = "btn-open"
@@ -305,7 +305,7 @@ class TestStegVaultTUI:
 
         app.on_button_pressed(event)
 
-        # Should call action (note: won't await in sync context)
+        # Should call action_open_vault
         app.action_open_vault.assert_called_once()
 
     def test_on_button_pressed_new(self):
