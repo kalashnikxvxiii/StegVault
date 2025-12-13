@@ -146,24 +146,28 @@ Known limitations and constraints of StegVault.
 
 ---
 
-### CLI-Only Interface (v0.6.1)
+### No Desktop GUI Yet (v0.7.3)
 
-**Limitation**: No graphical user interface yet
+**Limitation**: No graphical desktop application yet
 
-**Impact**: Less accessible to non-technical users
+**Impact**: May be less accessible to some non-technical users
 
-**Current Features** (v0.6.1):
-- ✅ Full vault mode (multiple passwords per image)
-- ✅ TOTP/2FA authenticator
-- ✅ Gallery mode (multi-vault management)
-- ✅ Headless mode (JSON output, automation)
-- ✅ Application Layer (ready for GUI)
+**Current Interfaces** (v0.7.3):
+- ✅ **CLI**: Full-featured command-line interface
+- ✅ **TUI**: Terminal UI with full keyboard navigation (v0.7.0+)
+  - Live TOTP codes with auto-refresh
+  - Password generator with live preview
+  - Full CRUD operations
+  - Search/filter functionality
+  - Password history tracking
+- ✅ **Headless**: JSON output for automation (v0.6.0+)
+- ✅ **Application Layer**: Ready for GUI integration (v0.6.1+)
 
-**Workaround**: CLI is feature-complete with headless mode for automation
+**Workaround**: TUI provides full interactive experience in terminal
 
-**Future**:
-- TUI (Terminal UI) planned for v0.7.0
-- GUI planned for v0.8.0
+**Status**: TUI is stable and production-ready (v0.7.3 bug fixes)
+
+**Future**: Desktop GUI (PySide6) planned for v0.8.0
 
 ---
 

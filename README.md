@@ -3,14 +3,14 @@
 > Secure password manager using steganography to embed encrypted credentials within images
 
 [![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-0.7.1-blue.svg)](https://github.com/kalashnikxvxiii-collab/StegVault)
+[![Version](https://img.shields.io/badge/version-0.7.3-blue.svg)](https://github.com/kalashnikxvxiii-collab/StegVault)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-761_passing-brightgreen.svg)](tests/)
-[![Coverage](https://img.shields.io/badge/coverage-87%25-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-740_passing-brightgreen.svg)](tests/)
+[![Coverage](https://img.shields.io/badge/coverage-89%25-brightgreen.svg)](tests/)
 
 **StegVault** is a full-featured password manager that combines modern cryptography with steganography. It can store either a single password or an entire vault of credentials, all encrypted using battle-tested algorithms (XChaCha20-Poly1305 + Argon2id) and hidden within ordinary **PNG or JPEG** images.
 
-**Latest Features (v0.7.1):** Password History - Track password changes with timestamps and reasons, view history via CLI/TUI!
+**Latest Release (v0.7.3):** Critical TUI stability fixes - Resolved terminal crash and button overflow bugs for rock-solid performance!
 
 ## Features
 
@@ -20,7 +20,7 @@
 - 🎯 **Auto-Detection**: Automatically detects image format (PNG/JPEG)
 - 🔒 **Zero-Knowledge**: All operations performed locally, no cloud dependencies
 - ✅ **Authenticated**: AEAD tag ensures data integrity
-- 🧪 **Well-Tested**: 761 unit tests with 87% overall coverage (all passing)
+- 🧪 **Well-Tested**: 740 unit tests with 89% overall coverage (all passing)
 - ⏱️ **User-Friendly**: Progress indicators for long operations
 
 ### Vault Mode

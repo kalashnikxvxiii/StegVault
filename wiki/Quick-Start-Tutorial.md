@@ -2,23 +2,40 @@
 
 Get started with StegVault in 5 minutes! This tutorial walks you through using StegVault's password management features.
 
-**Version**: 0.6.1 (Application Layer)
+**Version**: 0.7.3 (TUI Stable)
 
 ## What You'll Learn
 
-This tutorial covers **both operation modes**:
-1. **Vault Mode** (recommended) - Full password manager with multiple credentials
-2. **Single Password Mode** - Quick backup of one master password
+This tutorial covers **three interfaces**:
+1. **TUI Mode** (recommended) - Interactive terminal UI with full keyboard navigation
+2. **CLI Vault Mode** - Command-line for scripting and automation
+3. **Single Password Mode** - Quick backup of one master password
 
 ## Prerequisites
 
 - StegVault installed (see [Installation Guide](Installation-Guide.md))
 - A PNG or JPEG image file
-- Basic command-line familiarity
+- Basic terminal/command-line familiarity
 
-## Choose Your Mode
+## Choose Your Interface
 
-### Vault Mode (Recommended for v0.6.1+)
+### TUI Mode (Recommended for v0.7.0+)
+
+Use TUI mode if you want:
+- Visual, interactive experience in your terminal
+- Full keyboard navigation (no mouse needed)
+- Live TOTP codes with countdown timer
+- Password generator with live preview
+- Real-time search and filtering
+
+**Launch TUI**:
+```bash
+$ stegvault tui
+```
+
+Then use keyboard shortcuts to navigate (press `h` for help).
+
+### CLI Vault Mode (Recommended for v0.6.1+)
 
 Use vault mode if you want to:
 - Store multiple passwords in one image

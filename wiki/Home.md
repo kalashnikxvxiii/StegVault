@@ -44,11 +44,11 @@ StegVault is a secure password manager that uses steganography to hide encrypted
 
 ## Project Status
 
-- **Version**: 0.7.1 (Password History)
+- **Version**: 0.7.3 (TUI Stability Fixes)
 - **Status**: Stable - Production-ready
 - **License**: MIT
 - **Language**: Python 3.9+
-- **Tests**: 761 passing (87% coverage)
+- **Tests**: 740 passing (89% coverage)
 
 ## Key Features
 
@@ -56,7 +56,8 @@ StegVault is a secure password manager that uses steganography to hide encrypted
 - ✅ Argon2id key derivation
 - ✅ Dual steganography (PNG LSB + JPEG DCT)
 - ✅ Full vault mode with CRUD operations
-- ✅ Password history tracking **NEW in v0.7.1**
+- ✅ Password history tracking
+- ✅ TUI stability improvements **FIXED in v0.7.3**
 - ✅ TOTP/2FA authenticator
 - ✅ Gallery multi-vault management
 - ✅ Terminal UI (TUI) with full keyboard navigation

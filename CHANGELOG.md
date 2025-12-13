@@ -67,6 +67,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Manual testing: Windows Terminal, PowerShell
 - Both issues resolved and verified stable
 
+### Fixed - Code Quality ✅
+
+**Bandit Security Scanner Warnings** (Post-release):
+- **Issue**: GitHub Actions "Code Quality" workflow failing due to 6 B110 warnings (try-except-pass)
+- **Location**:
+  - `stegvault/tui/app.py:309` - `action_quit()` exception handler
+  - `stegvault/tui/widgets.py` - PasswordGeneratorScreen key event handlers (5 instances)
+- **Solution**: Added `# nosec B110` comments to all intentional try-except-pass blocks
+  - All blocks are defensive error handlers to prevent TUI crashes
+  - Not security issues, but intentional exception suppression
+- **Result**: ✅ Bandit reports "No issues identified" (12 suppressed warnings total)
+- **Commit**: `c7f10bd`
+
 ## [0.7.2] - 2025-12-03
 
 ### Changed - Cyberpunk UI Redesign ⚡
