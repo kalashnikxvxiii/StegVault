@@ -7,6 +7,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.4] - 2025-12-14
+
+### Added - Favorite Folders Feature ⭐
+
+**TUI Enhancements**:
+- `FavoriteFoldersManager` - Complete favorite folder management system
+  - Save frequently used vault locations for quick access
+  - Quick-access dropdown in FileSelectScreen with keyboard navigation
+  - Add/remove/rename favorite folders dynamically
+  - Automatic cleanup of non-existent paths on load
+  - Cross-platform filesystem root detection (`Path.cwd().anchor` instead of hardcoded `C:\`)
+
+**Persistent Storage**:
+- Favorite folders saved to `~/.stegvault/favorite_folders.json`
+- Restrictive file permissions (0600) for security on multi-user systems
+- Prevents unauthorized users from reading vault path information
+- JSON format for easy manual editing if needed
+
+**User Experience**:
+- Real-time responsive dropdown overlay in TUI
+- Keyboard shortcuts: `f` to favorite current folder, `Ctrl+f` for quick access
+- Visual indicators for favorited folders
+- Seamless integration with existing FileSelectScreen workflow
+
+### Security - File Permissions Enhancement
+
+**Cross-Platform Security**:
+- File permissions set to 0600 (owner read/write only) on favorite_folders.json
+- Prevents other users on multi-user systems from reading vault paths
+- Automatic permission enforcement on file save operations
+- Graceful fallback if chmod not available (e.g., FAT32 filesystems)
+
+**Filesystem Compatibility**:
+- Cross-platform root directory handling using `Path.cwd().anchor`
+- Works correctly on Windows (C:\, D:\), Linux (/), and macOS (/)
+- No more hardcoded drive letter assumptions
+
+### Testing
+
+**Comprehensive Test Suite**:
+- 16 new tests for FavoriteFoldersManager (100% pass rate)
+- Total tests: 740 → **778** (+38 tests)
+- Test coverage: 94% on favorite_folders.py
+- Tests cover:
+  - Add/remove/rename operations
+  - Path normalization and validation
+  - Persistence across manager instances
+  - Corrupted JSON handling
+  - Non-existent path cleanup
+  - Cross-platform path handling
+
+**Manual Testing**:
+- Windows Terminal: ✅ Verified
+- PowerShell: ✅ Verified
+- Cross-platform root detection: ✅ Working
+
+### Changed
+
+**TUI FileSelectScreen** (integration point):
+- Favorite folders dropdown seamlessly integrated
+- No breaking changes to existing workflows
+- Enhanced with quick-access functionality
+
+### Security Audit
+
+**Crypto-Security-Auditor Approval**: ✅ LOW RISK
+- All MEDIUM priority security findings resolved
+- File permissions properly enforced
+- No sensitive data logged or exposed
+- Cross-platform compatibility verified
+
 ## [0.7.3] - 2025-12-12
 
 ### Fixed - Critical TUI Stability Improvements 🐛

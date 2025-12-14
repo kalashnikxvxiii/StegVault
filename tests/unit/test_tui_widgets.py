@@ -209,7 +209,7 @@ class TestFileSelectScreen:
 
         screen.dismiss.assert_called_once_with(None)
 
-    def test_on_button_pressed_select_valid_path(self, tmp_path):
+    async def test_on_button_pressed_select_valid_path(self, tmp_path):
         """Should dismiss with path when valid."""
         test_file = tmp_path / "test.png"
         test_file.write_bytes(b"test")
@@ -228,11 +228,11 @@ class TestFileSelectScreen:
         event = Mock()
         event.button = button
 
-        screen.on_button_pressed(event)
+        await screen.on_button_pressed(event)
 
         screen.dismiss.assert_called_once_with(str(test_file))
 
-    def test_on_button_pressed_select_invalid_path(self):
+    async def test_on_button_pressed_select_invalid_path(self):
         """Should notify error for invalid path."""
         screen = FileSelectScreen()
         screen.dismiss = Mock()
@@ -253,13 +253,13 @@ class TestFileSelectScreen:
         event.button = button
 
         with patch.object(type(screen), "app", property(lambda self: mock_app)):
-            screen.on_button_pressed(event)
+            await screen.on_button_pressed(event)
 
             mock_app.notify.assert_called_once()
             call_args = mock_app.notify.call_args
             assert "valid file path" in call_args[0][0]
 
-    def test_on_button_pressed_cancel(self):
+    async def test_on_button_pressed_cancel(self):
         """Should dismiss with None on cancel button."""
         screen = FileSelectScreen()
         screen.dismiss = Mock()
@@ -269,7 +269,7 @@ class TestFileSelectScreen:
         event = Mock()
         event.button = button
 
-        screen.on_button_pressed(event)
+        await screen.on_button_pressed(event)
 
         screen.dismiss.assert_called_once_with(None)
 

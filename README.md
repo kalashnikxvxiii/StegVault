@@ -3,14 +3,14 @@
 > Secure password manager using steganography to embed encrypted credentials within images
 
 [![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-0.7.3-blue.svg)](https://github.com/kalashnikxvxiii-collab/StegVault)
+[![Version](https://img.shields.io/badge/version-0.7.4-blue.svg)](https://github.com/kalashnikxvxiii-collab/StegVault)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-740_passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-778_passing-brightgreen.svg)](tests/)
 [![Coverage](https://img.shields.io/badge/coverage-89%25-brightgreen.svg)](tests/)
 
 **StegVault** is a full-featured password manager that combines modern cryptography with steganography. It can store either a single password or an entire vault of credentials, all encrypted using battle-tested algorithms (XChaCha20-Poly1305 + Argon2id) and hidden within ordinary **PNG or JPEG** images.
 
-**Latest Release (v0.7.3):** Critical TUI stability fixes - Resolved terminal crash and button overflow bugs for rock-solid performance!
+**Latest Release (v0.7.4):** Favorite Folders feature for TUI - Quick access to frequently used vault locations with cross-platform filesystem support!
 
 ## Features
 
@@ -20,7 +20,7 @@
 - 🎯 **Auto-Detection**: Automatically detects image format (PNG/JPEG)
 - 🔒 **Zero-Knowledge**: All operations performed locally, no cloud dependencies
 - ✅ **Authenticated**: AEAD tag ensures data integrity
-- 🧪 **Well-Tested**: 740 unit tests with 89% overall coverage (all passing)
+- 🧪 **Well-Tested**: 778 unit tests with 89% overall coverage (all passing)
 - ⏱️ **User-Friendly**: Progress indicators for long operations
 
 ### Vault Mode
@@ -104,6 +104,14 @@ stegvault tui
 - `a` - Add entry | `e` - Edit | `d` - Delete
 - `c` - Copy password | `v` - Toggle visibility
 - `s` - Save changes | `/` - Search entries
+- `f` - Favorite current folder | `Ctrl+f` - Quick access to favorites
+
+**Favorite Folders** (v0.7.4):
+- Save frequently used vault locations for quick access
+- Quick dropdown menu with cross-platform support
+- Persistent storage in `~/.stegvault/favorite_folders.json` with restrictive permissions (0600)
+- Automatic cleanup of non-existent paths
+- Toggle favorites on/off with a single keypress
 
 #### Mode 1: Single Password (Simple Backup)
 

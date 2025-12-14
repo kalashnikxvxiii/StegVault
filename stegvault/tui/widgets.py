@@ -17,6 +17,7 @@ from textual.widgets import (
     ListView,
     ListItem,
     DirectoryTree,
+    Select,
 )
 from textual.widgets._directory_tree import DirEntry
 from textual.screen import Screen, ModalScreen
@@ -24,6 +25,7 @@ from textual.binding import Binding
 from rich.text import Text
 
 from stegvault.vault import Vault, VaultEntry
+from stegvault.utils.favorite_folders import FavoriteFoldersManager
 
 
 class FilteredDirectoryTree(DirectoryTree):
@@ -70,7 +72,8 @@ class HelpScreen(ModalScreen[None]):
     }
 
     #help-dialog {
-        width: 80;
+        width: 90%;
+        max-width: 80;
         height: auto;
         border: heavy #ff00ff;
         background: #0a0a0a;
@@ -244,15 +247,15 @@ class HelpScreen(ModalScreen[None]):
             with Horizontal(id="button-row"):
                 yield Button("Close", variant="primary", id="btn-close", classes="help-button")
 
-    def on_key(self, event) -> None:
-        """Handle key press - prevent 'q' from propagating to parent."""
-        if event.key == "q":
-            event.stop()
-            self.dismiss(None)
-
     def action_dismiss(self) -> None:
         """Dismiss help screen."""
         self.dismiss(None)
+
+    def on_key(self, event) -> None:
+        """Handle key press - allow 'q' to trigger quit confirmation."""
+        if event.key == "q":
+            event.stop()
+            self.app.action_quit()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button press."""
@@ -260,8 +263,110 @@ class HelpScreen(ModalScreen[None]):
             self.action_dismiss()
 
 
+class QuitConfirmationScreen(ModalScreen[bool]):
+    """Modal screen for confirming application exit."""
+
+    CSS = """
+    /* Cyberpunk Quit Confirmation */
+    QuitConfirmationScreen {
+        align: center middle;
+        background: #00000099;
+    }
+
+    #quit-dialog {
+        width: 80%;
+        max-width: 60;
+        height: auto;
+        min-height: 12;
+        border: heavy #ffff00;
+        background: #0a0a0a;
+        padding: 1;
+    }
+
+    #quit-title {
+        width: 100%;
+        text-align: center;
+        text-style: bold;
+        color: #ffff00;
+        margin-bottom: 0;
+        border-bottom: solid #ffff00;
+        padding-bottom: 0;
+    }
+
+    #quit-message {
+        width: 100%;
+        text-align: center;
+        color: #00ffff;
+        margin-bottom: 0;
+        padding: 1 0;
+    }
+
+    #button-row {
+        height: auto;
+        min-height: 3;
+        align: center middle;
+        margin: 0;
+    }
+
+    .quit-button {
+        margin: 0 1;
+        min-width: 16;
+        height: 3;
+    }
+
+    /* Cyberpunk Button Overrides */
+    Button {
+        border: solid #00ffff;
+        background: #000000;
+    }
+
+    Button:hover {
+        background: #00ffff20;
+        border: heavy #00ffff;
+    }
+
+    Button.-error {
+        border: solid #ff0080;
+    }
+
+    Button.-error:hover {
+        background: #ff008020;
+        border: heavy #ff0080;
+    }
+    """
+
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+    ]
+
+    def __init__(self):
+        """Initialize quit confirmation screen."""
+        super().__init__()
+
+    def compose(self) -> ComposeResult:
+        """Compose quit confirmation dialog."""
+        with Container(id="quit-dialog"):
+            yield Label("⚡ Quit StegVault", id="quit-title")
+            yield Label("Do you really want to quit StegVault?", id="quit-message")
+
+            with Horizontal(id="button-row"):
+                yield Button("YES", variant="error", id="btn-yes", classes="quit-button")
+                yield Button("NO", variant="default", id="btn-no", classes="quit-button")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle button press."""
+        if event.button.id == "btn-yes":
+            self.dismiss(True)  # Confirmed - quit app
+        elif event.button.id == "btn-no":
+            self.dismiss(False)  # Cancelled - stay in app
+
+    def action_cancel(self) -> None:
+        """Cancel and close dialog (ESC key)."""
+        self.dismiss(False)  # Cancelled - stay in app
+
+
 class FileSelectScreen(ModalScreen[Optional[str]]):
-    """Modal screen for selecting a vault image file."""
+    """Modal screen for selecting a vault image file with favorite folders."""
 
     CSS = """
     /* Cyberpunk File Select Dialog */
@@ -271,9 +376,10 @@ class FileSelectScreen(ModalScreen[Optional[str]]):
     }
 
     #file-dialog {
-        width: 90;
+        width: 95%;
+        max-width: 90;
         height: auto;
-        min-height: 38;
+        min-height: 42;
         border: heavy #00ffff;
         background: #0a0a0a;
         padding: 2;
@@ -287,6 +393,88 @@ class FileSelectScreen(ModalScreen[Optional[str]]):
         margin-bottom: 1;
         border-bottom: solid #ff00ff;
         padding-bottom: 1;
+    }
+
+    #favorites-row {
+        height: 3;
+        margin-bottom: 1;
+        align: left middle;
+    }
+
+    #btn-favorites {
+        width: 1fr;
+        height: 3;
+        margin-right: 1;
+        border: solid #ffff00;
+        background: #000000;
+        color: #ffff00;
+    }
+
+    #btn-favorites:hover {
+        background: #ffff0030;
+        border: heavy #ffff00;
+    }
+
+    #btn-add-favorite {
+        width: 12;
+        height: 3;
+        margin-right: 1;
+        border: solid #ffff00;
+        background: #000000;
+    }
+
+    #btn-add-favorite:hover {
+        background: #ffff0030;
+        border: heavy #ffff00;
+    }
+
+    #btn-home {
+        width: 8;
+        height: 3;
+        border: solid #00ff00;
+        background: #000000;
+    }
+
+    #btn-home:hover {
+        background: #00ff0030;
+        border: heavy #00ff00;
+    }
+
+    /* Cyberpunk Overlay Favorites Dropdown */
+    #favorites-dropdown {
+        display: none;  /* Hidden by default */
+        layer: overlay;  /* Render as overlay */
+        offset-y: 7;  /* Position exactly below favorites-row (padding:2 + title:1 + margin:1 + row:3) */
+        /* offset-x and width set dynamically in Python to match Favorites button */
+        height: auto;
+        max-height: 15;
+        border: heavy #ffff00;  /* Cyberpunk yellow border */
+        background: #000000;     /* Pure black background */
+        padding: 0;
+        overflow-y: auto;  /* Enable scrolling for overflow */
+    }
+
+    #favorites-dropdown.visible {
+        display: block;  /* Show when visible class added */
+        border: heavy #00ffff;  /* Cyan border when active */
+    }
+
+    #favorites-dropdown > ListItem {
+        color: #ffff00;  /* Yellow text */
+        padding: 0 2;
+        background: #000000;
+    }
+
+    #favorites-dropdown > ListItem:hover {
+        background: #ffff0030;  /* Yellow glow on hover */
+        color: #000000;
+        text-style: bold;
+    }
+
+    #favorites-dropdown > .list-item--highlight {
+        background: #00ffff30;  /* Cyan highlight */
+        color: #ffffff;
+        text-style: bold;
     }
 
     #file-tree {
@@ -398,6 +586,7 @@ class FileSelectScreen(ModalScreen[Optional[str]]):
 
     BINDINGS = [
         Binding("escape", "cancel", "Cancel"),
+        Binding("f", "toggle_favorite", "Add/Remove Favorite", show=True),
     ]
 
     def __init__(self, title: str = "Select Vault Image"):
@@ -407,21 +596,71 @@ class FileSelectScreen(ModalScreen[Optional[str]]):
         self.selected_path: Optional[str] = None
         self.last_selected_path: Optional[str] = None
         self.last_click_time: float = 0
+        self.favorites_manager = FavoriteFoldersManager()
+        self.current_directory: Optional[str] = None
+        self.favorites_button_text: str = "⚡ Favorites"  # Current button text
+
+    def on_resize(self, event) -> None:
+        """Handle screen resize - schedule dropdown update for next event loop cycle."""
+        # Use call_later to update dropdown after layout has been fully recalculated
+        self.call_later(self._update_dropdown_on_resize)
+
+    def _update_dropdown_on_resize(self) -> None:
+        """Update dropdown position and width to match Favorites button after resize."""
+        try:
+            dropdown = self.query_one("#favorites-dropdown", ListView)
+            if dropdown.has_class("visible"):
+                # Dropdown is visible, update its position and width to match button
+                btn = self.query_one("#btn-favorites", Button)
+                dialog = self.query_one("#file-dialog")
+                if hasattr(btn, "region") and btn.region.width > 0:
+                    # Calculate offset-x relative to the dialog container, shift slightly left
+                    offset_x = btn.region.x - dialog.region.x - 3
+                    dropdown.styles.offset = (offset_x, 7)
+                    dropdown.styles.width = btn.region.width
+                    # Force dropdown to refresh with new dimensions
+                    dropdown.refresh(layout=True)
+        except Exception:  # nosec B110
+            pass
 
     def compose(self) -> ComposeResult:
-        """Compose file selection dialog."""
+        """Compose file selection dialog with favorite folders."""
         from pathlib import Path
         import time
 
         with Container(id="file-dialog"):
             yield Label(f">> {self.title.upper()}", id="file-title")
-            # Start from C:\ root on Windows
-            start_path = "C:\\"
+
+            # Favorite Folders Dropdown Row
+            with Horizontal(id="favorites-row"):
+                # Custom button to toggle dropdown
+                yield Button(
+                    self.favorites_button_text,
+                    id="btn-favorites",
+                    variant="default",
+                )
+                yield Button("⚡ Add", id="btn-add-favorite")
+                yield Button("HOME", id="btn-home", variant="success")
+
+            # Inline Favorites Dropdown (hidden by default)
+            with ListView(id="favorites-dropdown"):
+                # Populated dynamically when button is clicked
+                pass
+
+            # Directory Tree
+            # Start from root of current drive (cross-platform)
+            # Windows: C:\ (or D:\, E:\, etc. depending on current working directory)
+            # Unix: /
+            start_path = str(Path.cwd().anchor)
             yield FilteredDirectoryTree(start_path, id="file-tree")
+
+            # Path Input
             yield Input(
                 placeholder="Type file path or select from tree above",
                 id="file-path-input",
             )
+
+            # Buttons
             with Horizontal(id="button-row"):
                 yield Button("SELECT", variant="success", id="btn-select", classes="file-button")
                 yield Button("CANCEL", variant="default", id="btn-cancel", classes="file-button")
@@ -430,8 +669,10 @@ class FileSelectScreen(ModalScreen[Optional[str]]):
         """Set focus on input field when screen mounts."""
         input_field = self.query_one("#file-path-input", Input)
         input_field.focus()
+        # Update favorite button initial state
+        self._update_favorite_button()
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:
+    async def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button press."""
         if event.button.id == "btn-select":
             input_widget = self.query_one("#file-path-input", Input)
@@ -443,11 +684,121 @@ class FileSelectScreen(ModalScreen[Optional[str]]):
                 self.app.notify("Please enter a valid file path", severity="error")
         elif event.button.id == "btn-cancel":
             self.dismiss(None)
+        elif event.button.id == "btn-favorites":
+            # Toggle inline dropdown
+            self._toggle_favorites_dropdown()
+        elif event.button.id == "btn-add-favorite":
+            self.action_toggle_favorite()
+        elif event.button.id == "btn-home":
+            # Reset favorites button text, hide dropdown, and navigate to home
+            self.favorites_button_text = "⚡ Favorites"
+            try:
+                btn = self.query_one("#btn-favorites", Button)
+                btn.label = self.favorites_button_text
+                # Hide dropdown if visible
+                dropdown = self.query_one("#favorites-dropdown", ListView)
+                dropdown.remove_class("visible")
+            except Exception:  # nosec B110
+                pass
+            self._navigate_to_folder("C:\\")
+
+    def _refresh_favorites_dropdown(self) -> None:
+        """Refresh dropdown list with current favorites (if visible)."""
+        try:
+            dropdown = self.query_one("#favorites-dropdown", ListView)
+            if dropdown.has_class("visible"):
+                # Dropdown is open, refresh its contents
+                favorites = self.favorites_manager.get_favorites()
+                dropdown.clear()
+                for fav in favorites:
+                    dropdown.append(ListItem(Label(f"⚡ {fav['name']}")))
+        except Exception:  # nosec B110
+            pass
+
+    def _toggle_favorites_dropdown(self) -> None:
+        """Toggle visibility of overlay favorites dropdown."""
+        favorites = self.favorites_manager.get_favorites()
+
+        if not favorites:
+            self.app.notify("No favorites yet. Add some first!", severity="information")
+            return
+
+        dropdown = self.query_one("#favorites-dropdown", ListView)
+
+        # If dropdown is visible, hide it
+        if dropdown.has_class("visible"):
+            dropdown.remove_class("visible")
+        else:
+            # Populate and show dropdown
+            dropdown.clear()
+            for fav in favorites:
+                dropdown.append(ListItem(Label(f"⚡ {fav['name']}")))
+
+            # Calculate and set dropdown position and width to match Favorites button exactly
+            try:
+                btn = self.query_one("#btn-favorites", Button)
+                dialog = self.query_one("#file-dialog")
+                # Force layout refresh to ensure button has rendered size
+                self.refresh(layout=True)
+
+                # Get button's actual rendered region (position and size)
+                if hasattr(btn, "region") and btn.region.width > 0:
+                    # Calculate offset-x relative to the dialog container, shift slightly left
+                    offset_x = btn.region.x - dialog.region.x - 3
+                    dropdown.styles.offset = (offset_x, 7)
+                    # Set dropdown width to match button exactly
+                    dropdown.styles.width = btn.region.width
+                else:
+                    # Fallback to reasonable defaults
+                    dropdown.styles.offset = (0, 7)
+                    dropdown.styles.width = 50
+            except Exception:  # nosec B110
+                # Fallback if something fails
+                dropdown.styles.offset = (0, 7)
+                dropdown.styles.width = 50
+
+            dropdown.add_class("visible")
+
+    def on_list_view_selected(self, event: ListView.Selected) -> None:
+        """Handle selection from favorites dropdown."""
+        # Only handle our favorites dropdown, not other ListViews
+        if event.list_view.id != "favorites-dropdown":
+            return
+
+        favorites = self.favorites_manager.get_favorites()
+        dropdown = self.query_one("#favorites-dropdown", ListView)
+        selected_index = dropdown.index
+
+        if 0 <= selected_index < len(favorites):
+            selected_fav = favorites[selected_index]
+            selected_path = selected_fav["path"]
+
+            # Update button text
+            self.favorites_button_text = f"⚡ {selected_fav['name']}"
+            try:
+                btn = self.query_one("#btn-favorites", Button)
+                btn.label = self.favorites_button_text
+            except Exception:  # nosec B110
+                pass
+
+            # Hide dropdown after selection
+            dropdown.remove_class("visible")
+
+            # Navigate to selected folder
+            self._navigate_to_folder(selected_path)
+
+    def on_directory_tree_directory_selected(self, event: DirectoryTree.DirectorySelected) -> None:
+        """Update button when user navigates to a directory in tree."""
+        self._update_favorite_button()
 
     def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected) -> None:
-        """Handle file selection from tree (single and double-click)."""
+        """Handle file selection from tree (update button + double-click logic)."""
         import time
 
+        # Update favorite button for parent directory of selected file
+        self._update_favorite_button()
+
+        # Original double-click logic
         input_widget = self.query_one("#file-path-input", Input)
         file_path_str = str(event.path)
         input_widget.value = file_path_str
@@ -464,15 +815,145 @@ class FileSelectScreen(ModalScreen[Optional[str]]):
             self.last_selected_path = file_path_str
             self.last_click_time = current_time
 
+    def _get_folder_display_name(self, folder_path: str) -> str:
+        """Get a display-friendly name for a folder path.
+
+        Args:
+            folder_path: Absolute path to folder
+
+        Returns:
+            Display name (e.g., "Documents" or "C:\" for root)
+        """
+        path = Path(folder_path)
+        folder_name = path.name
+
+        # If name is empty (root directory like C:\), use drive letter
+        if not folder_name:
+            # For Windows: "C:\" becomes "C:\"
+            # For Unix: "/" becomes "/"
+            if path.drive:
+                return f"{path.drive}\\"
+            else:
+                return str(path)
+
+        return folder_name
+
+    def _navigate_to_folder(self, folder_path: str) -> None:
+        """Navigate DirectoryTree to specified folder.
+
+        Args:
+            folder_path: Absolute path to folder
+        """
+        try:
+            tree = self.query_one("#file-tree", FilteredDirectoryTree)
+            # Reset tree to new path
+            tree.path = Path(folder_path)
+            tree.reload()
+            self.current_directory = folder_path
+            display_name = self._get_folder_display_name(folder_path)
+            self.app.notify(f"Navigated to: {display_name}", severity="information")
+            # Update button text after navigation
+            self._update_favorite_button()
+        except Exception as e:  # nosec B110
+            self.app.notify(f"Failed to navigate to folder: {str(e)}", severity="error")
+
+    def _get_current_directory(self) -> Optional[str]:
+        """Get current directory from tree or input."""
+        current_dir = None
+
+        try:
+            tree = self.query_one("#file-tree", FilteredDirectoryTree)
+            # First try to get the currently selected/highlighted node
+            if tree.cursor_node and hasattr(tree.cursor_node, "data"):
+                cursor_path = tree.cursor_node.data.path
+                # If it's a directory, use it; if file, use parent
+                if cursor_path.is_dir():
+                    current_dir = str(cursor_path.resolve())
+                else:
+                    current_dir = str(cursor_path.parent.resolve())
+            # Fallback to tree root path
+            elif tree.path:
+                current_dir = str(tree.path.resolve())
+        except Exception:  # nosec B110
+            pass
+
+        if not current_dir:
+            # Fallback to input field's parent directory
+            try:
+                input_widget = self.query_one("#file-path-input", Input)
+                if input_widget.value:
+                    path = Path(input_widget.value.strip())
+                    if path.exists():
+                        current_dir = str(
+                            path.parent.resolve() if path.is_file() else path.resolve()
+                        )
+            except Exception:  # nosec B110
+                pass
+
+        return current_dir
+
+    def _update_favorite_button(self) -> None:
+        """Update favorite button text based on current directory."""
+        try:
+            button = self.query_one("#btn-add-favorite", Button)
+            current_dir = self._get_current_directory()
+
+            if current_dir and self.favorites_manager.is_favorite(current_dir):
+                button.label = "⚡ Remove"
+            else:
+                button.label = "⚡ Add"
+        except Exception:  # nosec B110
+            pass
+
+    def action_toggle_favorite(self) -> None:
+        """Add or remove current directory from favorites."""
+        current_dir = self._get_current_directory()
+
+        if not current_dir:
+            self.app.notify("No folder selected to add to favorites", severity="warning")
+            return
+
+        # Check if already a favorite
+        if self.favorites_manager.is_favorite(current_dir):
+            # Remove from favorites
+            if self.favorites_manager.remove_folder(current_dir):
+                display_name = self._get_folder_display_name(current_dir)
+                self.app.notify(f"Removed from favorites: {display_name}", severity="information")
+                self._update_favorite_button()
+                # Refresh dropdown if visible
+                self._refresh_favorites_dropdown()
+            else:
+                self.app.notify("Failed to remove favorite", severity="error")
+        else:
+            # Add to favorites
+            if self.favorites_manager.add_folder(current_dir):
+                display_name = self._get_folder_display_name(current_dir)
+                self.app.notify(f"Added to favorites: {display_name}", severity="information")
+                self._update_favorite_button()
+                # Refresh dropdown if visible
+                self._refresh_favorites_dropdown()
+            else:
+                self.app.notify("Folder already in favorites", severity="warning")
+
     def action_cancel(self) -> None:
         """Cancel and close dialog."""
         self.dismiss(None)
 
     def on_key(self, event) -> None:
-        """Handle key press - prevent 'q' from propagating to parent."""
+        """Handle key press - allow 'q' to trigger quit confirmation."""
         if event.key == "q":
+            # Check if input field has focus (user is typing)
+            try:
+                input_field = self.query_one("#file-path-input", Input)
+                if input_field.has_focus:
+                    # User is typing in input field, let 'q' be typed normally
+                    return
+            except Exception:  # nosec B110
+                pass
+
+            # Input doesn't have focus, trigger app quit confirmation
             event.stop()
-            self.dismiss(None)
+            self.app.action_quit()
 
 
 class PassphraseInputScreen(ModalScreen[Optional[str]]):
@@ -486,7 +967,8 @@ class PassphraseInputScreen(ModalScreen[Optional[str]]):
     }
 
     #passphrase-dialog {
-        width: 60;
+        width: 80%;
+        max-width: 60;
         height: auto;
         min-height: 15;
         border: heavy #00ffff;
@@ -621,10 +1103,20 @@ class PassphraseInputScreen(ModalScreen[Optional[str]]):
         self.dismiss(None)
 
     def on_key(self, event) -> None:
-        """Handle key press - prevent 'q' from propagating to parent."""
+        """Handle key press - allow 'q' to trigger quit confirmation."""
         if event.key == "q":
+            # Check if passphrase input has focus (user is typing)
+            try:
+                input_field = self.query_one("#passphrase-input", Input)
+                if input_field.has_focus:
+                    # User is typing, let 'q' be typed normally
+                    return
+            except Exception:  # nosec B110
+                pass
+
+            # Input doesn't have focus, trigger app quit confirmation
             event.stop()
-            self.dismiss(None)
+            self.app.action_quit()
 
 
 class PasswordHistoryModal(ModalScreen[None]):
@@ -638,7 +1130,8 @@ class PasswordHistoryModal(ModalScreen[None]):
     }
 
     #history-dialog {
-        width: 80;
+        width: 90%;
+        max-width: 80;
         height: auto;
         min-height: 30;
         border: heavy #ff00ff;
@@ -808,10 +1301,10 @@ class PasswordHistoryModal(ModalScreen[None]):
         self.dismiss(None)
 
     def on_key(self, event) -> None:
-        """Handle key press - prevent 'q' from propagating to parent."""
+        """Handle key press - allow 'q' to trigger quit confirmation."""
         if event.key == "q":
             event.stop()
-            self.dismiss(None)
+            self.app.action_quit()
 
 
 class EntryListItem(ListItem):
@@ -1087,7 +1580,8 @@ class EntryFormScreen(ModalScreen[Optional[dict]]):
     }
 
     #form-dialog {
-        width: 80;
+        width: 90%;
+        max-width: 80;
         height: auto;
         min-height: 30;
         border: heavy #00ffff;
@@ -1359,15 +1853,37 @@ class EntryFormScreen(ModalScreen[Optional[dict]]):
         elif event.button.id == "btn-cancel":
             self.dismiss(None)
 
-    def on_key(self, event) -> None:
-        """Handle key press - prevent 'q' from propagating to parent."""
-        if event.key == "q":
-            event.stop()
-            self.dismiss(None)
-
     def action_cancel(self) -> None:
         """Cancel and close dialog."""
         self.dismiss(None)
+
+    def on_key(self, event) -> None:
+        """Handle key press - allow 'q' to trigger quit confirmation."""
+        if event.key == "q":
+            # Check if any input field has focus (user is typing)
+            try:
+                input_ids = [
+                    "input-key",
+                    "input-password",
+                    "input-username",
+                    "input-url",
+                    "input-notes",
+                    "input-tags",
+                ]
+                for input_id in input_ids:
+                    try:
+                        input_field = self.query_one(f"#{input_id}", Input)
+                        if input_field.has_focus:
+                            # User is typing, let 'q' be typed normally
+                            return
+                    except Exception:  # nosec B110
+                        pass
+            except Exception:  # nosec B110
+                pass
+
+            # No input has focus, trigger app quit confirmation
+            event.stop()
+            self.app.action_quit()
 
 
 class DeleteConfirmationScreen(ModalScreen[bool]):
@@ -1381,7 +1897,8 @@ class DeleteConfirmationScreen(ModalScreen[bool]):
     }
 
     #confirm-dialog {
-        width: 60;
+        width: 80%;
+        max-width: 60;
         height: auto;
         min-height: 12;
         border: heavy #ff0000;
@@ -1516,15 +2033,15 @@ class DeleteConfirmationScreen(ModalScreen[bool]):
         elif event.button.id == "btn-cancel":
             self.dismiss(False)  # Cancelled
 
-    def on_key(self, event) -> None:
-        """Handle key press - prevent 'q' from propagating to parent."""
-        if event.key == "q":
-            event.stop()
-            self.dismiss(False)
-
     def action_cancel(self) -> None:
         """Cancel and close dialog."""
         self.dismiss(False)
+
+    def on_key(self, event) -> None:
+        """Handle key press - allow 'q' to trigger quit confirmation."""
+        if event.key == "q":
+            event.stop()
+            self.app.action_quit()
 
 
 class UnsavedChangesScreen(ModalScreen[str]):
@@ -1538,12 +2055,12 @@ class UnsavedChangesScreen(ModalScreen[str]):
     }
 
     #unsaved-dialog {
-        width: 60;
+        width: 80%;
+        max-width: 60;
         height: auto;
-        min-height: 10;
         border: heavy #ff0080;
         background: #0a0a0a;
-        padding: 0;
+        padding: 1 1 0 1;
     }
 
     #unsaved-title {
@@ -1551,34 +2068,34 @@ class UnsavedChangesScreen(ModalScreen[str]):
         text-align: center;
         text-style: bold;
         color: #ff0080;
-        margin-bottom: 1;
+        margin: 0 -1 0 -1;
         border-bottom: solid #ff0080;
-        padding-bottom: 1;
+        padding: 0 0 0 0;
     }
 
     #unsaved-message {
         text-align: center;
         color: #ffff00;
-        margin-bottom: 0;
+        margin: 1 0 0 0;
     }
 
     #unsaved-warning {
         text-align: center;
         color: #ff0080;
         text-style: bold;
-        margin-bottom: 0;
+        margin: 0 0 0 0;
     }
 
     #button-row {
         width: 100%;
+        height: auto;
         align: center middle;
-        margin-top: 0;
+        margin: 1 0 1 0;
     }
 
     .unsaved-button {
         margin: 0 1;
         min-width: 16;
-        height: 3;
     }
 
     /* Cyberpunk Button Overrides - Preserve Native Text Rendering */
@@ -1675,15 +2192,15 @@ class UnsavedChangesScreen(ModalScreen[str]):
         elif event.button.id == "btn-cancel":
             self.dismiss("cancel")
 
-    def on_key(self, event) -> None:
-        """Handle key press - prevent 'q' from propagating to parent."""
-        if event.key == "q":
-            event.stop()
-            self.dismiss("cancel")
-
     def action_cancel(self) -> None:
         """Cancel and close dialog."""
         self.dismiss("cancel")
+
+    def on_key(self, event) -> None:
+        """Handle key press - allow 'q' to trigger quit confirmation."""
+        if event.key == "q":
+            event.stop()
+            self.app.action_quit()
 
 
 class PasswordGeneratorScreen(ModalScreen[Optional[str]]):
@@ -1697,7 +2214,8 @@ class PasswordGeneratorScreen(ModalScreen[Optional[str]]):
     }
 
     #generator-dialog {
-        width: 70;
+        width: 85%;
+        max-width: 70;
         height: auto;
         border: heavy #00ffff;
         background: #0a0a0a;
@@ -1853,7 +2371,6 @@ class PasswordGeneratorScreen(ModalScreen[Optional[str]]):
     BINDINGS = [
         Binding("escape", "cancel", "Cancel"),
         Binding("g", "generate", "Generate"),
-        Binding("q", "ignore_quit", "Close Modal (ESC)", show=True, priority=True),
     ]
 
     def __init__(self):
@@ -2031,54 +2548,12 @@ class PasswordGeneratorScreen(ModalScreen[Optional[str]]):
         preview = self.query_one("#password-preview", Label)
         preview.update(new_password)
 
-    async def key(self, event) -> None:
-        """Override key method - intercept 'q' at lowest level."""
-        try:
-            if event.key == "q":
-                # Block 'q' completely
-                event.stop()
-                event.prevent_default()
-                # Show notification
-                try:
-                    self.app.notify("Press ESC to close this modal", severity="warning", timeout=2)
-                except Exception:  # nosec B110
-                    pass
-                # Don't call parent - completely stop processing
-                return
-        except Exception:  # nosec B110
-            pass
-        # For other keys, call parent
-        await super().key(event)
-
-    def on_key(self, event) -> None:
-        """Handle key press - block 'q' to prevent terminal crash."""
-        try:
-            if event.key == "q":
-                # Completely block 'q' key - do nothing at all
-                event.stop()
-                event.prevent_default()
-                # Show notification
-                try:
-                    self.app.notify(
-                        "'q' disabled in this modal. Use ESC to close.",
-                        severity="warning",
-                        timeout=3,
-                    )
-                except Exception:  # nosec B110
-                    pass
-                return
-        except Exception:  # nosec B110
-            # Catch any exception to prevent crash
-            pass
-
-    def action_ignore_quit(self) -> None:
-        """Override quit action - do absolutely nothing."""
-        # Don't exit, don't dismiss, don't do anything
-        try:
-            self.app.notify("Use ESC to close this modal", severity="warning", timeout=2)
-        except Exception:  # nosec B110
-            pass
-
     def action_cancel(self) -> None:
         """Cancel and close dialog."""
         self.dismiss(None)
+
+    def on_key(self, event) -> None:
+        """Handle key press - allow 'q' to trigger quit confirmation."""
+        if event.key == "q":
+            event.stop()
+            self.app.action_quit()

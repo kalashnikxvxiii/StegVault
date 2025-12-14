@@ -14,7 +14,7 @@ from textual.binding import Binding
 from stegvault.app.controllers import VaultController, CryptoController
 from stegvault.vault import Vault
 
-from .widgets import FileSelectScreen, PassphraseInputScreen, HelpScreen
+from .widgets import FileSelectScreen, PassphraseInputScreen, HelpScreen, QuitConfirmationScreen
 from .screens import VaultScreen
 
 
@@ -239,7 +239,7 @@ class StegVaultTUI(App):
     SUB_TITLE = "◈◈ Privacy is a luxury - Your digital safe haven ◈◈"
 
     BINDINGS = [
-        Binding("q", "quit", "Quit", priority=True),
+        Binding("q", "quit", "Quit"),  # Removed priority=True to allow modals to block quit
         Binding("o", "open_vault", "Open Vault"),
         Binding("n", "new_vault", "New Vault"),
         Binding("h", "show_help", "Help"),
@@ -298,17 +298,23 @@ class StegVaultTUI(App):
         first_button.focus()
 
     def action_quit(self) -> None:
-        """Quit the application."""
-        # Check if PasswordGeneratorScreen is open - if so, block quit
-        try:
-            from .widgets import PasswordGeneratorScreen
+        """Quit the application (wrapper for async)."""
+        self.run_worker(self._async_quit())
 
-            if isinstance(self.screen, PasswordGeneratorScreen):
-                self.notify("Press ESC to close this modal first", severity="warning", timeout=2)
-                return
-        except Exception:  # nosec B110
-            pass
-        self.exit()
+    async def _async_quit(self) -> None:
+        """Show quit confirmation and exit if confirmed."""
+        # Show confirmation dialog
+        result = await self.push_screen_wait(QuitConfirmationScreen())
+
+        if result:  # User confirmed quit
+            # Close all modal screens in reverse order (from last to first)
+            # QuitConfirmationScreen is already dismissed at this point
+            while len(self.screen_stack) > 1:
+                self.pop_screen()
+
+            # Schedule exit for next event loop tick to allow final UI cleanup
+            # This prevents deadlock when exiting from within a worker
+            self.call_later(self.exit)
 
     def action_open_vault(self) -> None:
         """Open existing vault (wrapper for async)."""

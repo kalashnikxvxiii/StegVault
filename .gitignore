@@ -56,3 +56,9 @@ examples/recovered_*.txt
 *.secret
 test_passwords.txt
 nul
+
+# Claude Code local guides (not for version control)
+.claude/
+crypto-security-auditor.md
+doc-updater.md
+unit-test-coverage-maximizer.md

@@ -42,14 +42,34 @@ class TestStegVaultTUI:
         assert "n" in binding_keys  # new vault
         assert "h" in binding_keys  # help
 
-    def test_action_quit(self):
-        """Should exit application."""
+    @pytest.mark.asyncio
+    async def test_action_quit(self):
+        """Should show quit confirmation and schedule exit if confirmed."""
         app = StegVaultTUI()
         app.exit = Mock()
+        app.call_later = Mock()
 
-        app.action_quit()
+        # Mock push_screen_wait to return True (user confirmed quit)
+        app.push_screen_wait = AsyncMock(return_value=True)
 
-        app.exit.assert_called_once()
+        await app._async_quit()
+
+        # Verify that exit was scheduled via call_later
+        app.call_later.assert_called_once_with(app.exit)
+
+    @pytest.mark.asyncio
+    async def test_action_quit_cancelled(self):
+        """Should not schedule exit if quit cancelled."""
+        app = StegVaultTUI()
+        app.call_later = Mock()
+
+        # Mock push_screen_wait to return False (user cancelled quit)
+        app.push_screen_wait = AsyncMock(return_value=False)
+
+        await app._async_quit()
+
+        # Verify that exit was NOT scheduled
+        app.call_later.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_action_new_vault_cancel_file(self):
