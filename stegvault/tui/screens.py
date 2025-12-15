@@ -22,6 +22,7 @@ from .widgets import (
     EntryFormScreen,
     DeleteConfirmationScreen,
     UnsavedChangesScreen,
+    QuitConfirmationScreen,
 )
 
 
@@ -37,6 +38,7 @@ class VaultScreen(Screen):
     #vault-container {
         width: 100%;
         height: 100%;
+        overflow-y: auto;  /* Enable vertical scrolling on resize */
     }
 
     #vault-header {
@@ -62,6 +64,7 @@ class VaultScreen(Screen):
     #main-panel {
         width: 100%;
         height: 1fr;
+        overflow-y: auto;  /* Enable vertical scrolling on resize */
     }
 
     /* Entry List - Neon cyan theme */
@@ -69,6 +72,7 @@ class VaultScreen(Screen):
         width: 30%;
         border-right: heavy #00ffff;
         background: #0a0a0a;
+        overflow-y: auto;  /* Enable vertical scrolling on resize */
     }
 
     #entry-list-header {
@@ -111,12 +115,14 @@ class VaultScreen(Screen):
     #entry-list {
         height: 1fr;
         background: #0a0a0a;
+        overflow-y: auto;  /* Enable vertical scrolling on resize */
     }
 
     /* Detail Panel - Magenta accent */
     #detail-container {
         width: 70%;
         background: #0a0a0a;
+        overflow-y: auto;  /* Enable vertical scrolling on resize */
     }
 
     .entry-item {
@@ -141,7 +147,7 @@ class VaultScreen(Screen):
     #action-bar-container {
         width: 100%;
         height: auto;
-        min-height: 7;
+        min-height: 11;
         background: #0a0a0a;
         border-top: solid #ff00ff;
         dock: bottom;
@@ -156,20 +162,20 @@ class VaultScreen(Screen):
 
     .action-row {
         width: 100%;
-        height: 3;
+        height: 5;
         align: center middle;
     }
 
     .action-button {
-        margin: 0;
+        margin: 0 2;
         padding: 0 1;
-        height: 3;
-        width: 1fr;  /* Each button takes equal fraction of available space */
+        height: 5;
+        width: 1fr;
         border: solid #00ffff;
         background: #000000;
         color: #00ffff;
-        min-width: 9;
         text-align: center;
+        content-align: center middle;
         text-style: bold;
     }
 
@@ -273,7 +279,8 @@ class VaultScreen(Screen):
 
     def on_mount(self) -> None:
         """Called when screen is mounted. Populate entry list."""
-        self._refresh_entry_list()
+        # Use call_later to ensure ListView is fully rendered before populating
+        self.call_later(self._refresh_entry_list)
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         """Handle entry selection."""
@@ -571,16 +578,20 @@ class VaultScreen(Screen):
 
     async def _async_quit(self) -> None:
         """Check for unsaved changes before quitting."""
+        # Step 1: Handle unsaved changes if any
         if self.has_unsaved_changes:
             choice = await self.app.push_screen_wait(UnsavedChangesScreen())
             if choice == "save":
-                # Save and quit
+                # Save vault before proceeding to quit confirmation
                 await self._async_save_vault()
-                self.app.exit()
-            elif choice == "dont_save":
-                # Quit without saving
-                self.app.exit()
-            # If "cancel", do nothing
-        else:
-            # No unsaved changes, just quit
+            elif choice == "cancel":
+                # User cancelled, don't proceed to quit confirmation
+                return
+            # If "dont_save", continue to quit confirmation
+
+        # Step 2: Show quit confirmation
+        confirm_quit = await self.app.push_screen_wait(QuitConfirmationScreen())
+
+        if confirm_quit:
+            # User confirmed quit, exit application
             self.app.exit()

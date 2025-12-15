@@ -11,10 +11,20 @@ from textual.containers import Container, Vertical, Horizontal
 from textual.widgets import Header, Footer, Static, Button
 from textual.binding import Binding
 
+from stegvault import __version__
 from stegvault.app.controllers import VaultController, CryptoController
 from stegvault.vault import Vault
+from stegvault.utils.payload import MAGIC_HEADER, MAGIC_SIZE
+from stegvault import stego
 
-from .widgets import FileSelectScreen, PassphraseInputScreen, HelpScreen, QuitConfirmationScreen
+from .widgets import (
+    FileSelectScreen,
+    PassphraseInputScreen,
+    HelpScreen,
+    QuitConfirmationScreen,
+    UnsavedChangesScreen,
+    VaultOverwriteWarningScreen,
+)
 from .screens import VaultScreen
 
 
@@ -41,8 +51,12 @@ class StegVaultTUI(App):
         border-top: heavy #ff00ff;
         dock: bottom;
         height: auto;
-        padding: 0;
+        min-height: 1;
+        max-height: 10;
+        padding: 0 1;
         width: 100%;
+        overflow-x: auto;
+        overflow-y: auto;
     }
 
     Footer .footer--key {
@@ -69,15 +83,17 @@ class StegVaultTUI(App):
         height: 100%;
         background: #000000;
         align: center middle;
+        overflow-y: auto;  /* Enable vertical scrolling on resize */
     }
 
     #content-box {
         width: 90%;
-        height: 85%;
+        height: 90%;
         border: double #00ffff;
         background: #0a0a0a;
         padding: 3 6;
         align: center middle;
+        overflow-y: auto;  /* Enable vertical scrolling on resize */
     }
 
     #welcome-text {
@@ -268,7 +284,7 @@ class StegVaultTUI(App):
                     id="ascii-art",
                 )
                 yield Static(
-                    ">> NEURAL SECURITY TERMINAL v0.7.2 <<",
+                    f">> NEURAL SECURITY TERMINAL v{__version__} <<",
                     id="welcome-text",
                 )
                 yield Static(
@@ -322,52 +338,80 @@ class StegVaultTUI(App):
 
     async def _async_open_vault(self) -> None:
         """Open existing vault."""
-        # Step 1: Select vault image file
-        file_path = await self.push_screen_wait(
-            FileSelectScreen("UNLOCK VAULT - Select Vault Image")
-        )
-
-        if not file_path:
-            return  # User cancelled
-
-        # Step 2: Get passphrase
-        # Show only filename or last 35 chars of path for better readability
         from pathlib import Path
 
-        display_path = Path(file_path).name
-        if len(display_path) > 35:
-            display_path = "..." + display_path[-32:]
+        while True:
+            # Step 1: Select vault image file
+            file_path = await self.push_screen_wait(
+                FileSelectScreen("UNLOCK VAULT - Select Vault Image")
+            )
 
-        passphrase = await self.push_screen_wait(
-            PassphraseInputScreen(f"Unlock Vault: {display_path}")
-        )
+            if not file_path:
+                return  # User cancelled from file selection
 
-        if not passphrase:
-            return  # User cancelled
+            # Step 2: Get passphrase
+            # Show only filename or last 35 chars of path for better readability
+            display_path = Path(file_path).name
+            if len(display_path) > 35:
+                display_path = "..." + display_path[-32:]
 
-        # Step 3: Load vault
-        self.notify("Loading vault...", severity="information")
+            passphrase = await self.push_screen_wait(
+                PassphraseInputScreen(f"Unlock Vault: {display_path}")
+            )
 
+            if not passphrase:
+                # User cancelled from passphrase - go back to file selection
+                continue
+
+            # Step 3: Load vault
+            self.notify("Loading vault...", severity="information")
+
+            try:
+                result = self.vault_controller.load_vault(file_path, passphrase)
+
+                if not result.success:
+                    self.notify(f"Failed to load vault: {result.error}", severity="error")
+                    # Loop back to file selection
+                    continue
+
+                if not result.vault:
+                    self.notify("Vault loaded but contains no data", severity="warning")
+                    return
+
+                # Success! Switch to vault screen
+                self.current_vault = result.vault
+                self.current_image_path = file_path
+
+                vault_screen = VaultScreen(
+                    result.vault, file_path, passphrase, self.vault_controller
+                )
+                self.push_screen(vault_screen)
+                return  # Exit loop on success
+
+            except Exception as e:
+                self.notify(f"Error loading vault: {e}", severity="error")
+                # Loop back to file selection
+                continue
+
+    def _check_vault_exists(self, image_path: str) -> bool:
+        """Check if an image already contains a vault by reading magic header.
+
+        Args:
+            image_path: Path to image file
+
+        Returns:
+            True if vault exists, False otherwise
+        """
         try:
-            result = self.vault_controller.load_vault(file_path, passphrase)
+            # Try to extract first few bytes to check for magic header
+            # We only need MAGIC_SIZE bytes to check
+            test_payload = stego.extract_payload(image_path, MAGIC_SIZE)
 
-            if not result.success:
-                self.notify(f"Failed to load vault: {result.error}", severity="error")
-                return
-
-            if not result.vault:
-                self.notify("Vault loaded but contains no data", severity="warning")
-                return
-
-            # Success! Switch to vault screen
-            self.current_vault = result.vault
-            self.current_image_path = file_path
-
-            vault_screen = VaultScreen(result.vault, file_path, passphrase, self.vault_controller)
-            self.push_screen(vault_screen)
-
-        except Exception as e:
-            self.notify(f"Error loading vault: {e}", severity="error")
+            # Check if magic header matches
+            return test_payload[:MAGIC_SIZE] == MAGIC_HEADER
+        except Exception:
+            # If extraction fails, assume no vault exists
+            return False
 
     def action_new_vault(self) -> None:
         """Create new vault (wrapper for async)."""
@@ -381,68 +425,87 @@ class StegVaultTUI(App):
         # Option C: Automatically create backup copy (e.g., image.png.orig)
         # Current behavior: Directly modifies the selected image file
 
-        # Step 1: Select output image file
-        file_path = await self.push_screen_wait(FileSelectScreen("NEW VAULT - Select Output Image"))
-
-        if not file_path:
-            return  # User cancelled
-
-        # Step 2: Get passphrase for new vault
-        passphrase = await self.push_screen_wait(
-            PassphraseInputScreen("Set Passphrase for New Vault")
-        )
-
-        if not passphrase:
-            return  # User cancelled
-
-        # Step 3: Get first entry data
         from .widgets import EntryFormScreen
 
-        form_data = await self.push_screen_wait(
-            EntryFormScreen(mode="add", title="Add First Entry to New Vault")
-        )
-
-        if not form_data:
-            return  # User cancelled
-
-        # Step 4: Create vault with first entry
-        self.notify("Creating new vault...", severity="information")
-
-        try:
-            vault, success, error = self.vault_controller.create_new_vault(
-                key=form_data["key"],
-                password=form_data["password"],
-                username=form_data.get("username"),
-                url=form_data.get("url"),
-                notes=form_data.get("notes"),
-                tags=form_data.get("tags"),
+        while True:
+            # Step 1: Select output image file
+            file_path = await self.push_screen_wait(
+                FileSelectScreen("NEW VAULT - Select Output Image")
             )
 
-            if not success:
-                self.notify(f"Failed to create vault: {error}", severity="error")
-                return
+            if not file_path:
+                return  # User cancelled from file selection
 
-            # Step 5: Save vault to image
-            result = self.vault_controller.save_vault(vault, file_path, passphrase)
+            # Step 1.5: Check if vault already exists and warn user
+            if self._check_vault_exists(file_path):
+                confirm_overwrite = await self.push_screen_wait(VaultOverwriteWarningScreen())
 
-            if not result.success:
-                self.notify(f"Failed to save vault: {result.error}", severity="error")
-                return
+                if not confirm_overwrite:
+                    # User cancelled - go back to file selection
+                    self.notify("Vault creation cancelled.", severity="information")
+                    continue
 
-            # Step 6: Success! Open the new vault
-            self.current_vault = vault
-            self.current_image_path = file_path
-
-            vault_screen = VaultScreen(vault, file_path, passphrase, self.vault_controller)
-            self.push_screen(vault_screen)
-
-            self.notify(
-                f"Vault created successfully with entry '{form_data['key']}'!",
-                severity="information",
+            # Step 2: Get passphrase for new vault
+            passphrase = await self.push_screen_wait(
+                PassphraseInputScreen("Set Passphrase for New Vault", mode="set")
             )
 
-        except Exception as e:
-            self.notify(f"Error creating vault: {e}", severity="error")
+            if not passphrase:
+                # User cancelled from passphrase - go back to file selection
+                continue
+
+            # Step 3: Get first entry data
+            form_data = await self.push_screen_wait(
+                EntryFormScreen(mode="add", title="Add First Entry to New Vault")
+            )
+
+            if not form_data:
+                # User cancelled from entry form - go back to file selection
+                continue
+
+            # Step 4: Create vault with first entry
+            self.notify("Creating new vault...", severity="information")
+
+            try:
+                vault, success, error = self.vault_controller.create_new_vault(
+                    key=form_data["key"],
+                    password=form_data["password"],
+                    username=form_data.get("username"),
+                    url=form_data.get("url"),
+                    notes=form_data.get("notes"),
+                    tags=form_data.get("tags"),
+                )
+
+                if not success:
+                    self.notify(f"Failed to create vault: {error}", severity="error")
+                    # Loop back to file selection
+                    continue
+
+                # Step 5: Save vault to image
+                result = self.vault_controller.save_vault(vault, file_path, passphrase)
+
+                if not result.success:
+                    self.notify(f"Failed to save vault: {result.error}", severity="error")
+                    # Loop back to file selection
+                    continue
+
+                # Step 6: Success! Open the new vault
+                self.current_vault = vault
+                self.current_image_path = file_path
+
+                vault_screen = VaultScreen(vault, file_path, passphrase, self.vault_controller)
+                self.push_screen(vault_screen)
+
+                self.notify(
+                    f"Vault created successfully with entry '{form_data['key']}'!",
+                    severity="information",
+                )
+                return  # Exit loop on success
+
+            except Exception as e:
+                self.notify(f"Error creating vault: {e}", severity="error")
+                # Loop back to file selection
+                continue
 
     def action_show_help(self) -> None:
         """Show help screen."""

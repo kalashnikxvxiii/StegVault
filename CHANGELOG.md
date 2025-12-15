@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.5] - 2025-12-15
+
+### Fixed - TUI User Experience Improvements 🎨
+
+**Dynamic Version Display**:
+- Version number now dynamically imported from `stegvault.__version__` instead of hardcoded
+- Home screen always shows correct version (e.g., "v0.7.5")
+- Eliminates manual update errors in TUI welcome screen
+- **Affected File**: `stegvault/tui/app.py` (line 14, 287)
+
+**Password Auto-Hide Security Timer**:
+- Passwords in VaultScreen now automatically hide after 10 seconds
+- Prevents shoulder surfing attacks in public environments
+- Timer properly stopped on entry change or panel clear
+- Visual feedback maintained (password visibility toggles as expected)
+- **Affected File**: `stegvault/tui/widgets.py` (EntryDetailPanel class)
+- **Implementation**: `set_timer(10.0, _auto_hide_password)` callback system
+
+**UnsavedChangesScreen Border Alignment**:
+- Fixed 2-character misalignment on title border-right
+- Title border now perfectly aligns with dialog borders
+- CSS margin adjusted from `0 -1 0 -1` to `0 -2 0 -2`
+- **Affected File**: `stegvault/tui/widgets.py` (line 2631)
+
+**PasswordHistoryModal Enhancements**:
+- Added "Clear History" button with confirmation dialog
+- Removed current password display for enhanced security
+- New `GenericConfirmationScreen` modal for flexible confirmations
+- Confirmation dialog uses cyberpunk styling (yellow border, centered buttons)
+- **Affected Files**:
+  - `stegvault/tui/widgets.py` (GenericConfirmationScreen class, lines 1454-1550)
+  - `stegvault/tui/widgets.py` (PasswordHistoryModal, lines 1654-1703)
+
+**GenericConfirmationScreen Polish**:
+- Fixed excessive whitespace below buttons (dialog now adapts to content)
+- Buttons properly centered with `align: center middle`
+- Applied consistent cyberpunk styling:
+  - "Confirm" button: yellow border (`#ffff00`)
+  - "Cancel" button: cyan border (`#00ffff`)
+  - Hover effects with semi-transparent backgrounds
+- **Affected File**: `stegvault/tui/widgets.py` (lines 1457-1527)
+
+### Changed
+
+**PassphraseInputScreen Enhancement** (from previous session):
+- Mode parameter: `"unlock"` (simple entry) vs `"set"` (with validation)
+- Eye button for password visibility toggle in "set" mode
+- Real-time strength validator using zxcvbn (score 0-4)
+- Visual feedback bar with dynamic colors (red → orange → yellow → green → bright green)
+- Confirmation field with matching validation
+- Minimum "Fair" strength (score ≥ 2) enforced for new passphrases
+
+### Internal
+
+**Bug Tracking**:
+- Resolved all implementable bugs from user feedback (thank you, dwrpl)
+
+
 ## [0.7.4] - 2025-12-14
 
 ### Added - Favorite Folders Feature ⭐

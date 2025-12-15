@@ -78,6 +78,7 @@ class HelpScreen(ModalScreen[None]):
         border: heavy #ff00ff;
         background: #0a0a0a;
         padding: 0;
+        overflow-y: auto;  /* Enable vertical scrolling on resize */
     }
 
     #help-title {
@@ -95,6 +96,7 @@ class HelpScreen(ModalScreen[None]):
         padding: 0 1;
         margin-bottom: 1;
         background: #000000;
+        overflow-y: auto;  /* Enable vertical scrolling on resize */
     }
 
     .help-section {
@@ -281,6 +283,7 @@ class QuitConfirmationScreen(ModalScreen[bool]):
         border: heavy #ffff00;
         background: #0a0a0a;
         padding: 1;
+        overflow-y: auto;  /* Enable vertical scrolling on resize */
     }
 
     #quit-title {
@@ -378,11 +381,12 @@ class FileSelectScreen(ModalScreen[Optional[str]]):
     #file-dialog {
         width: 95%;
         max-width: 90;
-        height: auto;
-        min-height: 42;
+        height: 48;
+        max-height: 95%;
         border: heavy #00ffff;
         background: #0a0a0a;
         padding: 2;
+        overflow-y: auto;  /* Enable internal scrolling when content exceeds available space */
     }
 
     #file-title {
@@ -440,6 +444,36 @@ class FileSelectScreen(ModalScreen[Optional[str]]):
         border: heavy #00ff00;
     }
 
+    /* Drive Selector Row */
+    #drive-row {
+        height: 3;
+        margin-bottom: 1;
+        align: left middle;
+    }
+
+    .drive-button {
+        width: auto;
+        min-width: 6;
+        height: 3;
+        margin-right: 1;
+        padding: 0 2;
+        border: solid #ff00ff;
+        background: #000000;
+        color: #ff00ff;
+        text-style: bold;
+    }
+
+    .drive-button:hover {
+        background: #ff00ff30;
+        border: heavy #ff00ff;
+        color: #ffffff;
+    }
+
+    .drive-button:focus {
+        background: #000000;
+        border: double #ff00ff;
+    }
+
     /* Cyberpunk Overlay Favorites Dropdown */
     #favorites-dropdown {
         display: none;  /* Hidden by default */
@@ -479,9 +513,11 @@ class FileSelectScreen(ModalScreen[Optional[str]]):
 
     #file-tree {
         height: 20;
+        min-height: 10;
         border: solid #ff00ff;
         margin-bottom: 1;
         background: #000000;
+        overflow-y: auto;
     }
 
     #file-tree TreeNode {
@@ -623,6 +659,34 @@ class FileSelectScreen(ModalScreen[Optional[str]]):
         except Exception:  # nosec B110
             pass
 
+    def _get_available_drives(self):
+        """Get list of available drives on the system.
+
+        Returns:
+            List of drive letters (e.g., ['C:\\', 'D:\\', 'E:\\']) on Windows,
+            or ['/'] on Unix systems.
+        """
+        from pathlib import Path
+        import platform
+
+        if platform.system() == "Windows":
+            # Check common drive letters (A-Z)
+            drives = []
+            for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+                drive_path = Path(f"{letter}:\\")
+                try:
+                    # Check if drive exists by testing if we can list it
+                    # This is more reliable than just checking exists()
+                    if drive_path.exists():
+                        drives.append(f"{letter}:\\")
+                except (PermissionError, OSError):
+                    # Drive not accessible or doesn't exist
+                    continue
+            return drives if drives else [str(Path.cwd().anchor)]
+        else:
+            # Unix systems have single root
+            return ["/"]
+
     def compose(self) -> ComposeResult:
         """Compose file selection dialog with favorite folders."""
         from pathlib import Path
@@ -641,6 +705,18 @@ class FileSelectScreen(ModalScreen[Optional[str]]):
                 )
                 yield Button("⚡ Add", id="btn-add-favorite")
                 yield Button("HOME", id="btn-home", variant="success")
+
+            # Drive Selector Row (Windows only - shows available drives)
+            available_drives = self._get_available_drives()
+            if len(available_drives) > 1:
+                with Horizontal(id="drive-row"):
+                    for drive in available_drives:
+                        yield Button(
+                            drive,
+                            id=f"btn-drive-{drive[0]}",
+                            variant="primary",
+                            classes="drive-button",
+                        )
 
             # Inline Favorites Dropdown (hidden by default)
             with ListView(id="favorites-dropdown"):
@@ -672,13 +748,49 @@ class FileSelectScreen(ModalScreen[Optional[str]]):
         # Update favorite button initial state
         self._update_favorite_button()
 
+    def _switch_drive(self, drive_path: str) -> None:
+        """Switch DirectoryTree to a different drive.
+
+        Args:
+            drive_path: Root path of the drive (e.g., 'C:\\', 'D:\\')
+        """
+        from pathlib import Path
+
+        try:
+            # Get existing tree and change its root path
+            tree = self.query_one("#file-tree", FilteredDirectoryTree)
+            tree.path = Path(drive_path)
+            tree.reload()
+
+            # Update current directory
+            self.current_directory = drive_path
+
+            # Hide favorites dropdown if visible
+            try:
+                dropdown = self.query_one("#favorites-dropdown", ListView)
+                dropdown.remove_class("visible")
+            except Exception:  # nosec B110
+                pass
+
+            # Notify user
+            self.app.notify(f"Switched to drive: {drive_path}", severity="information")
+
+        except Exception as e:
+            self.app.notify(f"Failed to switch drive: {e}", severity="error")
+
     async def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button press."""
         if event.button.id == "btn-select":
             input_widget = self.query_one("#file-path-input", Input)
             path = input_widget.value.strip()
 
-            if path and Path(path).exists():
+            if not path:
+                self.app.notify("Please enter a file path", severity="error")
+            elif not Path(path).exists():
+                self.app.notify("Path does not exist", severity="error")
+            elif Path(path).is_dir():
+                self.app.notify("Please select a file, not a directory", severity="error")
+            elif Path(path).is_file():
                 self.dismiss(path)
             else:
                 self.app.notify("Please enter a valid file path", severity="error")
@@ -701,6 +813,11 @@ class FileSelectScreen(ModalScreen[Optional[str]]):
             except Exception:  # nosec B110
                 pass
             self._navigate_to_folder("C:\\")
+        elif event.button.id and event.button.id.startswith("btn-drive-"):
+            # Drive button clicked - extract drive letter and switch
+            drive_letter = event.button.id.split("-")[-1]
+            drive_path = f"{drive_letter}:\\"
+            self._switch_drive(drive_path)
 
     def _refresh_favorites_dropdown(self) -> None:
         """Refresh dropdown list with current favorites (if visible)."""
@@ -970,10 +1087,12 @@ class PassphraseInputScreen(ModalScreen[Optional[str]]):
         width: 80%;
         max-width: 60;
         height: auto;
+        max-height: 90%;
         min-height: 15;
         border: heavy #00ffff;
         background: #0a0a0a;
         padding: 2;
+        overflow-y: auto;  /* Enable vertical scrolling on resize */
     }
 
     #passphrase-title {
@@ -986,22 +1105,72 @@ class PassphraseInputScreen(ModalScreen[Optional[str]]):
         padding-bottom: 1;
     }
 
-    #passphrase-input {
+    .input-row {
+        width: 100%;
+        height: auto;
+        margin-bottom: 1;
+    }
+
+    .passphrase-field {
         height: 3;
-        margin-bottom: 2;
+        width: 1fr;
         background: #000000;
         border: solid #00ffff;
         color: #00ffff;
     }
 
-    #passphrase-input:focus {
+    .passphrase-field:focus {
         border: heavy #00ffff;
+    }
+
+    .toggle-visibility {
+        width: 8;
+        height: 3;
+        margin-left: 1;
+        min-width: 8;
+        border: solid #ffff00;
+        background: #000000;
+        color: #ffff00;
+    }
+
+    .toggle-visibility:hover {
+        background: #ffff0020;
+        border: heavy #ffff00;
+    }
+
+    #strength-container {
+        width: 100%;
+        height: auto;
+        margin-bottom: 2;
+    }
+
+    #strength-label {
+        color: #888888;
+        margin-bottom: 0;
+    }
+
+    #strength-indicator {
+        height: 1;
+        width: 100%;
+        background: #000000;
+        border: solid #333333;
+    }
+
+    #strength-bar {
+        height: 1;
+        background: #000000;
+    }
+
+    .label-text {
+        color: #888888;
+        margin-bottom: 0;
     }
 
     #button-row {
         height: auto;
         min-height: 3;
         align: center middle;
+        margin-top: 2;
     }
 
     .pass-button {
@@ -1062,22 +1231,67 @@ class PassphraseInputScreen(ModalScreen[Optional[str]]):
         Binding("escape", "cancel", "Cancel"),
     ]
 
-    def __init__(self, title: str = "Enter Passphrase"):
-        """Initialize passphrase input screen."""
+    def __init__(self, title: str = "Enter Passphrase", mode: str = "unlock"):
+        """Initialize passphrase input screen.
+
+        Args:
+            title: Dialog title
+            mode: "unlock" for simple passphrase entry, "set" for new passphrase with validation
+        """
         super().__init__()
         self.title = title
+        self.mode = mode
+        self.password_visible = False
+        self.confirm_visible = False
+        self.strength_score = 0
+        self.strength_label = "Very Weak"
 
     def compose(self) -> ComposeResult:
         """Compose passphrase dialog."""
         with Container(id="passphrase-dialog"):
             yield Label(self.title, id="passphrase-title")
-            yield Input(
-                placeholder="Enter vault passphrase",
-                password=True,
-                id="passphrase-input",
-            )
+
+            # Main passphrase field with eye button
+            if self.mode == "set":
+                yield Label("Passphrase:", classes="label-text")
+
+            with Horizontal(classes="input-row"):
+                yield Input(
+                    placeholder=(
+                        "Enter vault passphrase"
+                        if self.mode == "unlock"
+                        else "Enter new passphrase"
+                    ),
+                    password=True,
+                    id="passphrase-input",
+                    classes="passphrase-field",
+                )
+                if self.mode == "set":
+                    yield Button("SHOW", id="btn-toggle-pass", classes="toggle-visibility")
+
+            # Strength indicator (only for "set" mode)
+            if self.mode == "set":
+                with Vertical(id="strength-container"):
+                    yield Static("Strength: Very Weak", id="strength-label")
+                    yield Static("", id="strength-bar")
+
+                # Confirmation field
+                yield Label("Confirm Passphrase:", classes="label-text")
+                with Horizontal(classes="input-row"):
+                    yield Input(
+                        placeholder="Re-enter passphrase",
+                        password=True,
+                        id="passphrase-confirm",
+                        classes="passphrase-field",
+                    )
+                    yield Button("SHOW", id="btn-toggle-confirm", classes="toggle-visibility")
+
+            # Buttons
             with Horizontal(id="button-row"):
-                yield Button("Unlock", variant="primary", id="btn-unlock", classes="pass-button")
+                button_label = "Set Passphrase" if self.mode == "set" else "Unlock"
+                yield Button(
+                    button_label, variant="primary", id="btn-unlock", classes="pass-button"
+                )
                 yield Button("Cancel", variant="default", id="btn-cancel", classes="pass-button")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -1086,17 +1300,135 @@ class PassphraseInputScreen(ModalScreen[Optional[str]]):
             input_widget = self.query_one("#passphrase-input", Input)
             passphrase = input_widget.value
 
-            if passphrase:
-                self.dismiss(passphrase)
-            else:
+            if not passphrase:
                 self.app.notify("Passphrase cannot be empty", severity="error")
+                return
+
+            # Additional validation for "set" mode
+            if self.mode == "set":
+                confirm_widget = self.query_one("#passphrase-confirm", Input)
+                confirm = confirm_widget.value
+
+                # Check if passphrases match
+                if passphrase != confirm:
+                    self.app.notify("Passphrases do not match", severity="error")
+                    return
+
+                # Check minimum strength (score must be at least 2 = "Fair")
+                if self.strength_score < 2:
+                    self.app.notify(
+                        f"Passphrase too weak ({self.strength_label}). Minimum: Fair",
+                        severity="error",
+                    )
+                    return
+
+            self.dismiss(passphrase)
+
         elif event.button.id == "btn-cancel":
             self.dismiss(None)
 
+        elif event.button.id == "btn-toggle-pass":
+            # Toggle main passphrase visibility
+            input_widget = self.query_one("#passphrase-input", Input)
+            self.password_visible = not self.password_visible
+            input_widget.password = not self.password_visible
+            event.button.label = "HIDE" if self.password_visible else "SHOW"
+
+        elif event.button.id == "btn-toggle-confirm":
+            # Toggle confirm passphrase visibility
+            confirm_widget = self.query_one("#passphrase-confirm", Input)
+            self.confirm_visible = not self.confirm_visible
+            confirm_widget.password = not self.confirm_visible
+            event.button.label = "HIDE" if self.confirm_visible else "SHOW"
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        """Handle passphrase input changes to update strength indicator."""
+        if event.input.id == "passphrase-input" and self.mode == "set":
+            passphrase = event.value
+
+            if passphrase:
+                # Import here to avoid circular imports
+                from stegvault.vault.generator import assess_password_strength
+
+                self.strength_label, self.strength_score = assess_password_strength(passphrase)
+
+                # Update strength label
+                strength_widget = self.query_one("#strength-label", Static)
+                strength_widget.update(f"Strength: {self.strength_label}")
+
+                # Update strength bar (visual indicator)
+                bar_widget = self.query_one("#strength-bar", Static)
+
+                # Map score to percentage and color
+                percentages = {0: 0.20, 1: 0.40, 2: 0.60, 3: 0.80, 4: 1.00}
+                colors = {
+                    0: "red",  # Very Weak - red
+                    1: "#ff6600",  # Weak - orange
+                    2: "yellow",  # Fair - yellow
+                    3: "green",  # Strong - green
+                    4: "#66ff00",  # Very Strong - bright green
+                }
+
+                percentage = percentages.get(self.strength_score, 0.20)
+                color = colors.get(self.strength_score, "red")
+
+                # Create visual bar with fixed total width (60 blocks to fill container)
+                total_blocks = 60
+                filled_blocks = int(total_blocks * percentage)
+
+                # Create bar with Rich markup for colored blocks
+                if filled_blocks > 0:
+                    bar = f"[{color}]{'█' * filled_blocks}[/{color}]"
+                else:
+                    bar = ""
+
+                bar_widget.update(bar)
+            else:
+                # Empty passphrase
+                strength_widget = self.query_one("#strength-label", Static)
+                strength_widget.update("Strength: Very Weak")
+                bar_widget = self.query_one("#strength-bar", Static)
+                bar_widget.update("")
+                self.strength_score = 0
+                self.strength_label = "Very Weak"
+
     def on_input_submitted(self, event: Input.Submitted) -> None:
         """Handle Enter key in input."""
-        if event.input.id == "passphrase-input" and event.value:
-            self.dismiss(event.value)
+        # In "set" mode, pressing Enter in first field should focus confirm field
+        if self.mode == "set" and event.input.id == "passphrase-input":
+            try:
+                confirm_widget = self.query_one("#passphrase-confirm", Input)
+                confirm_widget.focus()
+            except Exception:  # nosec B110
+                pass  # Confirm field might not exist in unlock mode
+        elif event.input.id == "passphrase-confirm" or (self.mode == "unlock" and event.value):
+            # Trigger validation and dismiss - same logic as unlock button
+            input_widget = self.query_one("#passphrase-input", Input)
+            passphrase = input_widget.value
+
+            if not passphrase:
+                self.app.notify("Passphrase cannot be empty", severity="error")
+                return
+
+            if self.mode == "set":
+                try:
+                    confirm_widget = self.query_one("#passphrase-confirm", Input)
+                    confirm = confirm_widget.value
+
+                    if passphrase != confirm:
+                        self.app.notify("Passphrases do not match", severity="error")
+                        return
+
+                    if self.strength_score < 2:
+                        self.app.notify(
+                            f"Passphrase too weak ({self.strength_label}). Minimum: Fair",
+                            severity="error",
+                        )
+                        return
+                except Exception:  # nosec B110
+                    pass  # Confirm field might not exist
+
+            self.dismiss(passphrase)
 
     def action_cancel(self) -> None:
         """Cancel and close dialog."""
@@ -1119,6 +1451,106 @@ class PassphraseInputScreen(ModalScreen[Optional[str]]):
             self.app.action_quit()
 
 
+class GenericConfirmationScreen(ModalScreen[bool]):
+    """Generic confirmation dialog."""
+
+    CSS = """
+    /* Cyberpunk Generic Confirmation Dialog */
+    GenericConfirmationScreen {
+        align: center middle;
+        background: #00000099;
+    }
+
+    #confirm-dialog {
+        width: 80%;
+        max-width: 60;
+        height: auto;
+        border: heavy #ffff00;
+        background: #0a0a0a;
+        padding: 2;
+    }
+
+    #confirm-title {
+        text-align: center;
+        text-style: bold;
+        color: #ffff00;
+        margin-bottom: 1;
+    }
+
+    #confirm-message {
+        text-align: center;
+        color: #00ffff;
+        margin-bottom: 2;
+    }
+
+    #button-row {
+        width: 100%;
+        height: auto;
+        min-height: 3;
+        align: center middle;
+        margin-top: 1;
+    }
+
+    .confirm-button {
+        margin: 0 1;
+        min-width: 16;
+    }
+
+    /* Cyberpunk Button Styles */
+    Button {
+        border: solid #00ffff;
+        background: #000000;
+    }
+
+    Button:hover {
+        background: #00ffff20;
+        border: heavy #00ffff;
+    }
+
+    Button.-warning {
+        border: solid #ffff00;
+    }
+
+    Button.-warning:hover {
+        background: #ffff0020;
+        border: heavy #ffff00;
+    }
+
+    Button.-default {
+        border: solid #00ffff;
+    }
+
+    Button.-default:hover {
+        background: #00ffff20;
+        border: heavy #00ffff;
+    }
+    """
+
+    def __init__(self, title: str, message: str):
+        """Initialize confirmation dialog."""
+        super().__init__()
+        self.title_text = title
+        self.message_text = message
+
+    def compose(self) -> ComposeResult:
+        """Compose confirmation dialog."""
+        with Container(id="confirm-dialog"):
+            yield Label(self.title_text, id="confirm-title")
+            yield Label(self.message_text, id="confirm-message")
+            with Horizontal(id="button-row"):
+                yield Button(
+                    "Confirm", variant="warning", id="btn-confirm", classes="confirm-button"
+                )
+                yield Button("Cancel", variant="default", id="btn-cancel", classes="confirm-button")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle button press."""
+        if event.button.id == "btn-confirm":
+            self.dismiss(True)
+        else:
+            self.dismiss(False)
+
+
 class PasswordHistoryModal(ModalScreen[None]):
     """Modal screen for viewing full password history."""
 
@@ -1137,6 +1569,7 @@ class PasswordHistoryModal(ModalScreen[None]):
         border: heavy #ff00ff;
         background: #0a0a0a;
         padding: 2;
+        overflow-y: auto;  /* Enable vertical scrolling on resize */
     }
 
     #history-title {
@@ -1263,13 +1696,7 @@ class PasswordHistoryModal(ModalScreen[None]):
                 )
             else:
                 history_widgets = []
-                history_widgets.append(
-                    Label(f"Current Password: {self.entry.password}", classes="history-password")
-                )
-                history_widgets.append(
-                    Label(f"Modified: {self.entry.modified}", classes="history-timestamp")
-                )
-                history_widgets.append(Label(""))  # Blank line
+                # Don't show current password for security
                 history_widgets.append(Label(f"Previous Passwords ({len(password_history)}):"))
                 history_widgets.append(Label(""))
 
@@ -1289,12 +1716,38 @@ class PasswordHistoryModal(ModalScreen[None]):
                 yield ScrollableContainer(*history_widgets, id="history-content")
 
             with Horizontal(id="button-row"):
+                yield Button(
+                    "Clear History", variant="error", id="btn-clear", classes="history-button"
+                )
                 yield Button("Close", variant="primary", id="btn-close", classes="history-button")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button press."""
         if event.button.id == "btn-close":
             self.dismiss(None)
+        elif event.button.id == "btn-clear":
+            self.run_worker(self._async_clear_history())
+
+    async def _async_clear_history(self) -> None:
+        """Clear password history with confirmation."""
+        # Show confirmation dialog
+        confirm = await self.app.push_screen_wait(
+            GenericConfirmationScreen(
+                "Clear Password History?",
+                f"This will permanently delete all {len(self.entry.get_password_history())} "
+                "previous passwords for this entry. This action cannot be undone.",
+            )
+        )
+
+        if confirm:
+            # Clear the password history
+            self.entry.password_history.clear()
+
+            # Notify user
+            self.app.notify("Password history cleared successfully", severity="information")
+
+            # Refresh the display
+            self.refresh(recompose=True)
 
     def action_close(self) -> None:
         """Close dialog."""
@@ -1368,6 +1821,7 @@ class EntryDetailPanel(Container):
         self.current_entry: Optional[VaultEntry] = None
         self.password_visible = False
         self.totp_refresh_timer = None
+        self.password_hide_timer = None
 
     def compose(self) -> ComposeResult:
         """Compose detail panel."""
@@ -1378,16 +1832,37 @@ class EntryDetailPanel(Container):
 
     def show_entry(self, entry: VaultEntry) -> None:
         """Display entry details."""
+        # Stop any existing password hide timer
+        if self.password_hide_timer:
+            self.password_hide_timer.stop()
+            self.password_hide_timer = None
+
         self.current_entry = entry
         self.password_visible = False
         self._update_display()
         self._start_totp_refresh()
 
     def toggle_password_visibility(self) -> None:
-        """Toggle password visibility."""
+        """Toggle password visibility with auto-hide timer."""
         if self.current_entry:
             self.password_visible = not self.password_visible
             self._update_display()
+
+            # Cancel existing timer if any
+            if self.password_hide_timer:
+                self.password_hide_timer.stop()
+                self.password_hide_timer = None
+
+            # Start auto-hide timer if password is now visible (10 seconds)
+            if self.password_visible:
+                self.password_hide_timer = self.set_timer(10.0, self._auto_hide_password)
+
+    def _auto_hide_password(self) -> None:
+        """Auto-hide password after timer expires."""
+        if self.password_visible:
+            self.password_visible = False
+            self._update_display()
+            self.password_hide_timer = None
 
     def _update_display(self) -> None:
         """Update the display with current entry details."""
@@ -1530,6 +2005,12 @@ class EntryDetailPanel(Container):
     def clear(self) -> None:
         """Clear the detail panel."""
         self._stop_totp_refresh()
+
+        # Stop password hide timer
+        if self.password_hide_timer:
+            self.password_hide_timer.stop()
+            self.password_hide_timer = None
+
         self.current_entry = None
         self.password_visible = False
         self._update_display()
@@ -1582,11 +2063,11 @@ class EntryFormScreen(ModalScreen[Optional[dict]]):
     #form-dialog {
         width: 90%;
         max-width: 80;
-        height: auto;
-        min-height: 30;
+        height: 44;
         border: heavy #00ffff;
         background: #0a0a0a;
         padding: 2;
+        overflow-y: auto;  /* Enable internal scrolling when content exceeds available space */
     }
 
     #form-title {
@@ -1601,15 +2082,19 @@ class EntryFormScreen(ModalScreen[Optional[dict]]):
 
     .form-field {
         margin-bottom: 1;
+        height: auto;
     }
 
     .field-label {
         color: #888888;
         margin-bottom: 0;
+        height: 1;
     }
 
     Input {
         width: 100%;
+        height: auto;
+        min-height: 3;
         background: #000000;
         border: solid #00ffff;
         color: #00ffff;
@@ -1904,6 +2389,7 @@ class DeleteConfirmationScreen(ModalScreen[bool]):
         border: heavy #ff0000;
         background: #0a0a0a;
         padding: 1;
+        overflow-y: auto;  /* Enable vertical scrolling on resize */
     }
 
     #confirm-title {
@@ -2044,6 +2530,124 @@ class DeleteConfirmationScreen(ModalScreen[bool]):
             self.app.action_quit()
 
 
+class VaultOverwriteWarningScreen(ModalScreen[bool]):
+    """Modal screen for warning about overwriting existing vault."""
+
+    CSS = """
+    /* Cyberpunk Vault Overwrite Warning */
+    VaultOverwriteWarningScreen {
+        align: center middle;
+        background: #00000099;
+    }
+
+    #warning-dialog {
+        width: 80%;
+        max-width: 70;
+        height: auto;
+        min-height: 16;
+        border: heavy #ff8800;
+        background: #0a0a0a;
+        padding: 1;
+        overflow-y: auto;  /* Enable vertical scrolling on resize */
+    }
+
+    #warning-title {
+        width: 100%;
+        text-align: center;
+        text-style: bold;
+        color: #ff8800;
+        margin-bottom: 0;
+        border-bottom: solid #ff8800;
+        padding-bottom: 0;
+    }
+
+    #warning-message {
+        width: 100%;
+        text-align: center;
+        color: #00ffff;
+        margin: 1 0 0 0;
+    }
+
+    #warning-details {
+        width: 100%;
+        text-align: center;
+        color: #ff0080;
+        margin: 0 0 0 0;
+        text-style: bold;
+    }
+
+    #warning-consequence {
+        width: 100%;
+        text-align: center;
+        color: #ffff00;
+        margin: 0 0 0 0;
+        text-style: italic;
+    }
+
+    #button-row {
+        height: auto;
+        min-height: 3;
+        align: center middle;
+        margin: 1 0 0 0;
+    }
+
+    .warning-button {
+        margin: 0 1;
+        min-width: 16;
+        height: 3;
+    }
+    """
+
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+    ]
+
+    def compose(self) -> ComposeResult:
+        """Compose warning dialog."""
+        with Container(id="warning-dialog"):
+            yield Label("⚠️  Vault Already Exists", id="warning-title")
+            yield Label("This image already contains a vault!", id="warning-message")
+            yield Label(
+                "Creating a new vault will OVERWRITE the existing data.",
+                id="warning-details",
+            )
+            yield Label(
+                "This action cannot be undone. ALL existing entries will be lost.",
+                id="warning-consequence",
+            )
+
+            with Horizontal(id="button-row"):
+                yield Button(
+                    "Overwrite",
+                    variant="error",
+                    id="btn-overwrite",
+                    classes="warning-button",
+                )
+                yield Button(
+                    "Cancel",
+                    variant="default",
+                    id="btn-cancel",
+                    classes="warning-button",
+                )
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle button press."""
+        if event.button.id == "btn-overwrite":
+            self.dismiss(True)  # User confirms overwrite
+        elif event.button.id == "btn-cancel":
+            self.dismiss(False)  # User cancels
+
+    def action_cancel(self) -> None:
+        """Cancel and close dialog."""
+        self.dismiss(False)
+
+    def on_key(self, event) -> None:
+        """Handle key press - allow 'q' to trigger quit confirmation."""
+        if event.key == "q":
+            event.stop()
+            self.app.action_quit()
+
+
 class UnsavedChangesScreen(ModalScreen[str]):
     """Modal screen for unsaved changes warning."""
 
@@ -2061,6 +2665,7 @@ class UnsavedChangesScreen(ModalScreen[str]):
         border: heavy #ff0080;
         background: #0a0a0a;
         padding: 1 1 0 1;
+        overflow-y: auto;  /* Enable vertical scrolling on resize */
     }
 
     #unsaved-title {
@@ -2068,7 +2673,7 @@ class UnsavedChangesScreen(ModalScreen[str]):
         text-align: center;
         text-style: bold;
         color: #ff0080;
-        margin: 0 -1 0 -1;
+        margin: 0 -2 0 -2;
         border-bottom: solid #ff0080;
         padding: 0 0 0 0;
     }
@@ -2217,9 +2822,11 @@ class PasswordGeneratorScreen(ModalScreen[Optional[str]]):
         width: 85%;
         max-width: 70;
         height: auto;
+        max-height: 90%;
         border: heavy #00ffff;
         background: #0a0a0a;
         padding: 1;
+        overflow-y: auto;  /* Enable vertical scrolling on resize */
     }
 
     #generator-title {

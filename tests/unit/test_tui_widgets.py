@@ -257,7 +257,7 @@ class TestFileSelectScreen:
 
             mock_app.notify.assert_called_once()
             call_args = mock_app.notify.call_args
-            assert "valid file path" in call_args[0][0]
+            assert "Path does not exist" in call_args[0][0]
 
     async def test_on_button_pressed_cancel(self):
         """Should dismiss with None on cancel button."""
