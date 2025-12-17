@@ -71,6 +71,157 @@ def tui() -> None:
 
 @main.command()
 @click.option(
+    "--check-only",
+    is_flag=True,
+    help="Only check for updates without installing",
+)
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Force update check (ignore cache)",
+)
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    help="Automatically accept update (no confirmation)",
+)
+def update(check_only: bool, force: bool, yes: bool) -> None:
+    """Check for and install StegVault updates."""
+    from stegvault.utils.updater import (
+        check_for_updates,
+        fetch_changelog,
+        perform_update,
+        get_install_method,
+        get_cached_check,
+        cache_check_result,
+        InstallMethod,
+    )
+    from stegvault.config.core import load_config
+    from stegvault import __version__
+
+    try:
+        config = load_config()
+    except Exception:
+        config = None
+
+    click.echo("=" * 54)
+    click.echo("   StegVault Update Manager")
+    click.echo("=" * 54)
+    click.echo()
+    click.echo(f"Current version: {__version__}")
+    click.echo()
+
+    # Check cache first (unless --force)
+    if not force and config:
+        cached = get_cached_check(config.updates.check_interval_hours)
+        if cached:
+            click.echo(f"[Using cached result from {cached['timestamp'][:19]}]")
+            update_available = cached["update_available"]
+            latest_version = cached["latest_version"]
+            error = cached["error"]
+        else:
+            update_available, latest_version, error = check_for_updates()
+            cache_check_result(update_available, latest_version, error)
+    else:
+        # Force fresh check
+        click.echo("[Checking PyPI for updates...]")
+        update_available, latest_version, error = check_for_updates()
+        if config:
+            cache_check_result(update_available, latest_version, error)
+
+    # Handle errors
+    if error and not latest_version:
+        click.echo(f"[ERROR] {error}", err=True)
+        sys.exit(1)
+
+    # Display results
+    if update_available:
+        click.echo(f"[+] Update available: {latest_version}")
+        click.echo()
+
+        # Fetch and display changelog
+        click.echo("-" * 54)
+        click.echo(f"  CHANGELOG for v{latest_version}")
+        click.echo("-" * 54)
+
+        changelog = fetch_changelog(latest_version)
+        if changelog:
+            # Display first 30 lines of changelog
+            lines = changelog.split("\n")
+            for line in lines[:30]:
+                click.echo(line)
+            if len(lines) > 30:
+                click.echo(f"... ({len(lines) - 30} more lines)")
+                click.echo()
+                click.echo(
+                    f"Full changelog: https://github.com/kalashnikxvxiii-collab/StegVault/blob/main/CHANGELOG.md#"
+                    f"{latest_version.replace('.', '')}"
+                )
+        else:
+            click.echo("[Changelog not available]")
+
+        click.echo("-" * 54)
+        click.echo()
+
+        # Check-only mode
+        if check_only:
+            click.echo(
+                f"[+] Update to v{latest_version} available (use 'stegvault update' to install)"
+            )
+            sys.exit(0)
+
+        # Detect installation method
+        method = get_install_method()
+        click.echo(f"Installation method: {method}")
+        click.echo()
+
+        # Portable requires manual update
+        if method == InstallMethod.PORTABLE:
+            click.echo("[!] Portable package requires manual update:")
+            click.echo()
+            click.echo("  1. Download latest release from:")
+            click.echo("     https://github.com/kalashnikxvxiii-collab/StegVault/releases/latest")
+            click.echo("  2. Extract to StegVault folder (overwrite files)")
+            click.echo("  3. Run: setup_portable.bat")
+            click.echo()
+            sys.exit(0)
+
+        # Confirm update (unless --yes)
+        if not yes:
+            click.echo(f"Install update to v{latest_version}?")
+            if not click.confirm("Continue", default=True):
+                click.echo("Update cancelled")
+                sys.exit(0)
+
+        # Perform update
+        click.echo()
+        click.echo("[Installing update...]")
+        success, message = perform_update(method)
+
+        if success:
+            click.echo(f"[+] {message}")
+            click.echo()
+            click.echo(f"Successfully updated to v{latest_version}!")
+            click.echo()
+            click.echo("[!] Please restart StegVault for changes to take effect")
+            sys.exit(0)
+        else:
+            click.echo(f"[ERROR] {message}", err=True)
+            sys.exit(1)
+
+    elif latest_version:
+        click.echo(f"[+] Already up-to-date (latest: {latest_version})")
+        if error:
+            click.echo(f"  Note: {error}")
+        sys.exit(0)
+    else:
+        click.echo(f"[ERROR] Could not check for updates: {error}", err=True)
+        sys.exit(1)
+
+
+@main.command()
+@click.option(
     "--password",
     prompt=True,
     hide_input=True,

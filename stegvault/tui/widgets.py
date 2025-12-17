@@ -18,6 +18,7 @@ from textual.widgets import (
     ListItem,
     DirectoryTree,
     Select,
+    Switch,
 )
 from textual.widgets._directory_tree import DirEntry
 from textual.screen import Screen, ModalScreen
@@ -3164,3 +3165,474 @@ class PasswordGeneratorScreen(ModalScreen[Optional[str]]):
         if event.key == "q":
             event.stop()
             self.app.action_quit()
+
+
+class ChangelogViewerScreen(ModalScreen[None]):
+    """Modal screen to view changelog for current version."""
+
+    CSS = """
+    /* Cyberpunk Changelog Viewer */
+    ChangelogViewerScreen {
+        align: center middle;
+        background: #00000099;
+    }
+
+    #changelog-dialog {
+        width: 90%;
+        max-width: 100;
+        height: 85%;
+        border: heavy #00ffff;
+        background: #0a0a0a;
+        padding: 2;
+    }
+
+    #changelog-title {
+        width: 100%;
+        text-align: center;
+        text-style: bold;
+        color: #00ffff;
+        margin-bottom: 1;
+        border-bottom: heavy #00ffff;
+        padding-bottom: 1;
+    }
+
+    #changelog-content {
+        width: 100%;
+        height: 1fr;
+        border: solid #333333;
+        background: #000000;
+        padding: 1;
+        overflow-y: auto;
+    }
+
+    #changelog-loading {
+        width: 100%;
+        text-align: center;
+        color: #ffff00;
+        padding: 2;
+    }
+
+    #button-row {
+        width: 100%;
+        height: auto;
+        align: center middle;
+        margin-top: 1;
+    }
+
+    .changelog-button {
+        margin: 0 1;
+        min-width: 16;
+    }
+
+    Button {
+        border: solid #00ffff;
+        background: #000000;
+    }
+
+    Button:hover {
+        background: #00ffff20;
+        border: heavy #00ffff;
+    }
+    """
+
+    BINDINGS = [
+        Binding("escape", "close", "Close"),
+    ]
+
+    def __init__(self, version: str):
+        """Initialize changelog viewer."""
+        super().__init__()
+        self.version = version
+        self.changelog_text = ""
+
+    def compose(self) -> ComposeResult:
+        """Compose changelog dialog."""
+        from stegvault import __version__
+
+        with Container(id="changelog-dialog"):
+            yield Label(f"Changelog - StegVault v{self.version}", id="changelog-title")
+            yield Static("Loading changelog...", id="changelog-loading")
+            with Horizontal(id="button-row"):
+                yield Button("Close", variant="primary", id="btn-close", classes="changelog-button")
+
+    def on_mount(self) -> None:
+        """Fetch changelog when mounted."""
+        self.run_worker(self._fetch_changelog(), exclusive=False)
+
+    async def _fetch_changelog(self) -> None:
+        """Fetch changelog from GitHub."""
+        try:
+            from stegvault.utils.updater import fetch_changelog
+
+            changelog = fetch_changelog(self.version)
+
+            # Remove loading message
+            loading = self.query_one("#changelog-loading", Static)
+            loading.remove()
+
+            # Create scrollable content
+            if changelog:
+                content = ScrollableContainer(
+                    Static(changelog, markup=False), id="changelog-content"
+                )
+                dialog = self.query_one("#changelog-dialog", Container)
+                dialog.mount(content, before="#button-row")
+            else:
+                content = Static(
+                    f"[!] Changelog not available for v{self.version}\n\n"
+                    f"View online:\n"
+                    f"https://github.com/kalashnikxvxiii-collab/StegVault/blob/main/CHANGELOG.md",
+                    id="changelog-content",
+                )
+                dialog = self.query_one("#changelog-dialog", Container)
+                dialog.mount(content, before="#button-row")
+
+        except Exception as e:
+            loading = self.query_one("#changelog-loading", Static)
+            loading.update(f"[!] Failed to load changelog: {str(e)}")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle button press."""
+        if event.button.id == "btn-close":
+            self.dismiss(None)
+
+    def action_close(self) -> None:
+        """Close dialog."""
+        self.dismiss(None)
+
+    def on_key(self, event) -> None:
+        """Handle key press - allow 'q' to trigger quit confirmation."""
+        if event.key == "q":
+            event.stop()
+            self.app.action_quit()
+
+
+class SettingsScreen(ModalScreen[None]):
+    """Modal screen for TUI settings."""
+
+    def __init__(self):
+        """Initialize settings screen."""
+        super().__init__()
+        # Track initial values to detect unsaved changes
+        self._initial_auto_check = True
+        self._initial_auto_upgrade = False
+
+    CSS = """
+    /* Cyberpunk Settings Screen */
+    SettingsScreen {
+        align: center middle;
+        background: #00000099;
+    }
+
+    #settings-dialog {
+        width: 80%;
+        max-width: 70;
+        height: auto;
+        max-height: 90%;
+        border: heavy #ff00ff;
+        background: #0a0a0a;
+        padding: 2;
+        overflow-y: auto;
+    }
+
+    #settings-title {
+        width: 100%;
+        text-align: center;
+        text-style: bold;
+        color: #ff00ff;
+        margin-bottom: 2;
+        border-bottom: heavy #ff00ff;
+        padding-bottom: 1;
+    }
+
+    .settings-section {
+        width: 100%;
+        height: auto;
+        margin-bottom: 2;
+        padding: 1;
+        border: solid #333333;
+        background: #000000;
+    }
+
+    .section-title {
+        color: #ffff00;
+        text-style: bold;
+        margin-bottom: 1;
+    }
+
+    .setting-row {
+        width: 100%;
+        height: auto;
+        margin-bottom: 1;
+        padding: 0 1;
+        align: left middle;
+    }
+
+    .setting-label {
+        color: #00ffff;
+        width: 1fr;
+    }
+
+    .setting-value {
+        color: #00ff9f;
+        text-style: bold;
+    }
+
+    Switch {
+        background: #0a0a0a;
+        border: none;
+        width: auto;
+        padding: 0;
+    }
+
+    Switch:focus {
+        background: #0a0a0a;
+    }
+
+    /* Switch track - darker when off */
+    Switch {
+        color: #333333;
+    }
+
+    /* Switch track - brighter when on */
+    Switch.-on {
+        color: #00ff9f;
+    }
+
+    #button-row {
+        width: 100%;
+        height: auto;
+        align: center middle;
+        margin-top: 1;
+    }
+
+    .settings-button {
+        margin: 0 1;
+        min-width: 20;
+    }
+
+    Button {
+        border: solid #00ffff;
+        background: #000000;
+    }
+
+    Button:hover {
+        background: #00ffff20;
+        border: heavy #00ffff;
+    }
+
+    Button.-primary {
+        border: solid #00ff9f;
+    }
+
+    Button.-primary:hover {
+        background: #00ff9f20;
+        border: heavy #00ff9f;
+    }
+
+    Button.-warning {
+        border: solid #ffff00;
+    }
+
+    Button.-warning:hover {
+        background: #ffff0020;
+        border: heavy #ffff00;
+    }
+    """
+
+    BINDINGS = [
+        Binding("escape", "close", "Close"),
+    ]
+
+    def compose(self) -> ComposeResult:
+        """Compose settings dialog."""
+        from stegvault import __version__
+
+        with Container(id="settings-dialog"):
+            yield Label("⚙ SETTINGS ⚙", id="settings-title")
+
+            # Update Settings Section (all update-related options together)
+            with Vertical(classes="settings-section"):
+                yield Label("◈ Update Settings", classes="section-title")
+
+                with Horizontal(classes="setting-row"):
+                    yield Label("Auto-check for updates on startup:", classes="setting-label")
+                    yield Switch(id="switch-auto-check", value=True)
+
+                with Horizontal(classes="setting-row"):
+                    yield Label(
+                        "Auto-upgrade (NOT RECOMMENDED):",
+                        classes="setting-label",
+                    )
+                    yield Switch(id="switch-auto-upgrade", value=False)
+
+                with Horizontal(classes="setting-row"):
+                    yield Button(
+                        "Check Updates",
+                        id="btn-force-check",
+                        variant="warning",
+                        classes="settings-button",
+                    )
+                    yield Button(
+                        "View Changelog",
+                        id="btn-view-changelog",
+                        variant="primary",
+                        classes="settings-button",
+                    )
+
+            # Close Buttons
+            with Horizontal(id="button-row"):
+                yield Button(
+                    "Save & Close",
+                    variant="primary",
+                    id="btn-save",
+                    classes="settings-button",
+                )
+                yield Button(
+                    "Cancel", variant="default", id="btn-cancel", classes="settings-button"
+                )
+
+    def on_mount(self) -> None:
+        """Load current settings when mounted."""
+        try:
+            from stegvault.config.core import load_config
+
+            config = load_config()
+
+            # Set switch values from config
+            auto_check_switch = self.query_one("#switch-auto-check", Switch)
+            auto_check_switch.value = config.updates.auto_check
+
+            auto_upgrade_switch = self.query_one("#switch-auto-upgrade", Switch)
+            auto_upgrade_switch.value = config.updates.auto_upgrade
+
+            # Store initial values for unsaved changes detection
+            self._initial_auto_check = config.updates.auto_check
+            self._initial_auto_upgrade = config.updates.auto_upgrade
+
+        except Exception:  # nosec B110
+            # If config fails to load, use defaults
+            pass
+
+    def _has_unsaved_changes(self) -> bool:
+        """Check if there are unsaved changes in settings.
+
+        Returns:
+            True if there are unsaved changes, False otherwise
+        """
+        try:
+            auto_check_switch = self.query_one("#switch-auto-check", Switch)
+            auto_upgrade_switch = self.query_one("#switch-auto-upgrade", Switch)
+
+            return (
+                auto_check_switch.value != self._initial_auto_check
+                or auto_upgrade_switch.value != self._initial_auto_upgrade
+            )
+        except Exception:
+            # If query fails, assume no changes
+            return False
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle button press."""
+        if event.button.id == "btn-save":
+            self._save_settings()
+            self.dismiss(None)
+        elif event.button.id == "btn-cancel":
+            self.run_worker(self._handle_close_with_check())
+        elif event.button.id == "btn-force-check":
+            self.run_worker(self._force_update_check())
+        elif event.button.id == "btn-view-changelog":
+            self._show_changelog()
+
+    def _save_settings(self) -> None:
+        """Save settings to config file."""
+        try:
+            from stegvault.config.core import load_config, save_config
+
+            config = load_config()
+
+            # Get switch values
+            auto_check_switch = self.query_one("#switch-auto-check", Switch)
+            auto_upgrade_switch = self.query_one("#switch-auto-upgrade", Switch)
+
+            config.updates.auto_check = auto_check_switch.value
+            config.updates.auto_upgrade = auto_upgrade_switch.value
+
+            save_config(config)
+            self.app.notify("Settings saved successfully", severity="information")
+
+        except Exception as e:
+            self.app.notify(f"Failed to save settings: {str(e)}", severity="error")
+
+    async def _handle_close_with_check(self, quit_on_no_changes: bool = False) -> None:
+        """Close dialog with unsaved changes check.
+
+        Args:
+            quit_on_no_changes: If True and no changes, show quit confirmation.
+                               If False and no changes, just close settings.
+        """
+        if self._has_unsaved_changes():
+            # Show unsaved changes warning
+            result = await self.app.push_screen_wait(UnsavedChangesScreen())
+
+            if result == "save":
+                # User wants to save changes before exiting
+                self._save_settings()
+                self.dismiss(None)
+            elif result == "dont_save":
+                # User wants to exit without saving
+                self.dismiss(None)
+            # elif result == "cancel" or result is None:
+            #     Stay in settings screen (do nothing)
+        else:
+            # No changes
+            if quit_on_no_changes:
+                # User pressed 'q' - show quit confirmation to exit app
+                self.app.action_quit()
+            else:
+                # User pressed Escape or Cancel - just close settings
+                self.dismiss(None)
+
+    async def _force_update_check(self) -> None:
+        """Force an update check."""
+        try:
+            from stegvault.utils.updater import check_for_updates, cache_check_result
+            from stegvault import __version__
+
+            self.app.notify("Checking for updates...", severity="information")
+
+            update_available, latest_version, error = check_for_updates()
+
+            if error and not latest_version:
+                self.app.notify(f"Update check failed: {error}", severity="error")
+            elif update_available:
+                self.app.notify(
+                    f"Update available: v{latest_version}\n" f"Run 'stegvault update' to upgrade",
+                    severity="warning",
+                    timeout=10,
+                )
+                # Cache the result
+                cache_check_result(update_available, latest_version, error)
+            else:
+                self.app.notify(f"Already up-to-date (v{__version__})", severity="information")
+                cache_check_result(update_available, latest_version, error)
+
+        except Exception as e:
+            self.app.notify(f"Update check failed: {str(e)}", severity="error")
+
+    def _show_changelog(self) -> None:
+        """Show changelog for current version."""
+        from stegvault import __version__
+
+        self.app.push_screen(ChangelogViewerScreen(__version__))
+
+    def action_close(self) -> None:
+        """Close dialog with unsaved changes check."""
+        self.run_worker(self._handle_close_with_check())
+
+    def on_key(self, event) -> None:
+        """Handle key press - check for unsaved changes before closing."""
+        if event.key == "q":
+            event.stop()
+            # 'q' shows quit confirmation if no changes
+            self.run_worker(self._handle_close_with_check(quit_on_no_changes=True))

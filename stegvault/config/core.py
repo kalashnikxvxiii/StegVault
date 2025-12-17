@@ -51,17 +51,29 @@ class CLIConfig:
 
 
 @dataclass
+class UpdatesConfig:
+    """Auto-update configuration."""
+
+    auto_check: bool = True  # Check for updates on startup
+    auto_upgrade: bool = False  # Automatically install updates (NOT RECOMMENDED)
+    check_interval_hours: int = 24  # Hours between update checks
+    last_check: str = ""  # ISO timestamp of last check
+
+
+@dataclass
 class Config:
     """Complete StegVault configuration."""
 
     crypto: CryptoConfig
     cli: CLIConfig
+    updates: UpdatesConfig
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert config to dictionary for serialization."""
         return {
             "crypto": asdict(self.crypto),
             "cli": asdict(self.cli),
+            "updates": asdict(self.updates),
         }
 
     @classmethod
@@ -69,7 +81,8 @@ class Config:
         """Create Config from dictionary."""
         crypto = CryptoConfig(**data.get("crypto", {}))
         cli = CLIConfig(**data.get("cli", {}))
-        return cls(crypto=crypto, cli=cli)
+        updates = UpdatesConfig(**data.get("updates", {}))
+        return cls(crypto=crypto, cli=cli, updates=updates)
 
 
 def get_config_dir() -> Path:
@@ -102,6 +115,7 @@ def get_default_config() -> Config:
     return Config(
         crypto=CryptoConfig(),
         cli=CLIConfig(),
+        updates=UpdatesConfig(),
     )
 
 

@@ -24,6 +24,8 @@ from .widgets import (
     QuitConfirmationScreen,
     UnsavedChangesScreen,
     VaultOverwriteWarningScreen,
+    SettingsScreen,
+    ChangelogViewerScreen,
 )
 from .screens import VaultScreen
 
@@ -91,7 +93,7 @@ class StegVaultTUI(App):
         height: 90%;
         border: double #00ffff;
         background: #0a0a0a;
-        padding: 3 6;
+        padding: 3 2 2 6;  /* top=3, right=2, bottom=2, left=6 */
         align: center middle;
         overflow-y: auto;  /* Enable vertical scrolling on resize */
     }
@@ -224,6 +226,44 @@ class StegVaultTUI(App):
         border: double #00ffff;
     }
 
+    /* Settings container - docked to bottom */
+    #settings-container {
+        dock: bottom;
+        width: 100%;
+        height: 3;
+        align: right middle;
+        margin: 0;
+        padding: 0;
+    }
+
+    /* Settings button - invisible with bold text */
+    #btn-settings {
+        width: 5;
+        height: 3;
+        min-width: 5;
+        max-width: 5;
+        margin: 0;
+        padding: 0;
+        text-align: center;
+        content-align: center middle;
+        border: none;
+        background: transparent;
+        color: #ff0080;
+        text-style: bold;
+    }
+
+    #btn-settings:hover {
+        background: #0a0a0a50;
+        color: #00ffff;
+        text-style: bold;
+    }
+
+    #btn-settings:focus {
+        background: transparent;
+        color: #00ffff;
+        text-style: bold;
+    }
+
     /* Notifications - Cyberpunk style */
     .notification {
         border: heavy;
@@ -249,6 +289,25 @@ class StegVaultTUI(App):
         border: heavy #00ff9f;
         color: #00ff9f;
     }
+
+    /* Update Notification Banner - Cyberpunk Style */
+    #update-banner {
+        width: 100%;
+        height: auto;
+        background: #0a0a00;
+        border-bottom: heavy #ffff00;
+        color: #ffff00;
+        padding: 0 2;
+        text-align: center;
+        text-style: bold;
+        dock: top;
+        display: none;
+    }
+
+    #update-banner Static {
+        color: #ffff00;
+        text-style: bold;
+    }
     """
 
     TITLE = "⚡⚡ STEGVAULT ⚡⚡ Neural Security Terminal"
@@ -259,6 +318,7 @@ class StegVaultTUI(App):
         Binding("o", "open_vault", "Open Vault"),
         Binding("n", "new_vault", "New Vault"),
         Binding("h", "show_help", "Help"),
+        Binding("s", "show_settings", "Settings"),
     ]
 
     def __init__(self):
@@ -272,6 +332,8 @@ class StegVaultTUI(App):
     def compose(self) -> ComposeResult:
         """Compose the TUI layout."""
         yield Header(show_clock=True)
+        # Update notification banner (hidden by default)
+        yield Static("", id="update-banner")
         with Container(id="welcome-container"):
             with Vertical(id="content-box"):
                 yield Static(
@@ -305,13 +367,61 @@ class StegVaultTUI(App):
                         "✨✨ NEW VAULT ✨✨", id="btn-new", classes="action-button warning"
                     )
                     yield Button("? HELP ?", id="btn-help", classes="action-button info")
+                # Settings container - bottom-right corner
+                with Horizontal(id="settings-container"):
+                    yield Static("\n━━━\n━━━", id="btn-settings")
         yield Footer()
 
     def on_mount(self) -> None:
-        """Called when app is mounted. Set focus on first button."""
+        """Called when app is mounted. Set focus on first button and check for updates."""
         # Focus on the first button for keyboard navigation
         first_button = self.query_one("#btn-open", Button)
         first_button.focus()
+
+        # Check for updates in background (respects config settings)
+        self.run_worker(self._check_for_updates_async(), exclusive=False)
+
+    async def _check_for_updates_async(self) -> None:
+        """Check for updates in background and show banner if available."""
+        try:
+            from stegvault.config.core import load_config
+            from stegvault.utils.updater import (
+                check_for_updates,
+                get_cached_check,
+                cache_check_result,
+            )
+
+            # Load config to check if auto_check is enabled
+            try:
+                config = load_config()
+                if not config.updates.auto_check:
+                    return  # Auto-check disabled
+            except Exception:
+                # If config fails to load, don't check for updates
+                return
+
+            # Check cache first
+            cached = get_cached_check(config.updates.check_interval_hours)
+            if cached:
+                update_available = cached["update_available"]
+                latest_version = cached["latest_version"]
+            else:
+                # Perform fresh check
+                update_available, latest_version, error = check_for_updates()
+                cache_check_result(update_available, latest_version, error)
+
+            # Show banner if update is available
+            if update_available and latest_version:
+                banner = self.query_one("#update-banner", Static)
+                banner.update(
+                    f"⚡ UPDATE AVAILABLE: v{latest_version} ⚡ "
+                    f"Run 'stegvault update' to upgrade ⚡"
+                )
+                banner.display = True
+
+        except Exception:  # nosec B110
+            # Silently fail if update check fails (don't interrupt user experience)
+            pass
 
     def action_quit(self) -> None:
         """Quit the application (wrapper for async)."""
@@ -511,6 +621,10 @@ class StegVaultTUI(App):
         """Show help screen."""
         self.push_screen(HelpScreen())
 
+    def action_show_settings(self) -> None:
+        """Show settings screen."""
+        self.push_screen(SettingsScreen())
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button press events."""
         button_id = event.button.id
@@ -521,6 +635,12 @@ class StegVaultTUI(App):
             self.action_new_vault()
         elif button_id == "btn-help":
             self.action_show_help()
+
+    def on_click(self, event) -> None:
+        """Handle click events on widgets."""
+        # Check if click is on settings Static widget
+        if hasattr(event.widget, "id") and event.widget.id == "btn-settings":
+            self.action_show_settings()
 
 
 def run_tui() -> None:

@@ -3,14 +3,14 @@
 > Secure password manager using steganography to embed encrypted credentials within images
 
 [![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-0.7.4-blue.svg)](https://github.com/kalashnikxvxiii-collab/StegVault)
+[![Version](https://img.shields.io/badge/version-0.7.6-blue.svg)](https://github.com/kalashnikxvxiii-collab/StegVault)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-778_passing-brightgreen.svg)](tests/)
-[![Coverage](https://img.shields.io/badge/coverage-89%25-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-798_passing-brightgreen.svg)](tests/)
+[![Coverage](https://img.shields.io/badge/coverage-74%25-yellow.svg)](tests/)
 
 **StegVault** is a full-featured password manager that combines modern cryptography with steganography. It can store either a single password or an entire vault of credentials, all encrypted using battle-tested algorithms (XChaCha20-Poly1305 + Argon2id) and hidden within ordinary **PNG or JPEG** images.
 
-**Latest Release (v0.7.4):** Favorite Folders feature for TUI - Quick access to frequently used vault locations with cross-platform filesystem support!
+**Latest Release (v0.7.6):** Auto-update system with Settings screen in TUI - Check and install updates automatically with toggles for auto-check and auto-upgrade!
 
 ## Features
 
@@ -128,11 +128,43 @@ stegvault --version
 # Command line
 stegvault --version
 
+# Check for updates (CLI)
+stegvault updates check
+
 # Python
 python -c "import stegvault; print(stegvault.__version__)"
 
 # TUI home screen displays version automatically
 ```
+
+#### Auto-Update via CLI (v0.7.6)
+
+StegVault now includes built-in update commands for checking and installing new versions directly from PyPI.
+
+**Check for Updates**:
+```bash
+stegvault updates check
+```
+This displays:
+- Current installed version
+- Latest available version on PyPI
+- Update status (up-to-date or update available)
+
+**Install Latest Version**:
+```bash
+stegvault updates upgrade
+```
+This:
+- Checks for updates
+- Downloads and installs the latest version from PyPI
+- Shows confirmation message with old/new version numbers
+
+**Enable Auto-Updates (TUI)**:
+1. Launch TUI: `stegvault tui`
+2. Click the `━━━` settings button (bottom-right corner)
+3. Toggle **Auto-Check Updates** (checks at startup)
+4. Toggle **Auto-Upgrade** (automatically installs updates)
+5. Changes save automatically
 
 #### Migration Notes
 

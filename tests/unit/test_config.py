@@ -12,6 +12,7 @@ from stegvault.config.core import (
     Config,
     CryptoConfig,
     CLIConfig,
+    UpdatesConfig,
     ConfigError,
     get_config_dir,
     get_config_path,
@@ -63,19 +64,22 @@ class TestDataclasses:
         assert config.verbose is True
 
     def test_config_creation(self):
-        """Should create Config with crypto and cli configs."""
+        """Should create Config with crypto, cli, and updates configs."""
         crypto = CryptoConfig(argon2_time_cost=5)
         cli = CLIConfig(verbose=True)
-        config = Config(crypto=crypto, cli=cli)
+        updates = UpdatesConfig()
+        config = Config(crypto=crypto, cli=cli, updates=updates)
 
         assert config.crypto.argon2_time_cost == 5
         assert config.cli.verbose is True
+        assert config.updates.auto_check is True
 
     def test_config_to_dict(self):
         """Should convert Config to dictionary."""
         config = Config(
             crypto=CryptoConfig(argon2_time_cost=5),
             cli=CLIConfig(verbose=True),
+            updates=UpdatesConfig(),
         )
 
         data = config.to_dict()
@@ -330,6 +334,7 @@ class TestSaveConfig:
         config = Config(
             crypto=CryptoConfig(argon2_time_cost=5, argon2_memory_cost=131072),
             cli=CLIConfig(verbose=True, default_image_dir="/tmp"),
+            updates=UpdatesConfig(),
         )
 
         save_config(config)
@@ -347,11 +352,19 @@ class TestSaveConfig:
     def test_save_config_overwrite_existing(self, temp_config_dir):
         """Should overwrite existing configuration."""
         # Save initial config
-        config1 = Config(crypto=CryptoConfig(argon2_time_cost=3), cli=CLIConfig(verbose=False))
+        config1 = Config(
+            crypto=CryptoConfig(argon2_time_cost=3),
+            cli=CLIConfig(verbose=False),
+            updates=UpdatesConfig(),
+        )
         save_config(config1)
 
         # Save new config
-        config2 = Config(crypto=CryptoConfig(argon2_time_cost=7), cli=CLIConfig(verbose=True))
+        config2 = Config(
+            crypto=CryptoConfig(argon2_time_cost=7),
+            cli=CLIConfig(verbose=True),
+            updates=UpdatesConfig(),
+        )
         save_config(config2)
 
         # Verify new config was saved
@@ -415,7 +428,11 @@ class TestEnsureConfigExists:
     def test_ensure_config_exists_loads_existing(self, temp_config_dir):
         """Should load existing config file."""
         # Create custom config
-        custom_config = Config(crypto=CryptoConfig(argon2_time_cost=9), cli=CLIConfig(verbose=True))
+        custom_config = Config(
+            crypto=CryptoConfig(argon2_time_cost=9),
+            cli=CLIConfig(verbose=True),
+            updates=UpdatesConfig(),
+        )
         save_config(custom_config)
 
         # Ensure config exists should load it
@@ -450,6 +467,7 @@ class TestConfigRoundtrip:
                 argon2_time_cost=10, argon2_memory_cost=262144, argon2_parallelism=16
             ),
             cli=CLIConfig(check_strength=False, default_image_dir="/custom/path", verbose=True),
+            updates=UpdatesConfig(),
         )
 
         # Save

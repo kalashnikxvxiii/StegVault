@@ -73,6 +73,7 @@ class TestVaultScreen:
         # Create a mock parent with app
         mock_app = Mock()
         mock_app.exit = Mock()
+        mock_app.push_screen_wait = AsyncMock(return_value=True)  # User confirms quit
         screen._parent = Mock()
         screen._parent.app = mock_app
 

@@ -138,6 +138,7 @@ class TestEntryDetailPanel:
         panel.query_one = Mock(return_value=mock_content)
         panel.mount = Mock()
         panel.set_interval = Mock()  # Mock timer
+        panel.set_timer = Mock()  # Mock auto-hide timer
 
         panel.show_entry(entry)
         assert panel.password_visible is False
@@ -391,6 +392,9 @@ class TestPassphraseInputScreen:
         # Create input submitted event
         mock_input = Mock()
         mock_input.id = "passphrase-input"
+        mock_input.value = "my_passphrase"
+        screen.query_one = Mock(return_value=mock_input)  # Mock query_one
+
         event = Mock()
         event.input = mock_input
         event.value = "my_passphrase"

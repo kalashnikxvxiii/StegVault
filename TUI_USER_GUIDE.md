@@ -1,7 +1,7 @@
 # StegVault Terminal UI (TUI) - User Guide
 
-**Version**: v0.7.1
-**Last Updated**: 2025-12-03
+**Version**: v0.7.6
+**Last Updated**: 2025-12-17
 
 Welcome to the StegVault Terminal UI! This guide will help you get started with the full-featured terminal interface for managing your password vaults.
 
@@ -74,6 +74,7 @@ If the TUI launches successfully, you're ready to go! 🎉
 ### Main Menu (Welcome Screen)
 - `o` - Open an existing vault
 - `n` - Create a new vault
+- `━━━` button (bottom-right) - Open settings
 - `q` - Quit application
 
 ### Vault Management Screen
@@ -184,6 +185,29 @@ If an entry has a TOTP secret:
 - Press `s` anytime to save your vault
 - Changes are encrypted and written to the image
 - Original vault is preserved
+
+### 8. Settings (v0.7.6)
+
+**Access Settings**:
+1. Click the `━━━` button in the bottom-right corner of the home screen
+2. Settings dialog opens with configuration options
+
+**Update Settings**:
+- **Auto-Check Updates**: Toggle automatic checking for new versions at startup
+- **Auto-Upgrade**: Toggle automatic installation of new versions when available
+
+**Unsaved Changes Protection**:
+- When closing Settings with unsaved changes, you'll see a confirmation dialog:
+  - "Save & Exit" - Save changes and close
+  - "Don't Save" - Discard changes and close
+  - "Cancel" - Return to settings
+- Pressing `q` without changes shows the quit confirmation for StegVault
+- Pressing `Escape` without changes closes settings directly
+
+**Configuration Persistence**:
+- All settings are saved to `~/.stegvault/config.toml` (Unix/macOS)
+- Or `%APPDATA%\StegVault\config.toml` (Windows)
+- Changes take effect immediately
 
 ---
 

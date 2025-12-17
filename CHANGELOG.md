@@ -7,6 +7,114 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.6] - 2025-12-16
+
+### Added - Auto-Update System 🔄
+
+**Core Update Infrastructure**:
+- `stegvault/utils/updater.py` - Complete auto-update module (422 lines)
+  - `get_install_method()` - Detects installation type (pip/source/portable)
+  - `get_latest_version()` - Queries PyPI API for latest release
+  - `compare_versions()` - Semantic version comparison (0.7.5 vs 0.7.6)
+  - `check_for_updates()` - Main update check with error handling
+  - `fetch_changelog()` - Retrieves changelog from GitHub (raw + API fallback)
+  - `parse_changelog_section()` - Extracts version-specific changes
+  - `perform_update()` - Executes upgrade based on installation method
+  - Cache system prevents API rate limiting (24-hour default, configurable)
+
+**CLI Command**:
+- `stegvault update` - Full-featured update management
+  - `--check-only` - Check without installing
+  - `--force` - Bypass cache, fresh check
+  - `-y/--yes` - Auto-confirm update
+  - Shows changelog preview (first 30 lines)
+  - Installation method auto-detection
+  - User confirmation before upgrade
+  - Portable package instructions (manual update required)
+
+**TUI Integration**:
+- Settings screen with cyberpunk magenta theme
+  - Toggle "Auto-check for updates on startup"
+  - Toggle "Auto-upgrade" (NOT RECOMMENDED - requires restart)
+  - "Force Update Check" button (immediate check)
+  - "View Changelog" button (shows current version changes)
+- Update notification banner (cyberpunk yellow neon)
+  - Shows on startup if update available
+  - Respects `config.updates.auto_check` setting
+  - Silent background check, non-blocking UI
+- Changelog viewer modal (cyan theme)
+  - Fetches from GitHub on demand
+  - Scrollable content for long changelogs
+  - Graceful error handling
+
+**Configuration**:
+- `UpdatesConfig` dataclass in `config.toml`
+  ```toml
+  [updates]
+  auto_check = true
+  auto_upgrade = false
+  check_interval_hours = 24
+  last_check = ""
+  ```
+- Settings persist across sessions
+- TUI settings menu for easy configuration
+
+**Update Methods Supported**:
+- **pip**: `pip install --upgrade stegvault` (automatic)
+- **source**: `git pull && pip install -e . --force-reinstall` (automatic)
+- **portable**: Manual instructions provided (download + extract)
+
+**User Experience**:
+- ASCII output for Windows compatibility (no Unicode encoding errors)
+- Cyberpunk-styled UI elements (⚡, ⚙, ◈ symbols)
+- Clear error messages and user feedback
+- Non-intrusive notifications in TUI
+
+### Changed
+
+**TUI Home Screen**:
+- Settings button now uses `━━━` character (2x3 block) instead of gear emoji
+  - Resolved Unicode emoji rendering inconsistencies across terminals
+  - Better visibility and centering with guaranteed single-width characters
+- Settings button positioned in bottom-right corner (transparent background, hover effects)
+- 4 action buttons total: Unlock Vault, New Vault, Help, Settings
+
+**Test Suite**:
+- Added 20 comprehensive tests for SettingsScreen and UnsavedChangesScreen
+- Fixed 4 pre-existing TUI test failures (AsyncMock, query_one, set_timer mocking)
+- Total tests: 778 → **798** (+20 tests)
+- Test pass rate: 100% ✅
+
+###Fixed
+
+**Settings Screen UX**:
+- Added unsaved changes detection when closing Settings
+  - Pressing `q` with unsaved changes → shows "Unsaved Changes" dialog
+  - Pressing `Escape`/`Cancel` with unsaved changes → shows "Unsaved Changes" dialog
+  - User can choose: "Save & Exit", "Don't Save", or "Cancel" (return to settings)
+- Pressing `q` without changes → shows "Quit StegVault?" confirmation (not just close settings)
+- Pressing `Escape`/`Cancel` without changes → closes settings directly
+- Prevents accidental loss of configuration changes
+
+**Config Tests**:
+- Updated all Config dataclass instantiations to include UpdatesConfig parameter
+- Fixed 4 failing tests in test_config.py (test_config_creation, test_save_config_valid_data, etc.)
+
+### Technical
+
+**Files Modified**:
+- `stegvault/utils/updater.py` (NEW - 422 lines)
+- `stegvault/config/core.py` (UpdatesConfig dataclass)
+- `stegvault/cli.py` (update command, 157 lines)
+- `stegvault/tui/app.py` (banner, startup check, settings action)
+- `stegvault/tui/widgets.py` (SettingsScreen, ChangelogViewerScreen)
+- `stegvault/__init__.py` (version 0.7.5 → 0.7.6)
+- `pyproject.toml` (version 0.7.5 → 0.7.6)
+- `tests/unit/test_tui_app.py` (settings button test)
+
+**Dependencies**:
+- No new dependencies (uses stdlib urllib, json)
+
 ## [0.7.5] - 2025-12-15
 
 ### Fixed - TUI User Experience Improvements 🎨

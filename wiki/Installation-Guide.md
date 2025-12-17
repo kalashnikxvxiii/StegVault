@@ -221,6 +221,25 @@ python -m venv venv
 
 To update to the latest version:
 
+### Method 1: Auto-Update (v0.7.6+)
+
+StegVault includes built-in update commands:
+
+```bash
+# Check for updates
+stegvault updates check
+
+# Install latest version from PyPI
+stegvault updates upgrade
+```
+
+Or enable auto-updates in the TUI:
+1. Launch TUI: `stegvault tui`
+2. Click `━━━` button (bottom-right)
+3. Toggle **Auto-Check Updates** and **Auto-Upgrade**
+
+### Method 2: Manual Update from Source
+
 ```bash
 cd stegvault
 git pull origin main
