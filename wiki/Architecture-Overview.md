@@ -1,12 +1,12 @@
 # Architecture Overview
 
-This document provides a technical overview of StegVault's architecture (v0.6.1).
+This document provides a technical overview of StegVault's architecture (v0.7.6).
 
 ## System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                       StegVault System (v0.6.1)                 │
+│                       StegVault System (v0.7.6)                 │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  ┌──────────────────────────────────────────────────────────┐   │
@@ -48,6 +48,8 @@ This document provides a technical overview of StegVault's architecture (v0.6.1)
 │  │  │ • JSON Output (headless mode)                    │  │   │
 │  │  │ • Passphrase Handling (file/env/prompt)          │  │   │
 │  │  │ • Config Management (TOML)                       │  │   │
+│  │  │ • Auto-Updater (PyPI integration)                │  │   │
+│  │  │ • Favorite Folders (TUI quick access)            │  │   │
 │  │  └───────────────────────────────────────────────────┘  │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │               │              │              │                   │
@@ -66,10 +68,10 @@ This document provides a technical overview of StegVault's architecture (v0.6.1)
 Multiple interfaces sharing the same business logic:
 
 - **CLI (Current)**: Click-based command-line interface
-- **TUI (Planned v0.7.0)**: Textual-based terminal UI
+- **TUI (Current - v0.7.0)**: Textual-based terminal UI with full keyboard navigation
 - **GUI (Planned v0.8.0)**: PySide6-based desktop application
 
-**Benefits**: Users can choose the interface that fits their workflow.
+**Benefits**: Users can choose the interface that fits their workflow - terminal purists use TUI, automation uses CLI headless mode, casual users will use GUI.
 
 ### 2. Application Layer (v0.6.1)
 
@@ -182,6 +184,7 @@ class VaultEntry:
     notes: Optional[str] = None
     tags: List[str] = field(default_factory=list)
     totp_secret: Optional[str] = None
+    password_history: List[dict] = field(default_factory=list)  # v0.7.1
     created: str  # ISO 8601
     modified: str
     accessed: Optional[str] = None
@@ -250,6 +253,8 @@ def calculate_capacity(image) -> int:
 - `image_format.py` - Magic byte detection (PNG/JPEG/GIF/BMP)
 - `json_output.py` - JSON formatting for headless mode
 - `passphrase.py` - Passphrase from file/env/prompt
+- `updater.py` - Auto-update system (v0.7.6) - PyPI integration, version checking
+- `favorite_folders.py` - Favorite folders manager (v0.7.4) - TUI quick access
 
 ## Data Flow
 
@@ -343,12 +348,13 @@ Each UI handles errors appropriately:
 
 ## Testing Architecture
 
-### Test Coverage (614 tests, 92%)
+### Test Coverage (798 tests, 74%)
 
 - **Unit Tests**: Test individual functions/classes
 - **Integration Tests**: Test module interactions
 - **Controller Tests**: Test business logic without UI
 - **CLI Tests**: Test user-facing commands
+- **TUI Tests**: Test terminal UI widgets and screens (v0.7.0+)
 
 ### Test Organization
 
@@ -363,6 +369,10 @@ tests/unit/
 ├── test_gallery.py             # Gallery management
 ├── test_json_output.py         # JSON formatting
 ├── test_passphrase_utils.py    # Passphrase handling
+├── test_tui_app.py             # TUI application (v0.7.0+)
+├── test_tui_widgets.py         # TUI widgets (v0.7.0+)
+├── test_tui_screens.py         # TUI screens (v0.7.0+)
+├── test_settings_screen.py     # Settings screen (v0.7.6+)
 └── ...
 ```
 
@@ -382,11 +392,20 @@ argon2_time_cost = 3
 argon2_memory_cost = 65536
 argon2_parallelism = 4
 
+[cli]
+verbose = false
+progress_bars = true
+
 [stego]
 default_seed = 12345
 
 [vault]
 default_tags = ["personal"]
+
+[updates]  # v0.7.6
+auto_check = true
+auto_upgrade = false
+check_interval = 86400  # 24 hours
 ```
 
 ## Extensibility Points
@@ -431,13 +450,20 @@ default_tags = ["personal"]
 
 ## Future Architecture (Roadmap)
 
-### v0.7.0: TUI (Textual)
+### v0.7.0: TUI (Textual) - ✅ COMPLETED
 
-- Add `stegvault/tui/` package
-- Reuse `VaultController` and `CryptoController`
-- Implement reactive UI with Textual widgets
+- ✅ Added `stegvault/tui/` package
+- ✅ Reused `VaultController` and `CryptoController`
+- ✅ Implemented reactive UI with Textual widgets
+- ✅ Full keyboard navigation
+- ✅ Live search and filtering
+- ✅ TOTP auto-refresh
+- ✅ Password generator integration
+- ✅ Favorite folders (v0.7.4)
+- ✅ Password history viewer (v0.7.1)
+- ✅ Auto-update system with Settings screen (v0.7.6)
 
-### v0.8.0: GUI (PySide6)
+### v0.8.0: GUI (PySide6) - 🔜 PLANNED
 
 - Add `stegvault/gui/` package
 - Thread-safe controller usage (QThread)

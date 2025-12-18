@@ -14,6 +14,9 @@ StegVault is a secure password manager that uses steganography to hide encrypted
 - [Basic Usage Examples](Basic-Usage-Examples.md)
 
 ### User Guides
+- [CLI Commands Reference](CLI-Commands-Reference.md) - Complete command reference ✨ NEW
+- [TUI User Guide](../TUI_USER_GUIDE.md) - Terminal UI keyboard shortcuts
+- [Headless Mode Guide](Headless-Mode-Guide.md) - Automation & CI/CD ✨ NEW
 - [Creating Backups](Creating-Backups.md)
 - [Restoring Passwords](Restoring-Passwords.md)
 - [Choosing Cover Images](Choosing-Cover-Images.md)
@@ -44,11 +47,11 @@ StegVault is a secure password manager that uses steganography to hide encrypted
 
 ## Project Status
 
-- **Version**: 0.7.3 (TUI Stability Fixes)
+- **Version**: 0.7.6 (Auto-Update System with Settings)
 - **Status**: Stable - Production-ready
 - **License**: MIT
 - **Language**: Python 3.9+
-- **Tests**: 740 passing (89% coverage)
+- **Tests**: 798 passing (74% coverage)
 
 ## Key Features
 
@@ -56,15 +59,15 @@ StegVault is a secure password manager that uses steganography to hide encrypted
 - ✅ Argon2id key derivation
 - ✅ Dual steganography (PNG LSB + JPEG DCT)
 - ✅ Full vault mode with CRUD operations
-- ✅ Password history tracking
-- ✅ TUI stability improvements **FIXED in v0.7.3**
+- ✅ Password history tracking (v0.7.1)
+- ✅ Auto-update system with Settings screen (v0.7.6) ✨ NEW
 - ✅ TOTP/2FA authenticator
 - ✅ Gallery multi-vault management
 - ✅ Terminal UI (TUI) with full keyboard navigation
 - ✅ Headless mode (JSON output, automation)
 - ✅ Application layer (UI-agnostic controllers)
 - ✅ CLI interface
-- ✅ 614 unit tests with 92% coverage
+- ✅ 798 unit tests with 74% coverage
 - ✅ Zero-knowledge architecture
 
 ## Coming Soon
