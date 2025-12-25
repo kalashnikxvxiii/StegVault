@@ -1,0 +1,10 @@
+# Include launcher script in distribution
+include launch_tui.bat
+
+# Include documentation
+include README.md
+include CHANGELOG.md
+include LICENSE
+
+# Include configuration examples
+recursive-include stegvault *.toml

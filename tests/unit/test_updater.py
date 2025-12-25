@@ -27,13 +27,17 @@ from stegvault.utils.updater import (
     cache_check_result,
     check_for_updates,
     compare_versions,
+    create_detached_update_script,
     fetch_changelog,
     get_cache_file,
     get_cached_check,
     get_install_method,
     get_latest_version,
+    is_running_from_installed,
+    launch_detached_update,
     parse_changelog_section,
     perform_update,
+    update_cache_version,
     _update_pip,
     _update_portable,
     _update_source,
@@ -717,3 +721,236 @@ class TestUpdateOperations:
         assert "Portable package requires manual update" in message
         assert "GitHub" in message
         assert "releases/latest" in message
+
+
+class TestDetachedUpdate:
+    """Test detached update functionality for fixing WinError 32."""
+
+    def test_is_running_from_installed_true(self):
+        """Test detection when running from installed package."""
+        # Mock to simulate site-packages installation
+        with patch("stegvault.utils.updater.Path") as mock_path:
+            mock_path.return_value.parent.parent = Path(
+                "/usr/lib/python3.9/site-packages/stegvault"
+            )
+
+            result = is_running_from_installed()
+
+            assert result is True
+
+    def test_is_running_from_installed_false(self):
+        """Test detection when running from source/development."""
+        # This is real test - will detect actual installation
+        result = is_running_from_installed()
+        assert isinstance(result, bool)
+
+    def test_is_running_from_installed_exception(self):
+        """Test exception handling in is_running_from_installed."""
+        with patch("stegvault.utils.updater.Path", side_effect=Exception("Test error")):
+            result = is_running_from_installed()
+            assert result is False
+
+    @patch("stegvault.utils.updater.get_install_method")
+    @patch("stegvault.config.core.get_config_dir")
+    @patch("builtins.open", new_callable=mock_open)
+    def test_create_detached_update_script_pip(self, mock_file, mock_config_dir, mock_method):
+        """Test creating detached update script for pip installation."""
+        mock_method.return_value = InstallMethod.PIP
+        mock_config_dir.return_value = Path("/home/user/.stegvault")
+
+        result = create_detached_update_script()
+
+        assert result == Path("/home/user/.stegvault/perform_update.bat")
+        mock_file.assert_called_once()
+        written_content = "".join(call.args[0] for call in mock_file().write.call_args_list)
+        assert "pip install --upgrade stegvault" in written_content
+        assert sys.executable in written_content
+
+    @patch("stegvault.utils.updater.get_install_method")
+    @patch("stegvault.config.core.get_config_dir")
+    @patch("builtins.open", new_callable=mock_open)
+    def test_create_detached_update_script_source(self, mock_file, mock_config_dir, mock_method):
+        """Test creating detached update script for source installation."""
+        mock_method.return_value = InstallMethod.SOURCE
+        mock_config_dir.return_value = Path("/home/user/.stegvault")
+
+        with patch("stegvault.utils.updater.Path") as mock_path:
+            mock_path.return_value.parent.parent = Path("/home/user/StegVault")
+
+            result = create_detached_update_script()
+
+            assert result == Path("/home/user/.stegvault/perform_update.bat")
+            written_content = "".join(call.args[0] for call in mock_file().write.call_args_list)
+            assert "git pull origin main" in written_content
+
+    @patch("stegvault.utils.updater.get_install_method")
+    def test_create_detached_update_script_portable(self, mock_method):
+        """Test creating detached update script for portable (not supported)."""
+        mock_method.return_value = InstallMethod.PORTABLE
+
+        result = create_detached_update_script()
+
+        assert result is None
+
+    @patch("stegvault.utils.updater.get_install_method")
+    @patch("stegvault.config.core.get_config_dir")
+    def test_create_detached_update_script_exception(self, mock_config_dir, mock_method):
+        """Test exception handling in create_detached_update_script."""
+        mock_method.return_value = InstallMethod.PIP
+        mock_config_dir.side_effect = Exception("Test error")
+
+        result = create_detached_update_script()
+
+        assert result is None
+
+    @patch("stegvault.utils.updater.create_detached_update_script")
+    @patch("subprocess.Popen")
+    def test_launch_detached_update_success_windows(self, mock_popen, mock_create_script):
+        """Test launching detached update on Windows."""
+        mock_create_script.return_value = Path("C:\\Users\\test\\.stegvault\\perform_update.bat")
+
+        with patch("sys.platform", "win32"):
+            success, message = launch_detached_update()
+
+        assert success is True
+        assert "Update will begin after you close StegVault" in message
+        mock_popen.assert_called_once()
+
+    @patch("stegvault.utils.updater.create_detached_update_script")
+    @patch("subprocess.Popen")
+    def test_launch_detached_update_success_linux(self, mock_popen, mock_create_script):
+        """Test launching detached update on Linux."""
+        mock_create_script.return_value = Path("/home/user/.stegvault/perform_update.bat")
+
+        with patch("sys.platform", "linux"):
+            success, message = launch_detached_update()
+
+        assert success is True
+        assert "Update will begin after you close StegVault" in message
+        mock_popen.assert_called_once()
+
+    @patch("stegvault.utils.updater.create_detached_update_script")
+    def test_launch_detached_update_script_creation_failed(self, mock_create_script):
+        """Test launch when script creation fails."""
+        mock_create_script.return_value = None
+
+        with patch("stegvault.utils.updater.get_install_method", return_value=InstallMethod.PIP):
+            success, message = launch_detached_update()
+
+        assert success is False
+        assert "Could not create update script" in message
+
+    @patch("stegvault.utils.updater.create_detached_update_script")
+    def test_launch_detached_update_portable_fallback(self, mock_create_script):
+        """Test launch for portable installation (returns manual instructions)."""
+        mock_create_script.return_value = None
+
+        with patch(
+            "stegvault.utils.updater.get_install_method", return_value=InstallMethod.PORTABLE
+        ):
+            success, message = launch_detached_update()
+
+        assert success is False
+        assert "manual update" in message.lower()
+
+    @patch("stegvault.utils.updater.create_detached_update_script")
+    @patch("subprocess.Popen")
+    def test_launch_detached_update_popen_exception(self, mock_popen, mock_create_script):
+        """Test exception handling when Popen fails."""
+        mock_create_script.return_value = Path("/home/user/.stegvault/perform_update.bat")
+        mock_popen.side_effect = Exception("Popen failed")
+
+        success, message = launch_detached_update()
+
+        assert success is False
+        assert "Failed to launch update" in message
+
+
+class TestCacheVersionUpdate:
+    """Test cache version update functionality to fix version mismatch bug."""
+
+    @patch("stegvault.utils.updater.get_cache_file")
+    @patch("builtins.open", new_callable=mock_open)
+    def test_update_cache_version_mismatch(self, mock_file, mock_cache_file):
+        """Test updating cache when version doesn't match."""
+        cache_data = {
+            "timestamp": "2025-12-24T10:00:00",
+            "current_version": "0.7.6",
+            "latest_version": "0.7.8",
+            "update_available": True,
+            "error": None,
+        }
+        mock_file.return_value.read.return_value = json.dumps(cache_data)
+        mock_cache = Mock()
+        mock_cache.exists.return_value = True
+        mock_cache_file.return_value = mock_cache
+
+        # Mock compare_versions to return -1 (current < latest)
+        with patch("stegvault.utils.updater.compare_versions", return_value=-1):
+            update_cache_version()
+
+        # Should have written updated cache
+        assert mock_file().write.called
+
+    @patch("stegvault.utils.updater.get_cache_file")
+    @patch("builtins.open", new_callable=mock_open)
+    def test_update_cache_version_match(self, mock_file, mock_cache_file):
+        """Test cache when version matches (no update needed)."""
+        cache_data = {
+            "timestamp": "2025-12-24T10:00:00",
+            "current_version": __version__,
+            "latest_version": "0.7.8",
+            "update_available": False,
+            "error": None,
+        }
+        mock_file.return_value.read.return_value = json.dumps(cache_data)
+        mock_cache = Mock()
+        mock_cache.exists.return_value = True
+        mock_cache_file.return_value = mock_cache
+
+        update_cache_version()
+
+        # Should not write if version matches
+        # (write is only called on the second open call)
+
+    @patch("stegvault.utils.updater.get_cache_file")
+    def test_update_cache_version_no_cache(self, mock_cache_file):
+        """Test when cache file doesn't exist."""
+        mock_cache = Mock()
+        mock_cache.exists.return_value = False
+        mock_cache_file.return_value = mock_cache
+
+        # Should not raise exception
+        update_cache_version()
+
+    @patch("stegvault.utils.updater.get_cache_file")
+    @patch("builtins.open", new_callable=mock_open)
+    def test_update_cache_version_exception(self, mock_file, mock_cache_file):
+        """Test exception handling in update_cache_version."""
+        mock_file.side_effect = OSError("File error")
+        mock_cache = Mock()
+        mock_cache.exists.return_value = True
+        mock_cache_file.return_value = mock_cache
+
+        # Should not raise exception (fail silently)
+        update_cache_version()
+
+    @patch("stegvault.utils.updater.get_cache_file")
+    @patch("builtins.open", new_callable=mock_open)
+    def test_update_cache_version_no_latest_version(self, mock_file, mock_cache_file):
+        """Test updating cache when latest_version is missing."""
+        cache_data = {
+            "timestamp": "2025-12-24T10:00:00",
+            "current_version": "0.7.6",
+            "latest_version": None,
+            "update_available": False,
+            "error": "Network error",
+        }
+        mock_file.return_value.read.return_value = json.dumps(cache_data)
+        mock_cache = Mock()
+        mock_cache.exists.return_value = True
+        mock_cache_file.return_value = mock_cache
+
+        update_cache_version()
+
+        # Should handle missing latest_version gracefully

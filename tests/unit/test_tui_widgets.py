@@ -2911,3 +2911,94 @@ class TestSettingsScreenAdvanced:
 
         # Should not crash
         screen.on_mount()
+
+    @patch("stegvault.utils.updater.get_cached_check")
+    @patch("stegvault.config.core.load_config")
+    def test_on_mount_detects_update_available(self, mock_load_config, mock_get_cached):
+        """Should detect cached update availability on mount."""
+        from stegvault.config.core import Config, UpdatesConfig, TOTPConfig
+
+        # Create mock config
+        mock_config = Mock()
+        mock_config.updates = Mock(auto_check=True, auto_upgrade=False)
+        mock_config.totp = Mock(enabled=False)
+        mock_load_config.return_value = mock_config
+
+        # Mock cached update check showing update available
+        mock_get_cached.return_value = {
+            "update_available": True,
+            "latest_version": "0.8.0",
+        }
+
+        screen = SettingsScreen()
+
+        # Mock switches
+        mock_auto_check = Mock()
+        mock_auto_upgrade = Mock()
+        mock_totp = Mock()
+
+        screen.query_one = Mock(side_effect=[mock_auto_check, mock_auto_upgrade, mock_totp])
+
+        screen.on_mount()
+
+        # Should set update_available flag
+        assert screen._update_available is True
+        assert screen._latest_version == "0.8.0"
+
+    def test_on_button_pressed_update_now(self):
+        """Should handle Update Now button press."""
+        screen = SettingsScreen()
+        screen.run_worker = Mock()
+
+        button = Mock(id="btn-update-now")
+        event = Mock(button=button)
+
+        screen.on_button_pressed(event)
+
+        # Should call run_worker for update
+        screen.run_worker.assert_called_once()
+
+    @patch("stegvault.utils.updater.launch_detached_update")
+    async def test_perform_update_now_success(self, mock_launch):
+        """Should launch detached update successfully."""
+        screen = SettingsScreen()
+        mock_app = Mock()
+        mock_launch.return_value = (True, "Update will begin after you close StegVault")
+
+        with patch.object(type(screen), "app", property(lambda self: mock_app)):
+            await screen._perform_update_now()
+
+            # Should notify user
+            mock_app.notify.assert_called()
+            call_args = mock_app.notify.call_args_list
+            assert any("Preparing update" in str(call) for call in call_args)
+
+    @patch("stegvault.utils.updater.launch_detached_update")
+    async def test_perform_update_now_failure(self, mock_launch):
+        """Should handle update launch failure."""
+        screen = SettingsScreen()
+        mock_app = Mock()
+        mock_launch.return_value = (False, "Could not create update script")
+
+        with patch.object(type(screen), "app", property(lambda self: mock_app)):
+            await screen._perform_update_now()
+
+            # Should notify user of failure
+            mock_app.notify.assert_called()
+            call_args = mock_app.notify.call_args_list
+            assert any("Update failed" in str(call) for call in call_args)
+
+    @patch("stegvault.utils.updater.launch_detached_update")
+    async def test_perform_update_now_exception(self, mock_launch):
+        """Should handle exception during update launch."""
+        screen = SettingsScreen()
+        mock_app = Mock()
+        mock_launch.side_effect = Exception("Launch error")
+
+        with patch.object(type(screen), "app", property(lambda self: mock_app)):
+            await screen._perform_update_now()
+
+            # Should notify user of error
+            mock_app.notify.assert_called()
+            call_args = mock_app.notify.call_args_list
+            assert any("Update launch failed" in str(call) for call in call_args)

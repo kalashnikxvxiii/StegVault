@@ -3465,6 +3465,9 @@ class SettingsScreen(ModalScreen[None]):
         self._initial_auto_check = True
         self._initial_auto_upgrade = False
         self._initial_totp_enabled = False
+        # Track update availability for dynamic button
+        self._update_available = False
+        self._latest_version: Optional[str] = None
 
     CSS = """
     /* Cyberpunk Settings Screen */
@@ -3618,12 +3621,21 @@ class SettingsScreen(ModalScreen[None]):
                     yield Switch(id="switch-auto-upgrade", value=False)
 
                 with Horizontal(classes="setting-row"):
-                    yield Button(
-                        "Check Updates",
-                        id="btn-force-check",
-                        variant="warning",
-                        classes="settings-button",
-                    )
+                    # Dynamic button: "Update Now" if update available, else "Check Updates"
+                    if self._update_available:
+                        yield Button(
+                            "Update Now",
+                            id="btn-update-now",
+                            variant="error",
+                            classes="settings-button",
+                        )
+                    else:
+                        yield Button(
+                            "Check Updates",
+                            id="btn-force-check",
+                            variant="warning",
+                            classes="settings-button",
+                        )
                     yield Button(
                         "View Changelog",
                         id="btn-view-changelog",
@@ -3663,6 +3675,7 @@ class SettingsScreen(ModalScreen[None]):
         """Load current settings when mounted."""
         try:
             from stegvault.config.core import load_config
+            from stegvault.utils.updater import get_cached_check
 
             config = load_config()
 
@@ -3680,6 +3693,12 @@ class SettingsScreen(ModalScreen[None]):
             self._initial_auto_check = config.updates.auto_check
             self._initial_auto_upgrade = config.updates.auto_upgrade
             self._initial_totp_enabled = config.totp.enabled
+
+            # Check if there's a cached update available
+            cached = get_cached_check()
+            if cached and cached.get("update_available"):
+                self._update_available = True
+                self._latest_version = cached.get("latest_version")
 
         except Exception:  # nosec B110
             # If config fails to load, use defaults
@@ -3714,6 +3733,8 @@ class SettingsScreen(ModalScreen[None]):
             self.run_worker(self._handle_close_with_check())
         elif event.button.id == "btn-force-check":
             self.run_worker(self._force_update_check())
+        elif event.button.id == "btn-update-now":
+            self.run_worker(self._perform_update_now())
         elif event.button.id == "btn-view-changelog":
             self._show_changelog()
         elif event.button.id == "btn-reset-totp":
@@ -3805,6 +3826,35 @@ class SettingsScreen(ModalScreen[None]):
 
         except Exception as e:
             self.app.notify(f"Update check failed: {str(e)}", severity="error")
+
+    async def _perform_update_now(self) -> None:
+        """Launch detached update process."""
+        try:
+            from stegvault.utils.updater import launch_detached_update
+
+            self.app.notify("Preparing update...", severity="information")
+
+            success, message = launch_detached_update()
+
+            if success:
+                self.app.notify(
+                    message,
+                    severity="warning",
+                    timeout=15,
+                )
+                # Give user time to read the message before they close the app
+                import asyncio
+
+                await asyncio.sleep(2)
+            else:
+                self.app.notify(
+                    f"Update failed:\n{message}",
+                    severity="error",
+                    timeout=10,
+                )
+
+        except Exception as e:
+            self.app.notify(f"Update launch failed: {str(e)}", severity="error")
 
     def _show_changelog(self) -> None:
         """Show changelog for current version."""

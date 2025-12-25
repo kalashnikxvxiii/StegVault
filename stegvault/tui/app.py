@@ -422,6 +422,14 @@ class StegVaultTUI(App):
 
     def on_mount(self) -> None:
         """Called when app is mounted. Set focus on first button and check for updates."""
+        # Fix cache version if it doesn't match running version
+        try:
+            from stegvault.utils.updater import update_cache_version
+
+            update_cache_version()
+        except Exception:  # nosec B110
+            pass
+
         # Check for TOTP authentication requirement
         self.run_worker(self._check_totp_auth(), exclusive=True)
 

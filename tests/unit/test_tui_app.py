@@ -377,3 +377,27 @@ class TestStegVaultTUI:
         app.on_click(event)
 
         app.action_show_settings.assert_called_once()
+
+    @patch("stegvault.utils.updater.update_cache_version")
+    def test_on_mount_updates_cache_version(self, mock_update_cache):
+        """Should call update_cache_version on mount to fix version mismatch."""
+        app = StegVaultTUI()
+        app.run_worker = Mock()
+        app.query_one = Mock()  # Mock button query
+
+        app.on_mount()
+
+        # Should call update_cache_version
+        mock_update_cache.assert_called_once()
+
+    @patch("stegvault.utils.updater.update_cache_version")
+    def test_on_mount_cache_update_exception(self, mock_update_cache):
+        """Should handle exception in update_cache_version gracefully."""
+        mock_update_cache.side_effect = Exception("Cache error")
+
+        app = StegVaultTUI()
+        app.run_worker = Mock()
+        app.query_one = Mock()  # Mock button query
+
+        # Should not crash
+        app.on_mount()

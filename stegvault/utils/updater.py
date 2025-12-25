@@ -282,6 +282,46 @@ def cache_check_result(
         pass  # Silently fail if cache write fails
 
 
+def update_cache_version() -> None:
+    """
+    Update cached current_version if it doesn't match running version.
+
+    This fixes the issue where cache shows old version after manual
+    reinstall/update (e.g., cache shows 0.7.6 but running 0.7.7).
+    """
+    try:
+        cache_file = get_cache_file()
+
+        if not cache_file.exists():
+            return
+
+        # Read current cache
+        with open(cache_file, "r") as f:
+            cache = json.load(f)
+
+        # Check if current_version in cache matches running version
+        cached_version = cache.get("current_version")
+        if cached_version != __version__:
+            # Version mismatch - update cache
+            cache["current_version"] = __version__
+            cache["timestamp"] = datetime.now().isoformat()
+
+            # Re-evaluate update_available based on new version
+            latest = cache.get("latest_version")
+            if latest:
+                comparison = compare_versions(__version__, latest)
+                cache["update_available"] = comparison < 0
+            else:
+                cache["update_available"] = False
+
+            # Write updated cache
+            with open(cache_file, "w") as f:
+                json.dump(cache, f, indent=2)
+
+    except (json.JSONDecodeError, OSError, KeyError):
+        pass  # Silently fail
+
+
 def perform_update(method: Optional[str] = None) -> Tuple[bool, str]:
     """
     Perform StegVault update based on installation method.
@@ -305,9 +345,198 @@ def perform_update(method: Optional[str] = None) -> Tuple[bool, str]:
         return False, "Unknown installation method - cannot auto-update"
 
 
+def is_running_from_installed() -> bool:
+    """Check if currently running from installed package (not dev mode)."""
+    try:
+        import stegvault
+
+        install_path = Path(stegvault.__file__).parent.parent
+        # Check if running from site-packages (installed) vs source directory
+        return "site-packages" in str(install_path) or "dist-packages" in str(install_path)
+    except Exception:
+        return False
+
+
+def create_detached_update_script(method: Optional[str] = None) -> Optional[Path]:
+    """
+    Create a batch script for detached update (runs after app closure).
+
+    This script will:
+    1. Wait for StegVault to close
+    2. Perform the update
+    3. Clean up the script
+
+    Args:
+        method: Installation method (auto-detected if None)
+
+    Returns:
+        Path to the update script, or None if creation failed
+    """
+    if method is None:
+        method = get_install_method()
+
+    try:
+        from stegvault.config.core import get_config_dir
+
+        config_dir = get_config_dir()
+        script_path = config_dir / "perform_update.bat"
+
+        # Create Windows batch script
+        if method == InstallMethod.PIP:
+            script_content = f"""@echo off
+title StegVault Auto-Update
+echo ========================================
+echo    StegVault Auto-Update
+echo ========================================
+echo.
+echo Waiting for StegVault to close...
+timeout /t 3 /nobreak >nul
+
+echo.
+echo Updating StegVault via pip...
+echo This may take a minute...
+echo.
+
+"{sys.executable}" -m pip install --upgrade stegvault
+
+if errorlevel 1 (
+    echo.
+    echo ========================================
+    echo    Update Failed
+    echo ========================================
+    echo.
+    echo Please check your internet connection
+    echo and try again manually:
+    echo.
+    echo   pip install --upgrade stegvault
+    echo.
+    pause
+) else (
+    echo.
+    echo ========================================
+    echo    Update Successful!
+    echo ========================================
+    echo.
+    echo StegVault has been updated successfully.
+    echo You can now close this window and
+    echo restart StegVault.
+    echo.
+    timeout /t 5
+)
+
+del "%~f0"
+"""
+        elif method == InstallMethod.SOURCE:
+            import stegvault
+
+            repo_path = Path(stegvault.__file__).parent.parent
+
+            script_content = f"""@echo off
+title StegVault Auto-Update (Source)
+echo ========================================
+echo    StegVault Auto-Update (Source)
+echo ========================================
+echo.
+echo Waiting for StegVault to close...
+timeout /t 3 /nobreak >nul
+
+echo.
+echo Pulling latest changes from GitHub...
+cd /d "{repo_path}"
+git pull origin main
+
+echo.
+echo Reinstalling StegVault...
+"{sys.executable}" -m pip install -e . --force-reinstall
+
+if errorlevel 1 (
+    echo.
+    echo ========================================
+    echo    Update Failed
+    echo ========================================
+    pause
+) else (
+    echo.
+    echo ========================================
+    echo    Update Successful!
+    echo ========================================
+    timeout /t 5
+)
+
+del "%~f0"
+"""
+        else:
+            return None  # Portable/unknown methods not supported
+
+        # Write script
+        with open(script_path, "w", encoding="utf-8") as f:
+            f.write(script_content)
+
+        return script_path
+
+    except Exception:
+        return None
+
+
+def launch_detached_update(method: Optional[str] = None) -> Tuple[bool, str]:
+    """
+    Launch detached update process that runs after app closure.
+
+    Args:
+        method: Installation method (auto-detected if None)
+
+    Returns:
+        Tuple of (success, message)
+    """
+    script_path = create_detached_update_script(method)
+
+    if script_path is None:
+        method = method or get_install_method()
+        if method == InstallMethod.PORTABLE:
+            return _update_portable()  # Return manual instructions
+        return False, "Could not create update script"
+
+    try:
+        # Launch script in detached mode (new window, no wait)
+        if sys.platform == "win32":
+            subprocess.Popen(  # nosec B603
+                ["cmd", "/c", "start", "", str(script_path)],
+                creationflags=subprocess.CREATE_NEW_CONSOLE | subprocess.DETACHED_PROCESS,
+            )
+        else:
+            # Linux/Mac: run in background
+            subprocess.Popen(  # nosec B603
+                ["sh", str(script_path)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+
+        return (
+            True,
+            "Update will begin after you close StegVault.\n"
+            "A window will open showing the update progress.\n\n"
+            "Please close StegVault now to proceed with the update.",
+        )
+
+    except Exception as e:
+        return False, f"Failed to launch update: {str(e)}"
+
+
 def _update_pip() -> Tuple[bool, str]:
     """Update PyPI installation."""
     try:
+        # WARNING: Cannot update while StegVault is running from installed package
+        # This will cause WinError 32 (file in use) on Windows
+        if is_running_from_installed():
+            return (
+                False,
+                "Cannot update while StegVault is running.\n"
+                "Please close StegVault and run:\n"
+                "  pip install --upgrade stegvault\n\n"
+                "Or use the TUI 'Update Now' button which will\n"
+                "close StegVault and perform the update automatically.",
+            )
+
         # Use same Python interpreter that's running StegVault
         result = subprocess.run(  # nosec B603
             [sys.executable, "-m", "pip", "install", "--upgrade", "stegvault"],
@@ -319,7 +548,15 @@ def _update_pip() -> Tuple[bool, str]:
         if result.returncode == 0:
             return True, "Successfully updated via pip"
         else:
-            return False, f"pip upgrade failed: {result.stderr}"
+            error_msg = result.stderr
+            # Check for common errors
+            if "WinError 32" in error_msg or "file is used by another process" in error_msg:
+                return (
+                    False,
+                    "Update failed: StegVault files are in use.\n"
+                    "Please close all StegVault instances and try again.",
+                )
+            return False, f"pip upgrade failed: {error_msg}"
 
     except subprocess.TimeoutExpired:
         return False, "Update timed out after 2 minutes"

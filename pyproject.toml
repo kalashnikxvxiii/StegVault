@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stegvault"
-version = "0.7.7"
+version = "0.7.8"
 description = "Password manager using steganography to embed encrypted credentials in images"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -96,3 +96,6 @@ asyncio_default_fixture_loop_scope = "function"
 [tool.setuptools.packages.find]
 include = ["stegvault*"]
 exclude = ["tests*", "docs*", "examples*", "wiki*"]
+
+[tool.setuptools]
+include-package-data = true

@@ -7,6 +7,118 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.8] - 2025-12-25
+
+### Fixed - Auto-Update System Critical Bugs 🔧
+
+**WinError 32 Fix (File In Use)**:
+- `stegvault/utils/updater.py`: Added `is_running_from_installed()` function
+  - Detects if StegVault is running from installed package (site-packages) vs development
+  - Prevents WinError 32 by warning user before attempting update
+  - Returns clear instructions for manual update or detached update mechanism
+- `stegvault/utils/updater.py`: Modified `_update_pip()` to check for running instance
+  - Returns error message instead of attempting update when running from installation
+  - Prevents "file is used by another process" errors on Windows
+  - Guides user to use "Update Now" button or manual update command
+
+**Detached Update Mechanism**:
+- `stegvault/utils/updater.py`: Added `create_detached_update_script()` function
+  - Creates Windows batch script that runs after app closure
+  - Waits 3 seconds for app to fully close
+  - Performs pip update in separate console window
+  - Shows success/failure message to user
+  - Auto-deletes script after execution
+  - Supports both pip and source installations
+- `stegvault/utils/updater.py`: Added `launch_detached_update()` function
+  - Launches update script with `subprocess.Popen` in detached mode
+  - Uses `CREATE_NEW_CONSOLE` and `DETACHED_PROCESS` flags on Windows
+  - Returns clear instructions to user about closing application
+  - Handles errors gracefully with user-friendly messages
+- Cross-platform support for Windows and Linux/Mac
+
+**Cache Version Mismatch Fix**:
+- `stegvault/utils/updater.py`: Added `update_cache_version()` function
+  - Fixes issue where cache shows old version (0.7.6) after manual reinstall (0.7.7)
+  - Updates `current_version` in cache to match running `__version__`
+  - Re-evaluates `update_available` flag based on new version
+  - Called on TUI app startup to ensure cache accuracy
+- `stegvault/tui/app.py`: Modified `on_mount()` to call `update_cache_version()`
+  - Fixes cache on every app start
+  - Prevents wrong "Update available" banner after reinstall
+  - Silent failure if cache doesn't exist
+
+**TUI Update Interface Improvements**:
+- `stegvault/tui/widgets.py`: Modified `SettingsScreen` for dynamic update button
+  - Shows "Update Now" button when update is available (replaces "Check Updates")
+  - Shows "Check Updates" button normally when no update detected
+  - Added `_update_available` and `_latest_version` tracking variables
+  - Modified `compose()` to render correct button based on state
+  - Modified `on_mount()` to check cached update availability
+- `stegvault/tui/widgets.py`: Added `_perform_update_now()` async method
+  - Calls `launch_detached_update()` to prepare update script
+  - Shows notification with clear instructions to close app
+  - Handles success/failure cases with appropriate user feedback
+  - 2-second delay to ensure user sees message before closing
+- Visual feedback during update process:
+  - "Preparing update..." notification when button is clicked
+  - Success message with instructions to close StegVault
+  - Error message if update script creation fails
+
+**Package Distribution**:
+- Created `MANIFEST.in` to include `launch_tui.bat` in distribution
+  - Users who install via pip will receive the launcher script
+  - Enables easy TUI startup for Windows users
+  - Includes README.md, CHANGELOG.md, LICENSE in distribution
+- `pyproject.toml`: Added `include-package-data = true` for setuptools
+  - Ensures MANIFEST.in is respected during build
+
+### Testing
+
+**New Tests** (+26 tests, 994 total):
+- `tests/unit/test_updater.py`: Added `TestDetachedUpdate` class (12 tests)
+  - `test_is_running_from_installed_true/false/exception`
+  - `test_create_detached_update_script_pip/source/portable/exception`
+  - `test_launch_detached_update_success_windows/linux`
+  - `test_launch_detached_update_script_creation_failed/portable_fallback/popen_exception`
+- `tests/unit/test_updater.py`: Added `TestCacheVersionUpdate` class (5 tests)
+  - `test_update_cache_version_mismatch/match/no_cache/exception/no_latest_version`
+- `tests/unit/test_tui_widgets.py`: Added SettingsScreen update tests (5 tests)
+  - `test_on_mount_detects_update_available`
+  - `test_on_button_pressed_update_now`
+  - `test_perform_update_now_success/failure/exception`
+- `tests/unit/test_tui_app.py`: Added app.on_mount tests (2 tests)
+  - `test_on_mount_updates_cache_version`
+  - `test_on_mount_cache_update_exception`
+- All tests passing: **994/994** ✅ (5 skipped)
+- `stegvault/utils/updater.py` coverage: 28% → 41% (+13%)
+
+### Technical Details
+
+**Update Flow (New)**:
+1. User opens Settings → sees "Update Now" button (if update available)
+2. User clicks "Update Now" → detached script is created
+3. User sees message: "Update will begin after you close StegVault"
+4. User closes StegVault → update script launches in new console window
+5. Script waits 3 seconds → runs `pip install --upgrade stegvault`
+6. Success: shows confirmation, waits 5 seconds, auto-closes
+7. Failure: shows error, waits for user (press any key to close)
+8. Script deletes itself after completion
+
+**Files Modified**:
+- `stegvault/utils/updater.py`: 4 new functions, 170 lines added
+- `stegvault/tui/widgets.py`: SettingsScreen dynamic button, _perform_update_now()
+- `stegvault/tui/app.py`: update_cache_version() call in on_mount()
+- `pyproject.toml`: include-package-data configuration
+- `MANIFEST.in`: new file for package data inclusion
+- `tests/unit/test_updater.py`: 17 new tests
+- `tests/unit/test_tui_widgets.py`: 5 new tests
+- `tests/unit/test_tui_app.py`: 2 new tests
+
+**Known Limitations**:
+- Portable package installation still requires manual update (by design)
+- Detached update script is Windows-specific (Linux/Mac use shell script)
+- User must close StegVault manually to trigger detached update
+
 ## [0.7.7] - 2025-12-25
 
 ### Added - TOTP/2FA Protection & UI Enhancements 🔐
