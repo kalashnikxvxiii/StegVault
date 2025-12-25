@@ -4195,7 +4195,7 @@ class TOTPConfigScreen(ModalScreen[Optional[tuple[str, str]]]):
         import random
 
         self.totp_secret = generate_totp_secret()
-        self.backup_code = "".join([str(random.randint(0, 9)) for _ in range(6)])
+        self.backup_code = "".join([str(random.randint(0, 9)) for _ in range(6)])  # nosec B311
         self.verified = False
 
     def compose(self) -> ComposeResult:
