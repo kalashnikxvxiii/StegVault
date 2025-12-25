@@ -75,7 +75,7 @@ def calculate_capacity(image_path: str) -> int:
 
     try:
         # Read JPEG DCT coefficients
-        assert jpeglib is not None
+        assert jpeglib is not None  # nosec B101
         jpeg = jpeglib.read_dct(image_path)
 
         # Count usable DCT coefficients across all channels (Y, Cb, Cr)
@@ -162,7 +162,7 @@ def embed_payload(image_path: str, payload: bytes, output_path: Optional[str] = 
 
     try:
         # Read JPEG DCT coefficients
-        assert jpeglib is not None
+        assert jpeglib is not None  # nosec B101
         jpeg = jpeglib.read_dct(image_path)
 
         # Check capacity
@@ -268,7 +268,7 @@ def extract_payload(image_path: str, payload_size: int) -> bytes:
 
     try:
         # Read JPEG DCT coefficients
-        assert jpeglib is not None
+        assert jpeglib is not None  # nosec B101
         jpeg = jpeglib.read_dct(image_path)
 
         # Extract bits from DCT coefficients

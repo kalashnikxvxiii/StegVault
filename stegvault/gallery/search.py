@@ -96,7 +96,7 @@ def search_by_tag(
         # Since tags are stored as JSON, we'll do this in Python
         import json
 
-        assert db.conn is not None
+        assert db.conn is not None  # nosec B101
         cursor = db.conn.cursor()
 
         if vault_id:

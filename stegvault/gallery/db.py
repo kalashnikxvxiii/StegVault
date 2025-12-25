@@ -46,7 +46,7 @@ class GalleryDB:
     def _initialize_schema(self) -> None:
         """Create database schema if not exists."""
         try:
-            assert self.conn is not None
+            assert self.conn is not None  # nosec B101
             cursor = self.conn.cursor()
 
             # Vaults table
@@ -135,7 +135,7 @@ class GalleryDB:
             GalleryDBError: If vault already exists or database error
         """
         try:
-            assert self.conn is not None
+            assert self.conn is not None  # nosec B101
             cursor = self.conn.cursor()
             tags_json = json.dumps(tags or [])
             now = datetime.now()
@@ -167,7 +167,7 @@ class GalleryDB:
             True if removed, False if not found
         """
         try:
-            assert self.conn is not None
+            assert self.conn is not None  # nosec B101
             cursor = self.conn.cursor()
             cursor.execute("DELETE FROM vaults WHERE name = ?", (name,))
             self.conn.commit()
@@ -187,7 +187,7 @@ class GalleryDB:
             VaultMetadata or None if not found
         """
         try:
-            assert self.conn is not None
+            assert self.conn is not None  # nosec B101
             cursor = self.conn.cursor()
             cursor.execute("SELECT * FROM vaults WHERE name = ?", (name,))
             row = cursor.fetchone()
@@ -211,7 +211,7 @@ class GalleryDB:
             VaultMetadata or None if not found
         """
         try:
-            assert self.conn is not None
+            assert self.conn is not None  # nosec B101
             cursor = self.conn.cursor()
             cursor.execute("SELECT * FROM vaults WHERE id = ?", (vault_id,))
             row = cursor.fetchone()
@@ -235,7 +235,7 @@ class GalleryDB:
             List of VaultMetadata
         """
         try:
-            assert self.conn is not None
+            assert self.conn is not None  # nosec B101
             cursor = self.conn.cursor()
 
             if tag:
@@ -277,7 +277,7 @@ class GalleryDB:
             True if updated, False if not found
         """
         try:
-            assert self.conn is not None
+            assert self.conn is not None  # nosec B101
             cursor = self.conn.cursor()
             updates: List[str] = []
             params: List[Any] = []
@@ -319,7 +319,7 @@ class GalleryDB:
             name: Vault name
         """
         try:
-            assert self.conn is not None
+            assert self.conn is not None  # nosec B101
             cursor = self.conn.cursor()
             cursor.execute(
                 "UPDATE vaults SET last_accessed = ? WHERE name = ?",
@@ -341,7 +341,7 @@ class GalleryDB:
             Cache entry ID
         """
         try:
-            assert self.conn is not None
+            assert self.conn is not None  # nosec B101
             cursor = self.conn.cursor()
             tags_json = json.dumps(entry.tags)
 
@@ -377,7 +377,7 @@ class GalleryDB:
             vault_id: Vault ID
         """
         try:
-            assert self.conn is not None
+            assert self.conn is not None  # nosec B101
             cursor = self.conn.cursor()
             cursor.execute("DELETE FROM vault_entries_cache WHERE vault_id = ?", (vault_id,))
             self.conn.commit()
@@ -403,7 +403,7 @@ class GalleryDB:
             List of (VaultEntryCache, VaultMetadata) tuples
         """
         try:
-            assert self.conn is not None
+            assert self.conn is not None  # nosec B101
             cursor = self.conn.cursor()
             query_lower = query.lower()
 
