@@ -1,7 +1,7 @@
 # StegVault Terminal UI (TUI) - User Guide
 
-**Version**: v0.7.6
-**Last Updated**: 2025-12-17
+**Version**: v0.7.8
+**Last Updated**: 2025-12-26
 
 Welcome to the StegVault Terminal UI! This guide will help you get started with the full-featured terminal interface for managing your password vaults.
 

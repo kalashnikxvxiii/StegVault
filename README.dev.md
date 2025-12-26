@@ -54,7 +54,7 @@ StegVault leverages AI assistance (Claude by Anthropic) for enhanced development
   - Edge case identification and coverage improvement
   - Mock object creation and test fixture design
   - Async test patterns for TUI components (pytest-asyncio)
-  - Achieved 89% overall coverage with 740+ tests
+  - Achieved 79% overall coverage with 994 tests (as of v0.7.8)
 
 ### Bug Identification & Debugging
 - **Root Cause Analysis**: Deep investigation of complex issues
