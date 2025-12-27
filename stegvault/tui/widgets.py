@@ -22,6 +22,7 @@ from textual.widgets import (
     DirectoryTree,
     Select,
     Switch,
+    Collapsible,
 )
 from textual.widgets._directory_tree import DirEntry
 from textual.screen import Screen, ModalScreen
@@ -3429,7 +3430,7 @@ class ChangelogViewerScreen(ModalScreen[None]):
                 content = Static(
                     f"[!] Changelog not available for v{self.version}\n\n"
                     f"View online:\n"
-                    f"https://github.com/kalashnikxvxiii-collab/StegVault/blob/main/CHANGELOG.md",
+                    f"https://github.com/kalashnikxvxiii/StegVault/blob/main/CHANGELOG.md",
                     id="changelog-content",
                 )
                 dialog = self.query_one("#changelog-dialog", Container)
@@ -3465,6 +3466,10 @@ class SettingsScreen(ModalScreen[None]):
         self._initial_auto_check = True
         self._initial_auto_upgrade = False
         self._initial_totp_enabled = False
+        # Track initial crypto config values
+        self._initial_time_cost = 3
+        self._initial_memory_cost = 65536
+        self._initial_parallelism = 4
         # Track update availability for dynamic button
         self._update_available = False
         self._latest_version: Optional[str] = None
@@ -3592,6 +3597,86 @@ class SettingsScreen(ModalScreen[None]):
         background: #ffff0020;
         border: heavy #ffff00;
     }
+
+    /* Advanced Settings Inputs */
+    Input {
+        width: 12;
+        border: solid #00ffff;
+        background: #0a0a0a;
+        color: #00ff9f;
+    }
+
+    Input:focus {
+        border: heavy #00ff9f;
+    }
+
+    Collapsible {
+        width: 100%;
+        height: auto;
+        margin-bottom: 2;
+        padding: 1;
+        border: solid #333333;
+        background: #000000;
+    }
+
+    Collapsible > Contents {
+        padding: 1 0 0 2;
+    }
+
+    .param-container {
+        width: 100%;
+        height: auto;
+        margin-bottom: 0;  /* No spacing - warnings add their own when shown */
+    }
+
+    .setting-row {
+        height: auto;
+        align: left middle;  /* Vertical center alignment for labels and inputs */
+    }
+
+    .warning-label {
+        width: 100%;
+        color: #ff0080;
+        text-style: italic;
+        padding: 0 2;
+        margin-top: 0;
+        margin-bottom: 0;  /* No margin - space created dynamically */
+        min-height: 0;
+        height: auto;
+    }
+
+    .warning-label-compatibility {
+        width: 100%;
+        color: #ffff00;
+        text-style: bold italic;
+        padding: 0 2;
+        margin-top: 0;
+        margin-bottom: 0;  /* No margin - space created dynamically */
+        min-height: 0;
+        height: auto;
+    }
+
+    .general-warning-label {
+        width: 100%;
+        color: #ffff00;
+        text-style: bold;
+        padding: 1 2;
+        margin-top: 1;
+        margin-bottom: 1;
+        text-align: center;
+    }
+
+    .reset-button-row {
+        width: 100%;
+        height: auto;
+        align: center middle;
+        margin-top: 1;
+    }
+
+    .param-label {
+        color: #00ffff;
+        width: 1fr;
+    }
     """
 
     BINDINGS = [
@@ -3659,6 +3744,92 @@ class SettingsScreen(ModalScreen[None]):
                         classes="settings-button",
                     )
 
+            # Advanced Settings Section (Collapsible)
+            with Collapsible(title="◈ Advanced Settings", collapsed=True):
+                yield Label(
+                    "Cryptography Parameters (Argon2id KDF)",
+                    classes="section-title",
+                )
+
+                # Time Cost Input with warning label
+                with Vertical(classes="param-container"):
+                    with Horizontal(classes="setting-row"):
+                        yield Label(
+                            "Time Cost (iterations):",
+                            classes="param-label",
+                        )
+                        yield Input(
+                            id="input-time-cost",
+                            type="integer",
+                            placeholder="3",
+                            value="3",
+                        )
+                    yield Label(
+                        "",
+                        id="warning-time-cost",
+                        classes="warning-label",
+                    )
+
+                # Memory Cost Input with warning label
+                with Vertical(classes="param-container"):
+                    with Horizontal(classes="setting-row"):
+                        yield Label(
+                            "Memory Cost (KB):",
+                            classes="param-label",
+                        )
+                        yield Input(
+                            id="input-memory-cost",
+                            type="integer",
+                            placeholder="65536",
+                            value="65536",
+                        )
+                    yield Label(
+                        "",
+                        id="warning-memory-cost",
+                        classes="warning-label",
+                    )
+
+                # Parallelism Input with warning label
+                with Vertical(classes="param-container"):
+                    with Horizontal(classes="setting-row"):
+                        yield Label(
+                            "Parallelism (threads):",
+                            classes="param-label",
+                        )
+                        yield Input(
+                            id="input-parallelism",
+                            type="integer",
+                            placeholder="4",
+                            value="4",
+                        )
+                    yield Label(
+                        "",
+                        id="warning-parallelism",
+                        classes="warning-label",
+                    )
+
+                # Cross-parameter compatibility warning
+                yield Label(
+                    "",
+                    id="warning-compatibility",
+                    classes="warning-label-compatibility",
+                )
+
+                # General warning (above reset button)
+                yield Label(
+                    "⚠ WARNING: Changing these values affects security and performance. Only modify if you understand the implications.",
+                    classes="general-warning-label",
+                )
+
+                # Reset Button (centered)
+                with Horizontal(classes="reset-button-row"):
+                    yield Button(
+                        "Reset to Defaults",
+                        id="btn-reset-crypto",
+                        variant="warning",
+                        classes="settings-button",
+                    )
+
             # Close Buttons
             with Horizontal(id="button-row"):
                 yield Button(
@@ -3689,10 +3860,23 @@ class SettingsScreen(ModalScreen[None]):
             totp_enabled_switch = self.query_one("#switch-totp-enabled", Switch)
             totp_enabled_switch.value = config.totp.enabled
 
+            # Set crypto config values in Input fields
+            time_cost_input = self.query_one("#input-time-cost", Input)
+            time_cost_input.value = str(config.crypto.argon2_time_cost)
+
+            memory_cost_input = self.query_one("#input-memory-cost", Input)
+            memory_cost_input.value = str(config.crypto.argon2_memory_cost)
+
+            parallelism_input = self.query_one("#input-parallelism", Input)
+            parallelism_input.value = str(config.crypto.argon2_parallelism)
+
             # Store initial values for unsaved changes detection
             self._initial_auto_check = config.updates.auto_check
             self._initial_auto_upgrade = config.updates.auto_upgrade
             self._initial_totp_enabled = config.totp.enabled
+            self._initial_time_cost = config.crypto.argon2_time_cost
+            self._initial_memory_cost = config.crypto.argon2_memory_cost
+            self._initial_parallelism = config.crypto.argon2_parallelism
 
             # Check if there's a cached update available
             cached = get_cached_check()
@@ -3715,10 +3899,33 @@ class SettingsScreen(ModalScreen[None]):
             auto_upgrade_switch = self.query_one("#switch-auto-upgrade", Switch)
             totp_enabled_switch = self.query_one("#switch-totp-enabled", Switch)
 
+            # Get crypto config input values
+            time_cost_input = self.query_one("#input-time-cost", Input)
+            memory_cost_input = self.query_one("#input-memory-cost", Input)
+            parallelism_input = self.query_one("#input-parallelism", Input)
+
+            # Check if any value changed
+            try:
+                time_cost_changed = int(time_cost_input.value or "0") != self._initial_time_cost
+                memory_cost_changed = (
+                    int(memory_cost_input.value or "0") != self._initial_memory_cost
+                )
+                parallelism_changed = (
+                    int(parallelism_input.value or "0") != self._initial_parallelism
+                )
+            except ValueError:
+                # If input is not a valid integer, consider it changed
+                time_cost_changed = True
+                memory_cost_changed = True
+                parallelism_changed = True
+
             return (
                 auto_check_switch.value != self._initial_auto_check
                 or auto_upgrade_switch.value != self._initial_auto_upgrade
                 or totp_enabled_switch.value != self._initial_totp_enabled
+                or time_cost_changed
+                or memory_cost_changed
+                or parallelism_changed
             )
         except Exception:
             # If query fails, assume no changes
@@ -3727,8 +3934,9 @@ class SettingsScreen(ModalScreen[None]):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button press."""
         if event.button.id == "btn-save":
-            self._save_settings()
-            self.dismiss(None)
+            # Only dismiss if save was successful
+            if self._save_settings():
+                self.dismiss(None)
         elif event.button.id == "btn-cancel":
             self.run_worker(self._handle_close_with_check())
         elif event.button.id == "btn-force-check":
@@ -3739,6 +3947,8 @@ class SettingsScreen(ModalScreen[None]):
             self._show_changelog()
         elif event.button.id == "btn-reset-totp":
             self.run_worker(self._reset_totp())
+        elif event.button.id == "btn-reset-crypto":
+            self._reset_crypto_params()
 
     def on_switch_changed(self, event: Switch.Changed) -> None:
         """Handle TOTP toggle switch changes."""
@@ -3749,8 +3959,250 @@ class SettingsScreen(ModalScreen[None]):
                 # User is enabling TOTP for the first time
                 self.run_worker(self._configure_totp_first_time(event.switch))
 
-    def _save_settings(self) -> None:
-        """Save settings to config file."""
+    def on_input_changed(self, event: Input.Changed) -> None:
+        """Handle input changes for real-time validation."""
+        if event.input.id in ["input-time-cost", "input-memory-cost", "input-parallelism"]:
+            self._validate_all_crypto_params()
+
+    def _reset_crypto_params(self) -> None:
+        """Reset crypto parameters to default values."""
+        try:
+            # Default values
+            DEFAULT_TIME_COST = 3
+            DEFAULT_MEMORY_COST = 65536
+            DEFAULT_PARALLELISM = 4
+
+            # Reset input fields
+            time_cost_input = self.query_one("#input-time-cost", Input)
+            time_cost_input.value = str(DEFAULT_TIME_COST)
+
+            memory_cost_input = self.query_one("#input-memory-cost", Input)
+            memory_cost_input.value = str(DEFAULT_MEMORY_COST)
+
+            parallelism_input = self.query_one("#input-parallelism", Input)
+            parallelism_input.value = str(DEFAULT_PARALLELISM)
+
+            # Clear all warnings
+            self._clear_all_warnings()
+
+            self.app.notify("Crypto parameters reset to defaults", severity="information")
+
+        except Exception as e:
+            self.app.notify(f"Failed to reset parameters: {str(e)}", severity="error")
+
+    def _clear_all_warnings(self) -> None:
+        """Clear all warning labels."""
+        try:
+            self.query_one("#warning-time-cost", Label).update("")
+            self.query_one("#warning-memory-cost", Label).update("")
+            self.query_one("#warning-parallelism", Label).update("")
+            self.query_one("#warning-compatibility", Label).update("")
+        except Exception:  # nosec B110
+            pass
+
+    def _validate_all_crypto_params(self) -> None:
+        """Validate all crypto parameters and display warnings."""
+        # Validate individual parameters
+        self._validate_time_cost()
+        self._validate_memory_cost()
+        self._validate_parallelism()
+
+        # Validate cross-parameter compatibility
+        self._validate_crypto_compatibility()
+
+    def _validate_time_cost(self) -> bool:
+        """Validate time cost parameter.
+
+        Returns:
+            True if valid, False otherwise
+        """
+        try:
+            time_cost_input = self.query_one("#input-time-cost", Input)
+            warning_label = self.query_one("#warning-time-cost", Label)
+
+            try:
+                value = int(time_cost_input.value or "0")
+            except ValueError:
+                warning_label.update("\n⚠ Must be a valid integer")
+                return False
+
+            if value < 1:
+                warning_label.update("\n⚠ Minimum value is 1 (CRITICAL: extremely weak security)")
+                return False
+            elif value < 3:
+                warning_label.update("\n⚠ Value < 3 provides weak security. Recommended: 3-10")
+                return False
+            elif value > 20:
+                warning_label.update(
+                    "\n⚠ Value > 20 may cause slow performance (~{:.1f}s delay)".format(value * 0.1)
+                )
+                return False
+            elif value > 10:
+                warning_label.update("\nℹ Higher values increase security but slow down operations")
+                return True
+            else:
+                warning_label.update("")  # Valid range - no spacing
+                return True
+
+        except Exception:  # nosec B110
+            return True
+
+    def _validate_memory_cost(self) -> bool:
+        """Validate memory cost parameter.
+
+        Returns:
+            True if valid, False otherwise
+        """
+        try:
+            memory_cost_input = self.query_one("#input-memory-cost", Input)
+            warning_label = self.query_one("#warning-memory-cost", Label)
+
+            try:
+                value = int(memory_cost_input.value or "0")
+            except ValueError:
+                warning_label.update("\n⚠ Must be a valid integer")
+                return False
+
+            # Convert KB to MB for display
+            value_mb = value / 1024
+
+            if value < 8:
+                warning_label.update(
+                    "\n⚠ Minimum value is 8 KB (CRITICAL: extremely weak security)"
+                )
+                return False
+            elif value < 32768:  # < 32 MB
+                warning_label.update(
+                    "\n⚠ Value < 32 MB provides weak security. Recommended: 64-256 MB"
+                )
+                return False
+            elif value > 1048576:  # > 1 GB
+                warning_label.update(
+                    "\n⚠ Value > 1 GB ({:.1f} MB) may cause memory issues on some systems".format(
+                        value_mb
+                    )
+                )
+                return False
+            elif value > 262144:  # > 256 MB
+                warning_label.update(
+                    "\nℹ High memory usage ({:.0f} MB) may slow down low-end devices".format(
+                        value_mb
+                    )
+                )
+                return True
+            else:
+                warning_label.update("")  # Valid range - no spacing
+                return True
+
+        except Exception:  # nosec B110
+            return True
+
+    def _validate_parallelism(self) -> bool:
+        """Validate parallelism parameter.
+
+        Returns:
+            True if valid, False otherwise
+        """
+        try:
+            import os
+
+            parallelism_input = self.query_one("#input-parallelism", Input)
+            warning_label = self.query_one("#warning-parallelism", Label)
+
+            try:
+                value = int(parallelism_input.value or "0")
+            except ValueError:
+                warning_label.update("\n⚠ Must be a valid integer")
+                return False
+
+            cpu_count = os.cpu_count() or 4
+
+            if value < 1:
+                warning_label.update("\n⚠ Minimum value is 1 (CRITICAL: invalid configuration)")
+                return False
+            elif value > cpu_count * 2:
+                warning_label.update(
+                    "\n⚠ Value > {}x CPU cores ({}) may cause thrashing. Recommended: ≤ {}".format(
+                        2, cpu_count * 2, cpu_count
+                    )
+                )
+                return False
+            elif value > cpu_count:
+                warning_label.update(
+                    "\nℹ Value exceeds CPU cores ({}), diminishing returns expected".format(
+                        cpu_count
+                    )
+                )
+                return True
+            else:
+                warning_label.update("")  # Valid range - no spacing
+                return True
+
+        except Exception:  # nosec B110
+            return True
+
+    def _validate_crypto_compatibility(self) -> bool:
+        """Validate cross-parameter compatibility.
+
+        Returns:
+            True if compatible, False otherwise
+        """
+        try:
+            warning_label = self.query_one("#warning-compatibility", Label)
+
+            # Get current values
+            try:
+                time_cost_input = self.query_one("#input-time-cost", Input)
+                memory_cost_input = self.query_one("#input-memory-cost", Input)
+                parallelism_input = self.query_one("#input-parallelism", Input)
+
+                time_cost = int(time_cost_input.value or "0")
+                memory_cost = int(memory_cost_input.value or "0")
+                parallelism = int(parallelism_input.value or "0")
+            except ValueError:
+                # Invalid integers - individual validators will catch this
+                warning_label.update("")
+                return False
+
+            # Check for dangerously weak configurations
+            if time_cost < 3 and memory_cost < 32768:
+                warning_label.update(
+                    "\n⚠ CRITICAL: Both time cost and memory cost are too low - extremely weak security!"
+                )
+                return False
+
+            # Check for extremely resource-intensive configurations
+            total_memory_mb = (memory_cost * parallelism) / 1024
+            if total_memory_mb > 4096:  # > 4 GB total
+                warning_label.update(
+                    "\n⚠ WARNING: Total memory usage ({:.1f} GB) may exceed available RAM!".format(
+                        total_memory_mb / 1024
+                    )
+                )
+                return False
+
+            # Check for suboptimal parallelism with low memory
+            if memory_cost < 65536 and parallelism > 4:
+                warning_label.update(
+                    "\nℹ Low memory per thread ({:.0f} MB) with high parallelism may reduce security".format(
+                        memory_cost / 1024
+                    )
+                )
+                return True
+
+            # All checks passed - no spacing
+            warning_label.update("")
+            return True
+
+        except Exception:  # nosec B110
+            return True
+
+    def _save_settings(self) -> bool:
+        """Save settings to config file.
+
+        Returns:
+            True if settings were saved successfully, False otherwise.
+        """
         try:
             from stegvault.config.core import load_config, save_config
 
@@ -3765,11 +4217,59 @@ class SettingsScreen(ModalScreen[None]):
             config.updates.auto_upgrade = auto_upgrade_switch.value
             config.totp.enabled = totp_enabled_switch.value
 
+            # Get and validate crypto config values
+            time_cost_input = self.query_one("#input-time-cost", Input)
+            memory_cost_input = self.query_one("#input-memory-cost", Input)
+            parallelism_input = self.query_one("#input-parallelism", Input)
+
+            try:
+                time_cost = int(time_cost_input.value or "3")
+                memory_cost = int(memory_cost_input.value or "65536")
+                parallelism = int(parallelism_input.value or "4")
+            except ValueError:
+                self.app.notify(
+                    "Invalid crypto config values. Please enter valid integers.",
+                    severity="error",
+                    timeout=5,
+                )
+                return False
+
+            # Run comprehensive validation
+            time_cost_valid = self._validate_time_cost()
+            memory_cost_valid = self._validate_memory_cost()
+            parallelism_valid = self._validate_parallelism()
+            compatibility_valid = self._validate_crypto_compatibility()
+
+            # Check for CRITICAL errors (validation returned False)
+            if not time_cost_valid or not memory_cost_valid or not parallelism_valid:
+                self.app.notify(
+                    "Cannot save: Please fix the validation errors shown below each field",
+                    severity="error",
+                    timeout=5,
+                )
+                return False
+
+            # Check for compatibility warnings
+            if not compatibility_valid:
+                self.app.notify(
+                    "Cannot save: Configuration has compatibility issues - check warnings",
+                    severity="error",
+                    timeout=5,
+                )
+                return False
+
+            # All validation passed - save config
+            config.crypto.argon2_time_cost = time_cost
+            config.crypto.argon2_memory_cost = memory_cost
+            config.crypto.argon2_parallelism = parallelism
+
             save_config(config)
             self.app.notify("Settings saved successfully", severity="information")
+            return True
 
         except Exception as e:
             self.app.notify(f"Failed to save settings: {str(e)}", severity="error")
+            return False
 
     async def _handle_close_with_check(self, quit_on_no_changes: bool = False) -> None:
         """Close dialog with unsaved changes check.
@@ -3784,8 +4284,10 @@ class SettingsScreen(ModalScreen[None]):
 
             if result == "save":
                 # User wants to save changes before exiting
-                self._save_settings()
-                self.dismiss(None)
+                # Only dismiss if save was successful
+                if self._save_settings():
+                    self.dismiss(None)
+                # If save failed, stay in settings (user can correct values)
             elif result == "dont_save":
                 # User wants to exit without saving
                 self.dismiss(None)
@@ -4587,10 +5089,16 @@ class TOTPAuthScreen(ModalScreen[bool]):
     def action_cancel(self) -> None:
         """Cancel authentication (exit app)."""
         self.dismiss(False)
-        self.run_worker(self.app.action_quit())
+        self.app.action_quit()  # Fixed: call directly, not via worker
 
     def on_key(self, event: events.Key) -> None:
-        """Handle Enter key for verification."""
+        """Handle Enter key for verification (only when input has focus)."""
         if event.key == "enter":
-            event.stop()
-            self.run_worker(self._verify_code())
+            # Only handle Enter if focus is on the input field, not on buttons
+            try:
+                auth_input = self.query_one("#totp-auth-input", Input)
+                if self.focused == auth_input:
+                    event.stop()
+                    self.run_worker(self._verify_code)  # Fixed: pass coroutine, not call result
+            except Exception:  # nosec B110
+                pass

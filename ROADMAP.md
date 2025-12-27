@@ -11,7 +11,17 @@ This document outlines the planned development roadmap for StegVault.
 - **v0.3.1** - Test Coverage Improvements (2025-11-13)
 - **v0.3.2** - Expanded Test Suite (2025-11-13)
 - **v0.3.3** - Version Management Fixes (2025-11-13)
-- **v0.4.0** - Complete Password Manager (2025-11-24) ✅ **CURRENT**
+- **v0.4.0** - Complete Password Manager (2025-11-24)
+- **v0.4.1** - Vault Search & Filter Commands (2025-11-24)
+- **v0.5.0** - Gallery Foundation (2025-11-26)
+- **v0.5.1** - JPEG DCT Steganography (2025-11-27)
+- **v0.6.0** - Headless Mode (2025-11-28)
+- **v0.6.1** - Application Layer (2025-11-28)
+- **v0.7.0** - Terminal UI (TUI) (2025-12-03)
+- **v0.7.1-v0.7.4** - TUI Improvements & Bug Fixes (2025-12-12 to 2025-12-14)
+- **v0.7.5-v0.7.6** - Auto-Update System (2025-12-14 to 2025-12-24)
+- **v0.7.7** - TOTP/2FA Protection & UI Enhancements (2025-12-25)
+- **v0.7.8** - Auto-Update System Critical Bug Fixes (2025-12-25) ✅ **CURRENT**
 
 ## Completed Milestones
 
@@ -37,31 +47,122 @@ This document outlines the planned development roadmap for StegVault.
 - [x] New vault.totp module (100% coverage)
 - [x] Password strength meter with detailed feedback
 
-## Version 0.3.0 - Advanced Steganography (Q1 2026)
+### v0.4.1 ✅ (Released 2025-11-24)
+- [x] `vault search` command - search vault entries by query
+- [x] `vault filter` command - filter entries by tags/URL
+- [x] 24 new tests for search/filter functionality
+- [x] Total: 299 tests passing
+
+### v0.5.0 ✅ (Released 2025-11-26)
+- [x] Gallery Foundation - multi-vault management system
+- [x] Gallery database (SQLite) with metadata and entry caching
+- [x] 6 new CLI commands: init, add, list, remove, refresh, search
+- [x] Cross-vault search functionality
+- [x] 22 comprehensive gallery tests (100% pass rate)
+- [x] Total: 346 tests, 78% coverage
+
+### v0.5.1 ✅ (Released 2025-11-27)
+- [x] JPEG DCT Steganography implementation
+- [x] jpeglib library integration
+- [x] Image format auto-detection (magic bytes)
+- [x] Dispatcher for PNG/JPEG routing
+- [x] CLI integration with both formats
+- [x] Comprehensive CLI tests
+- [x] Documentation updates
+
+### v0.6.0 ✅ (Released 2025-11-28)
+- [x] Headless Mode - JSON output for automation
+- [x] `--json` flag for check, vault get, vault list
+- [x] `--passphrase-file` support
+- [x] `STEGVAULT_PASSPHRASE` environment variable
+- [x] Standardized exit codes (0=success, 1=error, 2=validation)
+- [x] 20 comprehensive headless mode tests
+- [x] Total: 585 tests, 92% coverage
+
+### v0.6.1 ✅ (Released 2025-11-28)
+- [x] Application Layer - shared business logic
+- [x] CryptoController for encryption operations
+- [x] VaultController for vault CRUD operations
+- [x] UI-agnostic controller architecture
+- [x] 29 controller tests
+- [x] Total: 614 tests
+
+### v0.7.0 ✅ (Released 2025-12-03)
+- [x] Terminal UI (TUI) with Textual framework
+- [x] Full-featured visual interface with keyboard shortcuts
+- [x] Entry list with split view (30%/70%)
+- [x] Add/Edit/Delete dialogs
+- [x] Password generator integration
+- [x] TOTP display with auto-refresh
+- [x] Search/filter with live results
+- [x] Help screen with comprehensive shortcuts
+- [x] Create new vault workflow
+- [x] Total: 740 tests, 89% coverage
+
+### v0.7.1-v0.7.4 ✅ (Released 2025-12-12 to 2025-12-14)
+- [x] Critical TUI bug fixes (PasswordGeneratorScreen crash)
+- [x] Button border overflow fixes
+- [x] Bandit B110 warnings suppression
+- [x] Favorite Folders feature for quick vault access
+- [x] Security audit approved (LOW RISK rating)
+- [x] Total: 778 tests
+
+### v0.7.5-v0.7.6 ✅ (Released 2025-12-14 to 2025-12-24)
+- [x] Auto-update system with Settings screen
+- [x] Check for updates from PyPI
+- [x] Auto-upgrade toggle
+- [x] Changelog preview
+- [x] Settings screen integration
+
+### v0.7.7 ✅ (Released 2025-12-25)
+- [x] TOTP/2FA Application Lock with QR codes
+- [x] Entry sorting controls (A-Z, Date)
+- [x] Notification system enhancements (3 max FIFO)
+- [x] Scrollbar improvements
+- [x] 70+ type checking error fixes
+- [x] Total: 970 tests, 79% coverage
+
+### v0.7.8 ✅ (Released 2025-12-25) **CURRENT**
+- [x] Auto-update system critical bug fixes
+- [x] WinError 32 fix (file in use)
+- [x] Detached update mechanism
+- [x] Cache version mismatch fix
+- [x] Dynamic "Update Now" button in Settings
+- [x] MANIFEST.in for package distribution
+- [x] 26 new tests
+- [x] Total: 994 tests, 79% coverage
+- [x] updater.py coverage: 28% → 91% (+63%)
+
+## Version 0.8.0 - Desktop GUI (Q1 2026)
 
 ### Goals
-Add JPEG support and improve detection resistance
+Native desktop application with visual vault management
+
+### Technology Choice
+**PySide6 (Qt for Python)** - Selected for:
+- Native performance (~20MB vs 100MB+ Electron)
+- 100% Python integration
+- LGPL license (commercial-friendly)
+- Cross-platform (Windows/macOS/Linux)
+- pytest-qt testing framework
+- Qt Designer for rapid UI development
 
 ### Features
-- [ ] JPEG DCT steganography implementation
-- [ ] Automatic format selection based on image type
-- [ ] Image quality preservation for JPEG
-- [ ] Advanced embedding patterns (multiple algorithms)
-- [ ] Capacity estimation improvements
-- [ ] Support for BMP and TIFF formats
+- [ ] Native desktop application with Qt/PySide6
+- [ ] Visual vault entry editor
+- [ ] Password strength meter and generator UI
+- [ ] Search across all vaults
+- [ ] Tag-based organization
+- [ ] Dark mode support
+- [ ] Settings dialog
+- [ ] Keyboard shortcuts
+- [ ] Drag-and-drop image support
 
-### Security Enhancements
-- [ ] Randomized payload padding
-- [ ] Optional cover image preprocessing
-- [ ] Payload compression (zlib/lz4)
-- [ ] Multiple embedding strategies (user selectable)
+### Testing
+- [ ] 170+ GUI tests with pytest-qt
+- [ ] 85%+ coverage target
 
-### Research
-- [ ] Benchmark detection resistance vs various steganalysis tools
-- [ ] Evaluate F5, nsF5, and other advanced algorithms
-- [ ] Study optimal Argon2 parameters for mobile devices
-
-## Version 0.4.0 - Vault Mode & Dual-Mode Architecture ✅ (Released 2025-01-14)
+## Version 0.4.0 - Vault Mode & Dual-Mode Architecture ✅ (Released 2025-11-24)
 
 ### Goals
 Transform StegVault into flexible password manager with dual-mode operation
@@ -129,47 +230,21 @@ Users choose which mode fits their needs. Both use same crypto stack.
 }
 ```
 
-## Version 0.5.0 - Gallery Foundation (Q1 2026)
+## Version 0.9.0 - Advanced Features (Q2 2026)
 
 ### Goals
-Enable multi-file vault management - the foundation of the Gallery Vision
+Advanced security features and quality of life improvements
 
-### The Gallery Vision 🖼️
-**StegVault is not just a password manager - it's a secret multimedia gallery.**
+### Features
+- [ ] Saved paths feature (TUI/GUI) - recently opened vaults
+- [ ] Auto-save configuration with visual indicators
+- [ ] Export formats (CSV, KeePass XML, 1Password 1PIF)
+- [ ] Advanced search with regex support
+- [ ] Vault templates (Social Media, Banking, etc.)
+- [ ] Session timeout with auto-lock
+- [ ] Passphrase strength requirements
 
-Your photo gallery appears normal, but each file is a secure vault:
-```
-📁 My_Photos/
-  🖼️ vacation_2024.jpg    → 🔐 Social media credentials
-  🖼️ family_portrait.png  → 🔐 Banking & finance
-  🖼️ sunset_beach.jpg     → 🔐 Work accounts
-  🎬 birthday_party.mp4   → 🔐 Personal documents
-  🎵 favorite_song.mp3    → 🔐 Backup keys
-```
-
-**Benefits:**
-- 🎭 Plausible deniability: "Just vacation photos"
-- 🛡️ Risk distribution: One compromised file ≠ total loss
-- 🎨 Natural camouflage: Hidden in plain sight
-- 💾 Natural backup: Photos backup automatically
-- 🔄 Flexible organization: Organize by category/service/importance
-
-### Features - Gallery Management
-- [ ] Gallery initialization: `stegvault gallery init ./photos`
-- [ ] Gallery-wide operations: `stegvault gallery list`
-- [ ] Cross-vault search: `stegvault gallery search "gmail"`
-- [ ] Smart retrieval: `stegvault gallery get gmail` (auto-finds correct file)
-- [ ] Gallery metadata tracking (.stegvault/gallery.db)
-- [ ] Integrity checking across all vault files
-- [ ] Gallery backup: `stegvault gallery backup ./backup`
-
-### Features - Multi-File Support
-- [ ] Index multiple vault-embedded images
-- [ ] Quick lookup: key → file mapping
-- [ ] Status dashboard: X files, Y passwords, Z total capacity
-- [ ] Health monitoring: detect corrupted/missing vaults
-
-## Version 0.6.0 - GUI Gallery Application (Q2 2026)
+## Version 1.0.0 - Production Ready (Q3 2026)
 
 ### Goals
 Visual gallery interface - the complete StegVault experience
@@ -407,24 +482,35 @@ StegVault follows [Semantic Versioning](https://semver.org/):
 
 ---
 
-**Last Updated**: 2025-11-15
+**Last Updated**: 2025-12-25
 **Status**: Living document, subject to change based on community feedback and security research
 
-## Quick Reference: Current Focus (v0.4.0)
+## Quick Reference: Current Status (v0.7.8)
 
-**RECENTLY COMPLETED (v0.4.0):**
-1. ✅ Vault import/export workflow - complete backup/restore
-2. ✅ Clipboard integration - secure password copying with auto-clear
-3. ✅ TOTP/2FA authenticator - built-in with QR code support
-4. ✅ Realistic password strength validation - zxcvbn integration
-5. ✅ Critical vault CLI bug fixes - all commands fully functional
-6. ✅ Test suite expansion - 275 tests, 80% coverage
+**CURRENT VERSION (v0.7.8):**
+- ✅ 994 tests passing (79% coverage)
+- ✅ Auto-update system with bug fixes (WinError 32, cache sync)
+- ✅ Terminal UI (TUI) with full vault management
+- ✅ TOTP/2FA application lock
+- ✅ Gallery Foundation with cross-vault search
+- ✅ JPEG DCT + PNG LSB steganography
+- ✅ Headless mode for automation
+- ✅ Application layer architecture
 
-**NEXT UP (v0.6.0 / Gallery Foundation):**
-- Gallery foundation - multi-file vault management
-- Cross-vault search capabilities
-- Gallery metadata tracking
-- Vault search/filter commands
+**RECENTLY COMPLETED (v0.7.0-v0.7.8):**
+1. ✅ Full-featured Terminal UI with Textual
+2. ✅ Auto-update system with Settings integration
+3. ✅ TOTP/2FA application lock for enhanced security
+4. ✅ Critical auto-update bug fixes (WinError 32, cache sync)
+5. ✅ Dynamic "Update Now" button
+6. ✅ Favorite folders for quick vault access
+
+**NEXT UP (v0.8.0 / Desktop GUI):**
+- Native desktop application with PySide6
+- Visual vault management interface
+- Password generator UI
+- Settings dialog
+- Dark mode support
 
 **THE VISION:**
-Transform StegVault into a multimedia gallery where each photo/video/audio file can secretly store encrypted vaults. Privacy-first, distributed security, plausible deniability.
+Privacy-first password manager using steganography. Hide encrypted vaults in ordinary images. Three interfaces (CLI, TUI, GUI) for all use cases. Zero-knowledge, local-first, open source.

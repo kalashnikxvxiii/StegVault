@@ -155,7 +155,7 @@ def update(check_only: bool, force: bool, yes: bool) -> None:
                 click.echo(f"... ({len(lines) - 30} more lines)")
                 click.echo()
                 click.echo(
-                    f"Full changelog: https://github.com/kalashnikxvxiii-collab/StegVault/blob/main/CHANGELOG.md#"
+                    f"Full changelog: https://github.com/kalashnikxvxiii/StegVault/blob/main/CHANGELOG.md#"
                     f"{latest_version.replace('.', '')}"
                 )
         else:
@@ -181,7 +181,7 @@ def update(check_only: bool, force: bool, yes: bool) -> None:
             click.echo("[!] Portable package requires manual update:")
             click.echo()
             click.echo("  1. Download latest release from:")
-            click.echo("     https://github.com/kalashnikxvxiii-collab/StegVault/releases/latest")
+            click.echo("     https://github.com/kalashnikxvxiii/StegVault/releases/latest")
             click.echo("  2. Extract to StegVault folder (overwrite files)")
             click.echo("  3. Run: setup_portable.bat")
             click.echo()

@@ -987,7 +987,7 @@ stegvault tui
 stegvault tui
 ```
 
-See [TUI Guide](https://github.com/kalashnikxvxiii-collab/StegVault/blob/main/TUI_USER_GUIDE.md) for detailed usage.
+See [TUI Guide](https://github.com/kalashnikxvxiii/StegVault/blob/main/TUI_USER_GUIDE.md) for detailed usage.
 
 ---
 
@@ -1020,12 +1020,12 @@ fi
 
 ## See Also
 
-- [Quick Start Tutorial](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/Quick-Start-Tutorial) - Get started in 5 minutes
-- [Basic Usage Examples](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/Basic-Usage-Examples) - 27 practical examples
-- [Headless Mode Guide](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/Headless-Mode-Guide) - Automation and CI/CD
-- [TUI Guide](https://github.com/kalashnikxvxiii-collab/StegVault/blob/main/TUI_USER_GUIDE.md) - Terminal UI reference
-- [Security Best Practices](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/Security-Best-Practices) - Usage guidelines
-- [Troubleshooting](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/Troubleshooting) - Common issues
+- [Quick Start Tutorial](https://github.com/kalashnikxvxiii/StegVault/wiki/Quick-Start-Tutorial) - Get started in 5 minutes
+- [Basic Usage Examples](https://github.com/kalashnikxvxiii/StegVault/wiki/Basic-Usage-Examples) - 27 practical examples
+- [Headless Mode Guide](https://github.com/kalashnikxvxiii/StegVault/wiki/Headless-Mode-Guide) - Automation and CI/CD
+- [TUI Guide](https://github.com/kalashnikxvxiii/StegVault/blob/main/TUI_USER_GUIDE.md) - Terminal UI reference
+- [Security Best Practices](https://github.com/kalashnikxvxiii/StegVault/wiki/Security-Best-Practices) - Usage guidelines
+- [Troubleshooting](https://github.com/kalashnikxvxiii/StegVault/wiki/Troubleshooting) - Common issues
 
 ---
 

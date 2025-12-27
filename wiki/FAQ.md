@@ -39,7 +39,7 @@ See [Security Model](Security-Model.md) for detailed analysis.
 ### Is this open source?
 
 Yes! StegVault is open source under the MIT license:
-- Source code: https://github.com/kalashnikxvxiii-collab/StegVault
+- Source code: https://github.com/kalashnikxvxiii/StegVault
 - Community contributions welcome
 - Auditable by security researchers
 

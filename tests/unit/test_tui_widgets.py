@@ -2334,7 +2334,7 @@ class TestSettingsScreen:
     def test_settings_screen_on_button_pressed_save(self):
         """Should save settings and dismiss on save button."""
         screen = SettingsScreen()
-        screen._save_settings = Mock()  # Mock the save method
+        screen._save_settings = Mock(return_value=True)  # Mock successful save
         screen.dismiss = Mock()
 
         button = Mock()
@@ -2346,6 +2346,22 @@ class TestSettingsScreen:
 
         screen._save_settings.assert_called_once()
         screen.dismiss.assert_called_once()
+
+    def test_settings_screen_on_button_pressed_save_failure(self):
+        """Should not dismiss when save fails."""
+        screen = SettingsScreen()
+        screen._save_settings = Mock(return_value=False)  # Mock failed save
+        screen.dismiss = Mock()
+
+        button = Mock()
+        button.id = "btn-save"
+        event = Mock()
+        event.button = button
+
+        screen.on_button_pressed(event)
+
+        screen._save_settings.assert_called_once()
+        screen.dismiss.assert_not_called()  # Should NOT dismiss on failure
 
     def test_settings_screen_on_button_pressed_cancel(self):
         """Should check for changes on cancel button."""
@@ -2470,17 +2486,16 @@ class TestTOTPAuthScreen:
         """Should dismiss with False and quit app on cancel."""
         screen = TOTPAuthScreen(totp_secret="JBSWY3DPEHPK3PXP")
         screen.dismiss = Mock()
-        screen.run_worker = Mock()
 
-        # Mock app since action_cancel accesses app.action_quit()
+        # Mock app since action_cancel calls app.action_quit() directly (fixed in bug fix session)
         mock_app = Mock()
-        mock_app.action_quit = Mock(return_value=Mock())  # Return a mock coroutine
+        mock_app.action_quit = Mock()
 
         with patch.object(type(screen), "app", property(lambda self: mock_app)):
             screen.action_cancel()
 
             screen.dismiss.assert_called_once_with(False)
-            screen.run_worker.assert_called_once()
+            mock_app.action_quit.assert_called_once()  # Changed: now calls action_quit directly
 
 
 # Additional comprehensive tests for coverage improvement
@@ -2500,6 +2515,7 @@ class TestSettingsScreenAdvanced:
         mock_config = Mock()
         mock_config.updates = Mock()
         mock_config.totp = Mock()
+        mock_config.crypto = Mock()
         mock_load_config.return_value = mock_config
 
         screen = SettingsScreen()
@@ -2509,14 +2525,35 @@ class TestSettingsScreenAdvanced:
         mock_auto_upgrade = Mock(value=False)
         mock_totp = Mock(value=True)
 
-        screen.query_one = Mock(side_effect=[mock_auto_check, mock_auto_upgrade, mock_totp])
+        # Mock crypto input fields
+        mock_time_cost = Mock(value="3")
+        mock_memory_cost = Mock(value="65536")
+        mock_parallelism = Mock(value="4")
+
+        screen.query_one = Mock(
+            side_effect=[
+                mock_auto_check,
+                mock_auto_upgrade,
+                mock_totp,
+                mock_time_cost,
+                mock_memory_cost,
+                mock_parallelism,
+            ]
+        )
+
+        # Mock validation methods
+        screen._validate_time_cost = Mock(return_value=True)
+        screen._validate_memory_cost = Mock(return_value=True)
+        screen._validate_parallelism = Mock(return_value=True)
+        screen._validate_crypto_compatibility = Mock(return_value=True)
 
         # Mock app
         mock_app = Mock()
 
         with patch.object(type(screen), "app", property(lambda self: mock_app)):
-            screen._save_settings()
+            result = screen._save_settings()
 
+            assert result is True  # Should return True on success
             mock_save_config.assert_called_once()
             mock_app.notify.assert_called_once()
             assert "saved successfully" in mock_app.notify.call_args[0][0]
@@ -2533,8 +2570,9 @@ class TestSettingsScreenAdvanced:
         mock_app = Mock()
 
         with patch.object(type(screen), "app", property(lambda self: mock_app)):
-            screen._save_settings()
+            result = screen._save_settings()
 
+            assert result is False  # Should return False on exception
             # Should notify error
             assert mock_app.notify.called
             call_args = mock_app.notify.call_args
@@ -2553,7 +2591,21 @@ class TestSettingsScreenAdvanced:
         mock_auto_upgrade = Mock(value=False)
         mock_totp = Mock(value=False)
 
-        screen.query_one = Mock(side_effect=[mock_auto_check, mock_auto_upgrade, mock_totp])
+        # Mock crypto inputs (unchanged)
+        mock_time_cost = Mock(value="3")
+        mock_memory_cost = Mock(value="65536")
+        mock_parallelism = Mock(value="4")
+
+        screen.query_one = Mock(
+            side_effect=[
+                mock_auto_check,
+                mock_auto_upgrade,
+                mock_totp,
+                mock_time_cost,
+                mock_memory_cost,
+                mock_parallelism,
+            ]
+        )
 
         assert screen._has_unsaved_changes() is True
 
@@ -2592,10 +2644,10 @@ class TestSettingsScreenAdvanced:
 
     @pytest.mark.asyncio
     async def test_handle_close_with_check_unsaved_save(self):
-        """Should save and dismiss when user chooses to save."""
+        """Should save and dismiss when user chooses to save and save succeeds."""
         screen = SettingsScreen()
         screen._has_unsaved_changes = Mock(return_value=True)
-        screen._save_settings = Mock()
+        screen._save_settings = Mock(return_value=True)  # Successful save
         screen.dismiss = Mock()
 
         # Mock app
@@ -2607,6 +2659,24 @@ class TestSettingsScreenAdvanced:
 
             screen._save_settings.assert_called_once()
             screen.dismiss.assert_called_once_with(None)
+
+    @pytest.mark.asyncio
+    async def test_handle_close_with_check_unsaved_save_failure(self):
+        """Should not dismiss when user chooses to save but save fails."""
+        screen = SettingsScreen()
+        screen._has_unsaved_changes = Mock(return_value=True)
+        screen._save_settings = Mock(return_value=False)  # Failed save
+        screen.dismiss = Mock()
+
+        # Mock app
+        mock_app = Mock()
+        mock_app.push_screen_wait = AsyncMock(return_value="save")
+
+        with patch.object(type(screen), "app", property(lambda self: mock_app)):
+            await screen._handle_close_with_check()
+
+            screen._save_settings.assert_called_once()
+            screen.dismiss.assert_not_called()  # Should NOT dismiss on failure
 
     @pytest.mark.asyncio
     async def test_handle_close_with_check_unsaved_dont_save(self):
@@ -2881,6 +2951,9 @@ class TestSettingsScreenAdvanced:
         mock_config = Mock()
         mock_config.updates = Mock(auto_check=True, auto_upgrade=False)
         mock_config.totp = Mock(enabled=True)
+        mock_config.crypto = Mock(
+            argon2_time_cost=3, argon2_memory_cost=65536, argon2_parallelism=4
+        )
         mock_load_config.return_value = mock_config
 
         screen = SettingsScreen()
@@ -2890,7 +2963,21 @@ class TestSettingsScreenAdvanced:
         mock_auto_upgrade = Mock()
         mock_totp = Mock()
 
-        screen.query_one = Mock(side_effect=[mock_auto_check, mock_auto_upgrade, mock_totp])
+        # Mock crypto inputs
+        mock_time_cost = Mock()
+        mock_memory_cost = Mock()
+        mock_parallelism = Mock()
+
+        screen.query_one = Mock(
+            side_effect=[
+                mock_auto_check,
+                mock_auto_upgrade,
+                mock_totp,
+                mock_time_cost,
+                mock_memory_cost,
+                mock_parallelism,
+            ]
+        )
 
         screen.on_mount()
 
@@ -2898,6 +2985,11 @@ class TestSettingsScreenAdvanced:
         assert mock_auto_check.value is True
         assert mock_auto_upgrade.value is False
         assert mock_totp.value is True
+
+        # Should set crypto input values
+        assert mock_time_cost.value == "3"
+        assert mock_memory_cost.value == "65536"
+        assert mock_parallelism.value == "4"
 
         # Should store initial values
         assert screen._initial_auto_check is True
@@ -2922,6 +3014,9 @@ class TestSettingsScreenAdvanced:
         mock_config = Mock()
         mock_config.updates = Mock(auto_check=True, auto_upgrade=False)
         mock_config.totp = Mock(enabled=False)
+        mock_config.crypto = Mock(
+            argon2_time_cost=3, argon2_memory_cost=65536, argon2_parallelism=4
+        )
         mock_load_config.return_value = mock_config
 
         # Mock cached update check showing update available
@@ -2937,7 +3032,21 @@ class TestSettingsScreenAdvanced:
         mock_auto_upgrade = Mock()
         mock_totp = Mock()
 
-        screen.query_one = Mock(side_effect=[mock_auto_check, mock_auto_upgrade, mock_totp])
+        # Mock crypto inputs
+        mock_time_cost = Mock()
+        mock_memory_cost = Mock()
+        mock_parallelism = Mock()
+
+        screen.query_one = Mock(
+            side_effect=[
+                mock_auto_check,
+                mock_auto_upgrade,
+                mock_totp,
+                mock_time_cost,
+                mock_memory_cost,
+                mock_parallelism,
+            ]
+        )
 
         screen.on_mount()
 
@@ -3002,3 +3111,732 @@ class TestSettingsScreenAdvanced:
             mock_app.notify.assert_called()
             call_args = mock_app.notify.call_args_list
             assert any("Update launch failed" in str(call) for call in call_args)
+
+    # ========== Advanced Settings Validation Tests ==========
+
+    def test_reset_crypto_params_success(self):
+        """Should reset crypto parameters to default values."""
+        screen = SettingsScreen()
+
+        # Mock input fields
+        mock_time_cost = Mock()
+        mock_memory_cost = Mock()
+        mock_parallelism = Mock()
+
+        # Mock warning labels
+        mock_warning_time = Mock()
+        mock_warning_memory = Mock()
+        mock_warning_parallel = Mock()
+        mock_warning_compat = Mock()
+
+        screen.query_one = Mock(
+            side_effect=[
+                mock_time_cost,
+                mock_memory_cost,
+                mock_parallelism,
+                mock_warning_time,
+                mock_warning_memory,
+                mock_warning_parallel,
+                mock_warning_compat,
+            ]
+        )
+
+        # Mock app
+        mock_app = Mock()
+
+        with patch.object(type(screen), "app", property(lambda self: mock_app)):
+            screen._reset_crypto_params()
+
+            # Should reset to defaults
+            assert mock_time_cost.value == "3"
+            assert mock_memory_cost.value == "65536"
+            assert mock_parallelism.value == "4"
+
+            # Should clear warnings
+            mock_warning_time.update.assert_called_once_with("")
+            mock_warning_memory.update.assert_called_once_with("")
+            mock_warning_parallel.update.assert_called_once_with("")
+            mock_warning_compat.update.assert_called_once_with("")
+
+            # Should notify success
+            assert mock_app.notify.called
+            assert "reset to defaults" in mock_app.notify.call_args[0][0]
+
+    def test_reset_crypto_params_exception(self):
+        """Should handle exception during reset."""
+        screen = SettingsScreen()
+        screen.query_one = Mock(side_effect=Exception("Query failed"))
+
+        # Mock app
+        mock_app = Mock()
+
+        with patch.object(type(screen), "app", property(lambda self: mock_app)):
+            screen._reset_crypto_params()
+
+            # Should notify error
+            assert mock_app.notify.called
+            assert "Failed to reset" in mock_app.notify.call_args[0][0]
+
+    def test_clear_all_warnings(self):
+        """Should clear all warning labels."""
+        screen = SettingsScreen()
+
+        # Mock warning labels
+        mock_warning_time = Mock()
+        mock_warning_memory = Mock()
+        mock_warning_parallel = Mock()
+        mock_warning_compat = Mock()
+
+        screen.query_one = Mock(
+            side_effect=[
+                mock_warning_time,
+                mock_warning_memory,
+                mock_warning_parallel,
+                mock_warning_compat,
+            ]
+        )
+
+        screen._clear_all_warnings()
+
+        # Should update all labels to empty string
+        mock_warning_time.update.assert_called_once_with("")
+        mock_warning_memory.update.assert_called_once_with("")
+        mock_warning_parallel.update.assert_called_once_with("")
+        mock_warning_compat.update.assert_called_once_with("")
+
+    def test_clear_all_warnings_exception(self):
+        """Should handle exception during clear warnings."""
+        screen = SettingsScreen()
+        screen.query_one = Mock(side_effect=Exception("Query failed"))
+
+        # Should not crash
+        screen._clear_all_warnings()
+
+    def test_validate_time_cost_valid(self):
+        """Should validate valid time cost."""
+        screen = SettingsScreen()
+
+        mock_input = Mock(value="5")
+        mock_warning = Mock()
+
+        screen.query_one = Mock(side_effect=[mock_input, mock_warning])
+
+        result = screen._validate_time_cost()
+
+        assert result is True
+        mock_warning.update.assert_called_once_with("")
+
+    def test_validate_time_cost_too_low(self):
+        """Should warn when time cost is too low."""
+        screen = SettingsScreen()
+
+        mock_input = Mock(value="0")
+        mock_warning = Mock()
+
+        screen.query_one = Mock(side_effect=[mock_input, mock_warning])
+
+        result = screen._validate_time_cost()
+
+        assert result is False
+        mock_warning.update.assert_called_once()
+        assert "Minimum value is 1" in mock_warning.update.call_args[0][0]
+
+    def test_validate_time_cost_weak_security(self):
+        """Should warn when time cost provides weak security."""
+        screen = SettingsScreen()
+
+        mock_input = Mock(value="2")
+        mock_warning = Mock()
+
+        screen.query_one = Mock(side_effect=[mock_input, mock_warning])
+
+        result = screen._validate_time_cost()
+
+        assert result is False
+        mock_warning.update.assert_called_once()
+        assert "weak security" in mock_warning.update.call_args[0][0]
+
+    def test_validate_time_cost_too_high(self):
+        """Should warn when time cost is too high."""
+        screen = SettingsScreen()
+
+        mock_input = Mock(value="25")
+        mock_warning = Mock()
+
+        screen.query_one = Mock(side_effect=[mock_input, mock_warning])
+
+        result = screen._validate_time_cost()
+
+        assert result is False
+        mock_warning.update.assert_called_once()
+        assert "slow performance" in mock_warning.update.call_args[0][0]
+
+    def test_validate_time_cost_high_but_acceptable(self):
+        """Should show info when time cost is high but acceptable."""
+        screen = SettingsScreen()
+
+        mock_input = Mock(value="15")
+        mock_warning = Mock()
+
+        screen.query_one = Mock(side_effect=[mock_input, mock_warning])
+
+        result = screen._validate_time_cost()
+
+        assert result is True
+        mock_warning.update.assert_called_once()
+        assert "increase security" in mock_warning.update.call_args[0][0]
+
+    def test_validate_time_cost_invalid_integer(self):
+        """Should warn when time cost is not an integer."""
+        screen = SettingsScreen()
+
+        mock_input = Mock(value="abc")
+        mock_warning = Mock()
+
+        screen.query_one = Mock(side_effect=[mock_input, mock_warning])
+
+        result = screen._validate_time_cost()
+
+        assert result is False
+        mock_warning.update.assert_called_once()
+        assert "valid integer" in mock_warning.update.call_args[0][0]
+
+    def test_validate_memory_cost_valid(self):
+        """Should validate valid memory cost."""
+        screen = SettingsScreen()
+
+        mock_input = Mock(value="65536")  # 64 MB
+        mock_warning = Mock()
+
+        screen.query_one = Mock(side_effect=[mock_input, mock_warning])
+
+        result = screen._validate_memory_cost()
+
+        assert result is True
+        mock_warning.update.assert_called_once_with("")
+
+    def test_validate_memory_cost_too_low(self):
+        """Should warn when memory cost is too low."""
+        screen = SettingsScreen()
+
+        mock_input = Mock(value="4")
+        mock_warning = Mock()
+
+        screen.query_one = Mock(side_effect=[mock_input, mock_warning])
+
+        result = screen._validate_memory_cost()
+
+        assert result is False
+        mock_warning.update.assert_called_once()
+        assert "Minimum value is 8 KB" in mock_warning.update.call_args[0][0]
+
+    def test_validate_memory_cost_weak_security(self):
+        """Should warn when memory cost provides weak security."""
+        screen = SettingsScreen()
+
+        mock_input = Mock(value="16384")  # 16 MB
+        mock_warning = Mock()
+
+        screen.query_one = Mock(side_effect=[mock_input, mock_warning])
+
+        result = screen._validate_memory_cost()
+
+        assert result is False
+        mock_warning.update.assert_called_once()
+        assert "weak security" in mock_warning.update.call_args[0][0]
+
+    def test_validate_memory_cost_too_high(self):
+        """Should warn when memory cost is too high."""
+        screen = SettingsScreen()
+
+        mock_input = Mock(value="2097152")  # 2 GB
+        mock_warning = Mock()
+
+        screen.query_one = Mock(side_effect=[mock_input, mock_warning])
+
+        result = screen._validate_memory_cost()
+
+        assert result is False
+        mock_warning.update.assert_called_once()
+        assert "memory issues" in mock_warning.update.call_args[0][0]
+
+    def test_validate_memory_cost_high_but_acceptable(self):
+        """Should show info when memory cost is high but acceptable."""
+        screen = SettingsScreen()
+
+        mock_input = Mock(value="524288")  # 512 MB
+        mock_warning = Mock()
+
+        screen.query_one = Mock(side_effect=[mock_input, mock_warning])
+
+        result = screen._validate_memory_cost()
+
+        assert result is True
+        mock_warning.update.assert_called_once()
+        assert "low-end devices" in mock_warning.update.call_args[0][0]
+
+    def test_validate_memory_cost_invalid_integer(self):
+        """Should warn when memory cost is not an integer."""
+        screen = SettingsScreen()
+
+        mock_input = Mock(value="xyz")
+        mock_warning = Mock()
+
+        screen.query_one = Mock(side_effect=[mock_input, mock_warning])
+
+        result = screen._validate_memory_cost()
+
+        assert result is False
+        mock_warning.update.assert_called_once()
+        assert "valid integer" in mock_warning.update.call_args[0][0]
+
+    @patch("os.cpu_count", return_value=8)
+    def test_validate_parallelism_valid(self, mock_cpu_count):
+        """Should validate valid parallelism."""
+        screen = SettingsScreen()
+
+        mock_input = Mock(value="4")
+        mock_warning = Mock()
+
+        screen.query_one = Mock(side_effect=[mock_input, mock_warning])
+
+        result = screen._validate_parallelism()
+
+        assert result is True
+        mock_warning.update.assert_called_once_with("")
+
+    @patch("os.cpu_count", return_value=8)
+    def test_validate_parallelism_too_low(self, mock_cpu_count):
+        """Should warn when parallelism is too low."""
+        screen = SettingsScreen()
+
+        mock_input = Mock(value="0")
+        mock_warning = Mock()
+
+        screen.query_one = Mock(side_effect=[mock_input, mock_warning])
+
+        result = screen._validate_parallelism()
+
+        assert result is False
+        mock_warning.update.assert_called_once()
+        assert "Minimum value is 1" in mock_warning.update.call_args[0][0]
+
+    @patch("os.cpu_count", return_value=8)
+    def test_validate_parallelism_too_high(self, mock_cpu_count):
+        """Should warn when parallelism is too high."""
+        screen = SettingsScreen()
+
+        mock_input = Mock(value="20")  # > 2x CPU cores
+        mock_warning = Mock()
+
+        screen.query_one = Mock(side_effect=[mock_input, mock_warning])
+
+        result = screen._validate_parallelism()
+
+        assert result is False
+        mock_warning.update.assert_called_once()
+        assert "thrashing" in mock_warning.update.call_args[0][0]
+
+    @patch("os.cpu_count", return_value=8)
+    def test_validate_parallelism_exceeds_cpu_cores(self, mock_cpu_count):
+        """Should show info when parallelism exceeds CPU cores."""
+        screen = SettingsScreen()
+
+        mock_input = Mock(value="12")  # > CPU cores but < 2x
+        mock_warning = Mock()
+
+        screen.query_one = Mock(side_effect=[mock_input, mock_warning])
+
+        result = screen._validate_parallelism()
+
+        assert result is True
+        mock_warning.update.assert_called_once()
+        assert "diminishing returns" in mock_warning.update.call_args[0][0]
+
+    @patch("os.cpu_count", return_value=8)
+    def test_validate_parallelism_invalid_integer(self, mock_cpu_count):
+        """Should warn when parallelism is not an integer."""
+        screen = SettingsScreen()
+
+        mock_input = Mock(value="not_a_number")
+        mock_warning = Mock()
+
+        screen.query_one = Mock(side_effect=[mock_input, mock_warning])
+
+        result = screen._validate_parallelism()
+
+        assert result is False
+        mock_warning.update.assert_called_once()
+        assert "valid integer" in mock_warning.update.call_args[0][0]
+
+    def test_validate_crypto_compatibility_valid(self):
+        """Should validate compatible crypto parameters."""
+        screen = SettingsScreen()
+
+        mock_warning = Mock()
+        mock_time_cost = Mock(value="3")
+        mock_memory_cost = Mock(value="65536")
+        mock_parallelism = Mock(value="4")
+
+        screen.query_one = Mock(
+            side_effect=[mock_warning, mock_time_cost, mock_memory_cost, mock_parallelism]
+        )
+
+        result = screen._validate_crypto_compatibility()
+
+        assert result is True
+        mock_warning.update.assert_called_once_with("")
+
+    def test_validate_crypto_compatibility_weak_config(self):
+        """Should warn when both time and memory are too low."""
+        screen = SettingsScreen()
+
+        mock_warning = Mock()
+        mock_time_cost = Mock(value="2")
+        mock_memory_cost = Mock(value="16384")  # < 32 MB
+        mock_parallelism = Mock(value="4")
+
+        screen.query_one = Mock(
+            side_effect=[mock_warning, mock_time_cost, mock_memory_cost, mock_parallelism]
+        )
+
+        result = screen._validate_crypto_compatibility()
+
+        assert result is False
+        mock_warning.update.assert_called_once()
+        assert "CRITICAL" in mock_warning.update.call_args[0][0]
+        assert "extremely weak security" in mock_warning.update.call_args[0][0]
+
+    def test_validate_crypto_compatibility_excessive_memory(self):
+        """Should warn when total memory usage exceeds available RAM."""
+        screen = SettingsScreen()
+
+        mock_warning = Mock()
+        mock_time_cost = Mock(value="3")
+        mock_memory_cost = Mock(value="524288")  # 512 MB
+        mock_parallelism = Mock(value="16")  # 512 MB * 16 = 8 GB
+
+        screen.query_one = Mock(
+            side_effect=[mock_warning, mock_time_cost, mock_memory_cost, mock_parallelism]
+        )
+
+        result = screen._validate_crypto_compatibility()
+
+        assert result is False
+        mock_warning.update.assert_called_once()
+        assert "WARNING" in mock_warning.update.call_args[0][0]
+        assert "exceed available RAM" in mock_warning.update.call_args[0][0]
+
+    def test_validate_crypto_compatibility_low_memory_high_parallelism(self):
+        """Should warn about low memory per thread with high parallelism."""
+        screen = SettingsScreen()
+
+        mock_warning = Mock()
+        mock_time_cost = Mock(value="3")
+        mock_memory_cost = Mock(value="32768")  # 32 MB
+        mock_parallelism = Mock(value="8")
+
+        screen.query_one = Mock(
+            side_effect=[mock_warning, mock_time_cost, mock_memory_cost, mock_parallelism]
+        )
+
+        result = screen._validate_crypto_compatibility()
+
+        assert result is True  # Info, not error
+        mock_warning.update.assert_called_once()
+        assert "Low memory per thread" in mock_warning.update.call_args[0][0]
+
+    def test_validate_crypto_compatibility_invalid_values(self):
+        """Should handle invalid integer values."""
+        screen = SettingsScreen()
+
+        mock_warning = Mock()
+        mock_time_cost = Mock(value="abc")  # Invalid
+        mock_memory_cost = Mock(value="xyz")
+        mock_parallelism = Mock(value="123")
+
+        screen.query_one = Mock(
+            side_effect=[mock_warning, mock_time_cost, mock_memory_cost, mock_parallelism]
+        )
+
+        result = screen._validate_crypto_compatibility()
+
+        assert result is False
+        mock_warning.update.assert_called_once_with("")  # Individual validators will catch this
+
+    def test_validate_all_crypto_params(self):
+        """Should validate all crypto parameters."""
+        screen = SettingsScreen()
+
+        screen._validate_time_cost = Mock(return_value=True)
+        screen._validate_memory_cost = Mock(return_value=True)
+        screen._validate_parallelism = Mock(return_value=True)
+        screen._validate_crypto_compatibility = Mock(return_value=True)
+
+        screen._validate_all_crypto_params()
+
+        # Should call all validation methods
+        screen._validate_time_cost.assert_called_once()
+        screen._validate_memory_cost.assert_called_once()
+        screen._validate_parallelism.assert_called_once()
+        screen._validate_crypto_compatibility.assert_called_once()
+
+    def test_on_input_changed_crypto_params(self):
+        """Should trigger validation on crypto input change."""
+        screen = SettingsScreen()
+        screen._validate_all_crypto_params = Mock()
+
+        mock_input = Mock(id="input-time-cost")
+        event = Mock(input=mock_input)
+
+        screen.on_input_changed(event)
+
+        # Should call validation
+        screen._validate_all_crypto_params.assert_called_once()
+
+    def test_on_input_changed_other_input(self):
+        """Should not trigger validation on non-crypto input change."""
+        screen = SettingsScreen()
+        screen._validate_all_crypto_params = Mock()
+
+        mock_input = Mock(id="some-other-input")
+        event = Mock(input=mock_input)
+
+        screen.on_input_changed(event)
+
+        # Should not call validation
+        screen._validate_all_crypto_params.assert_not_called()
+
+    def test_on_button_pressed_reset_crypto(self):
+        """Should reset crypto params on reset button press."""
+        screen = SettingsScreen()
+        screen._reset_crypto_params = Mock()
+
+        button = Mock(id="btn-reset-crypto")
+        event = Mock(button=button)
+
+        screen.on_button_pressed(event)
+
+        # Should call reset method
+        screen._reset_crypto_params.assert_called_once()
+
+    @patch("stegvault.config.core.save_config")
+    @patch("stegvault.config.core.load_config")
+    def test_save_settings_with_validation_success(self, mock_load_config, mock_save_config):
+        """Should save settings when all validations pass."""
+        # Create mock config
+        mock_config = Mock()
+        mock_config.updates = Mock()
+        mock_config.totp = Mock()
+        mock_config.crypto = Mock()
+        mock_load_config.return_value = mock_config
+
+        screen = SettingsScreen()
+
+        # Mock switches
+        mock_auto_check = Mock(value=True)
+        mock_auto_upgrade = Mock(value=False)
+        mock_totp = Mock(value=True)
+
+        # Mock input fields with valid values
+        mock_time_cost = Mock(value="3")
+        mock_memory_cost = Mock(value="65536")
+        mock_parallelism = Mock(value="4")
+
+        screen.query_one = Mock(
+            side_effect=[
+                mock_auto_check,
+                mock_auto_upgrade,
+                mock_totp,
+                mock_time_cost,
+                mock_memory_cost,
+                mock_parallelism,
+            ]
+        )
+
+        # Mock validation methods to return True
+        screen._validate_time_cost = Mock(return_value=True)
+        screen._validate_memory_cost = Mock(return_value=True)
+        screen._validate_parallelism = Mock(return_value=True)
+        screen._validate_crypto_compatibility = Mock(return_value=True)
+
+        # Mock app
+        mock_app = Mock()
+
+        with patch.object(type(screen), "app", property(lambda self: mock_app)):
+            result = screen._save_settings()
+
+            assert result is True  # Should return True on successful save
+
+            # Should save config
+            mock_save_config.assert_called_once()
+
+            # Should set crypto config values
+            assert mock_config.crypto.argon2_time_cost == 3
+            assert mock_config.crypto.argon2_memory_cost == 65536
+            assert mock_config.crypto.argon2_parallelism == 4
+
+            # Should notify success
+            assert mock_app.notify.called
+            assert "saved successfully" in mock_app.notify.call_args[0][0]
+
+    @patch("stegvault.config.core.save_config")
+    @patch("stegvault.config.core.load_config")
+    def test_save_settings_validation_failure(self, mock_load_config, mock_save_config):
+        """Should not save when validation fails."""
+        # Create mock config
+        mock_config = Mock()
+        mock_config.updates = Mock()
+        mock_config.totp = Mock()
+        mock_config.crypto = Mock()
+        mock_load_config.return_value = mock_config
+
+        screen = SettingsScreen()
+
+        # Mock switches
+        mock_auto_check = Mock(value=True)
+        mock_auto_upgrade = Mock(value=False)
+        mock_totp = Mock(value=True)
+
+        # Mock input fields with invalid values
+        mock_time_cost = Mock(value="0")  # Invalid
+        mock_memory_cost = Mock(value="65536")
+        mock_parallelism = Mock(value="4")
+
+        screen.query_one = Mock(
+            side_effect=[
+                mock_auto_check,
+                mock_auto_upgrade,
+                mock_totp,
+                mock_time_cost,
+                mock_memory_cost,
+                mock_parallelism,
+            ]
+        )
+
+        # Mock validation methods - time_cost fails
+        screen._validate_time_cost = Mock(return_value=False)
+        screen._validate_memory_cost = Mock(return_value=True)
+        screen._validate_parallelism = Mock(return_value=True)
+        screen._validate_crypto_compatibility = Mock(return_value=True)
+
+        # Mock app
+        mock_app = Mock()
+
+        with patch.object(type(screen), "app", property(lambda self: mock_app)):
+            result = screen._save_settings()
+
+            assert result is False  # Should return False on validation failure
+
+            # Should NOT save config
+            mock_save_config.assert_not_called()
+
+            # Should notify error
+            assert mock_app.notify.called
+            assert "Cannot save" in mock_app.notify.call_args[0][0]
+            assert "fix the validation errors" in mock_app.notify.call_args[0][0]
+
+    @patch("stegvault.config.core.save_config")
+    @patch("stegvault.config.core.load_config")
+    def test_save_settings_compatibility_failure(self, mock_load_config, mock_save_config):
+        """Should not save when compatibility validation fails."""
+        # Create mock config
+        mock_config = Mock()
+        mock_config.updates = Mock()
+        mock_config.totp = Mock()
+        mock_config.crypto = Mock()
+        mock_load_config.return_value = mock_config
+
+        screen = SettingsScreen()
+
+        # Mock switches
+        mock_auto_check = Mock(value=True)
+        mock_auto_upgrade = Mock(value=False)
+        mock_totp = Mock(value=True)
+
+        # Mock input fields
+        mock_time_cost = Mock(value="2")
+        mock_memory_cost = Mock(value="16384")  # Both low
+        mock_parallelism = Mock(value="4")
+
+        screen.query_one = Mock(
+            side_effect=[
+                mock_auto_check,
+                mock_auto_upgrade,
+                mock_totp,
+                mock_time_cost,
+                mock_memory_cost,
+                mock_parallelism,
+            ]
+        )
+
+        # Mock validation methods - compatibility fails
+        screen._validate_time_cost = Mock(return_value=True)
+        screen._validate_memory_cost = Mock(return_value=True)
+        screen._validate_parallelism = Mock(return_value=True)
+        screen._validate_crypto_compatibility = Mock(return_value=False)
+
+        # Mock app
+        mock_app = Mock()
+
+        with patch.object(type(screen), "app", property(lambda self: mock_app)):
+            result = screen._save_settings()
+
+            assert result is False  # Should return False on compatibility failure
+
+            # Should NOT save config
+            mock_save_config.assert_not_called()
+
+            # Should notify error
+            assert mock_app.notify.called
+            assert "Cannot save" in mock_app.notify.call_args[0][0]
+            assert "compatibility issues" in mock_app.notify.call_args[0][0]
+
+    @patch("stegvault.config.core.save_config")
+    @patch("stegvault.config.core.load_config")
+    def test_save_settings_invalid_integer(self, mock_load_config, mock_save_config):
+        """Should handle invalid integer input."""
+        # Create mock config
+        mock_config = Mock()
+        mock_config.updates = Mock()
+        mock_config.totp = Mock()
+        mock_config.crypto = Mock()
+        mock_load_config.return_value = mock_config
+
+        screen = SettingsScreen()
+
+        # Mock switches
+        mock_auto_check = Mock(value=True)
+        mock_auto_upgrade = Mock(value=False)
+        mock_totp = Mock(value=True)
+
+        # Mock input fields with non-integer value
+        mock_time_cost = Mock(value="abc")  # Invalid
+        mock_memory_cost = Mock(value="65536")
+        mock_parallelism = Mock(value="4")
+
+        screen.query_one = Mock(
+            side_effect=[
+                mock_auto_check,
+                mock_auto_upgrade,
+                mock_totp,
+                mock_time_cost,
+                mock_memory_cost,
+                mock_parallelism,
+            ]
+        )
+
+        # Mock app
+        mock_app = Mock()
+
+        with patch.object(type(screen), "app", property(lambda self: mock_app)):
+            result = screen._save_settings()
+
+            assert result is False  # Should return False on invalid integer
+
+            # Should NOT save config
+            mock_save_config.assert_not_called()
+
+            # Should notify error
+            assert mock_app.notify.called
+            assert "Invalid crypto config values" in mock_app.notify.call_args[0][0]

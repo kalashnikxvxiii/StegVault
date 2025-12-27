@@ -290,7 +290,7 @@ pip install --upgrade stegvault
 - **CLI Commands**: `stegvault vault --help`
 - **API Documentation**: See `wiki/API-Reference.md`
 - **Security Details**: See `wiki/Security-Model.md`
-- **Full Documentation**: https://github.com/kalashnikxvxiii-collab/StegVault/wiki
+- **Full Documentation**: https://github.com/kalashnikxvxiii/StegVault/wiki
 
 ---
 

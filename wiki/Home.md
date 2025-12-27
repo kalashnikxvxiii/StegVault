@@ -79,8 +79,8 @@ See [ROADMAP.md](../ROADMAP.md) for planned features.
 
 ## Need Help?
 
-- 💬 [Discussions](https://github.com/kalashnikxvxiii-collab/stegvault/discussions)
-- 🐛 [Issue Tracker](https://github.com/kalashnikxvxiii-collab/stegvault/issues)
+- 💬 [Discussions](https://github.com/kalashnikxvxiii/stegvault/discussions)
+- 🐛 [Issue Tracker](https://github.com/kalashnikxvxiii/stegvault/issues)
 
 ## Contributing
 

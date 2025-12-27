@@ -26,14 +26,20 @@ class TestSettingsScreen:
         mock_config.updates.auto_check = False
         mock_config.updates.auto_upgrade = True
         mock_config.totp.enabled = True
+        mock_config.crypto.argon2_time_cost = 5
+        mock_config.crypto.argon2_memory_cost = 131072
+        mock_config.crypto.argon2_parallelism = 8
         mock_load_config.return_value = mock_config
 
         screen = SettingsScreen()
 
-        # Mock query_one to return mock switches
+        # Mock query_one to return mock switches and inputs
         mock_auto_check_switch = Mock()
         mock_auto_upgrade_switch = Mock()
         mock_totp_enabled_switch = Mock()
+        mock_time_cost_input = Mock()
+        mock_memory_cost_input = Mock()
+        mock_parallelism_input = Mock()
 
         def query_one_side_effect(selector, widget_type=None):
             if "auto-check" in selector:
@@ -42,6 +48,12 @@ class TestSettingsScreen:
                 return mock_auto_upgrade_switch
             elif "totp-enabled" in selector:
                 return mock_totp_enabled_switch
+            elif "time-cost" in selector:
+                return mock_time_cost_input
+            elif "memory-cost" in selector:
+                return mock_memory_cost_input
+            elif "parallelism" in selector:
+                return mock_parallelism_input
 
         screen.query_one = Mock(side_effect=query_one_side_effect)
 
@@ -53,10 +65,18 @@ class TestSettingsScreen:
         assert mock_auto_upgrade_switch.value is True
         assert mock_totp_enabled_switch.value is True
 
+        # Verify crypto inputs were set
+        assert mock_time_cost_input.value == "5"
+        assert mock_memory_cost_input.value == "131072"
+        assert mock_parallelism_input.value == "8"
+
         # Verify initial values were stored
         assert screen._initial_auto_check is False
         assert screen._initial_auto_upgrade is True
         assert screen._initial_totp_enabled is True
+        assert screen._initial_time_cost == 5
+        assert screen._initial_memory_cost == 131072
+        assert screen._initial_parallelism == 8
 
     def test_has_unsaved_changes_no_changes(self):
         """Should return False when no changes."""
@@ -85,18 +105,37 @@ class TestSettingsScreen:
         screen = SettingsScreen()
         screen._initial_auto_check = True
         screen._initial_auto_upgrade = False
+        screen._initial_totp_enabled = False
+        screen._initial_time_cost = 3
+        screen._initial_memory_cost = 65536
+        screen._initial_parallelism = 4
 
         # Mock switches with different values
         mock_auto_check_switch = Mock()
         mock_auto_check_switch.value = False  # Changed
         mock_auto_upgrade_switch = Mock()
         mock_auto_upgrade_switch.value = True  # Changed
+        mock_totp_enabled_switch = Mock()
+        mock_totp_enabled_switch.value = False  # Not changed
+
+        # Mock crypto inputs with unchanged values
+        mock_time_cost_input = Mock(value="3")
+        mock_memory_cost_input = Mock(value="65536")
+        mock_parallelism_input = Mock(value="4")
 
         def query_one_side_effect(selector, widget_type=None):
             if "auto-check" in selector:
                 return mock_auto_check_switch
             elif "auto-upgrade" in selector:
                 return mock_auto_upgrade_switch
+            elif "totp-enabled" in selector:
+                return mock_totp_enabled_switch
+            elif "time-cost" in selector:
+                return mock_time_cost_input
+            elif "memory-cost" in selector:
+                return mock_memory_cost_input
+            elif "parallelism" in selector:
+                return mock_parallelism_input
 
         screen.query_one = Mock(side_effect=query_one_side_effect)
 
@@ -109,6 +148,7 @@ class TestSettingsScreen:
         mock_config = Mock()
         mock_config.updates = Mock()
         mock_config.totp = Mock()
+        mock_config.crypto = Mock()
         mock_load_config.return_value = mock_config
 
         screen = SettingsScreen()
@@ -122,6 +162,11 @@ class TestSettingsScreen:
         mock_totp_enabled_switch = Mock()
         mock_totp_enabled_switch.value = True
 
+        # Mock crypto inputs with valid values
+        mock_time_cost_input = Mock(value="3")
+        mock_memory_cost_input = Mock(value="65536")
+        mock_parallelism_input = Mock(value="4")
+
         def query_one_side_effect(selector, widget_type=None):
             if "auto-check" in selector:
                 return mock_auto_check_switch
@@ -129,18 +174,36 @@ class TestSettingsScreen:
                 return mock_auto_upgrade_switch
             elif "totp-enabled" in selector:
                 return mock_totp_enabled_switch
+            elif "time-cost" in selector:
+                return mock_time_cost_input
+            elif "memory-cost" in selector:
+                return mock_memory_cost_input
+            elif "parallelism" in selector:
+                return mock_parallelism_input
 
         screen.query_one = Mock(side_effect=query_one_side_effect)
+
+        # Mock validation methods to return True (all valid)
+        screen._validate_time_cost = Mock(return_value=True)
+        screen._validate_memory_cost = Mock(return_value=True)
+        screen._validate_parallelism = Mock(return_value=True)
+        screen._validate_crypto_compatibility = Mock(return_value=True)
 
         # Patch app property
         with patch.object(type(screen), "app", PropertyMock(return_value=mock_app)):
             # Call save_settings
-            screen._save_settings()
+            result = screen._save_settings()
+
+            # Verify it returned True
+            assert result is True
 
             # Verify config was updated and saved
             assert mock_config.updates.auto_check is False
             assert mock_config.updates.auto_upgrade is True
             assert mock_config.totp.enabled is True
+            assert mock_config.crypto.argon2_time_cost == 3
+            assert mock_config.crypto.argon2_memory_cost == 65536
+            assert mock_config.crypto.argon2_parallelism == 4
             mock_save_config.assert_called_once_with(mock_config)
             mock_app.notify.assert_called_once()
 
@@ -180,7 +243,7 @@ class TestSettingsScreen:
         mock_app.push_screen_wait = AsyncMock(return_value="save")
         screen.dismiss = Mock()
         screen._has_unsaved_changes = Mock(return_value=True)
-        screen._save_settings = Mock()
+        screen._save_settings = Mock(return_value=True)  # Successful save
 
         # Patch app property
         with patch.object(type(screen), "app", PropertyMock(return_value=mock_app)):
@@ -230,7 +293,7 @@ class TestSettingsScreen:
         """Should save settings and dismiss on Save button."""
         screen = SettingsScreen()
         screen.dismiss = Mock()
-        screen._save_settings = Mock()
+        screen._save_settings = Mock(return_value=True)  # Successful save
 
         button = Mock()
         button.id = "btn-save"

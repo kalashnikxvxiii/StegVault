@@ -104,7 +104,7 @@ To update StegVault to a newer version:
   SUPPORT
 ================================================================================
 
-GitHub: https://github.com/kalashnikxvxiii-collab/StegVault
-Issues: https://github.com/kalashnikxvxiii-collab/StegVault/issues
+GitHub: https://github.com/kalashnikxvxiii/StegVault
+Issues: https://github.com/kalashnikxvxiii/StegVault/issues
 
 ================================================================================

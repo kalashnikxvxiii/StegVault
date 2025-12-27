@@ -947,10 +947,10 @@ jq: error: Invalid JSON
 
 ## See Also
 
-- [CLI Commands Reference](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/CLI-Commands-Reference) - Complete command reference
-- [Security Best Practices](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/Security-Best-Practices) - Security guidelines
-- [Basic Usage Examples](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/Basic-Usage-Examples) - Practical examples
-- [Troubleshooting](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/Troubleshooting) - Common issues and solutions
+- [CLI Commands Reference](https://github.com/kalashnikxvxiii/StegVault/wiki/CLI-Commands-Reference) - Complete command reference
+- [Security Best Practices](https://github.com/kalashnikxvxiii/StegVault/wiki/Security-Best-Practices) - Security guidelines
+- [Basic Usage Examples](https://github.com/kalashnikxvxiii/StegVault/wiki/Basic-Usage-Examples) - Practical examples
+- [Troubleshooting](https://github.com/kalashnikxvxiii/StegVault/wiki/Troubleshooting) - Common issues and solutions
 
 ---
 

@@ -3,7 +3,7 @@
 > Secure password manager using steganography to embed encrypted credentials within images
 
 [![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-0.7.8-blue.svg)](https://github.com/kalashnikxvxiii-collab/StegVault)
+[![Version](https://img.shields.io/badge/version-0.7.8-blue.svg)](https://github.com/kalashnikxvxiii/StegVault)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-994_passing-brightgreen.svg)](tests/)
 [![Coverage](https://img.shields.io/badge/coverage-79%25-yellow.svg)](tests/)
@@ -65,7 +65,7 @@
 pip install stegvault
 
 # Or install from source
-git clone https://github.com/kalashnikxvxiii-collab/stegvault.git
+git clone https://github.com/kalashnikxvxiii/stegvault.git
 cd stegvault
 pip install -e .
 ```
@@ -88,7 +88,7 @@ stegvault tui               # Launch TUI → Settings → "Update Now"
 # Click ━━━ button (bottom-right) → Toggle "Auto-Check Updates"
 ```
 
-See [Installation Guide](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/Installation-Guide) for detailed instructions including Windows portable packages.
+See [Installation Guide](https://github.com/kalashnikxvxiii/StegVault/wiki/Installation-Guide) for detailed instructions including Windows portable packages.
 
 ---
 
@@ -111,7 +111,7 @@ stegvault tui
 - `c` - Copy password | `v` - Toggle visibility
 - `/` - Search entries | `f` - Favorite folder | `Ctrl+f` - Quick access
 
-See [TUI User Guide](https://github.com/kalashnikxvxiii-collab/StegVault/blob/main/TUI_USER_GUIDE.md) for complete documentation.
+See [TUI User Guide](https://github.com/kalashnikxvxiii/StegVault/blob/main/TUI_USER_GUIDE.md) for complete documentation.
 
 ### 2. Command Line (CLI)
 
@@ -151,7 +151,7 @@ stegvault vault search vault.png -q "github"
 stegvault vault filter vault.png --tag work
 ```
 
-See [CLI Commands Reference](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/CLI-Commands-Reference) for complete command documentation.
+See [CLI Commands Reference](https://github.com/kalashnikxvxiii/StegVault/wiki/CLI-Commands-Reference) for complete command documentation.
 
 ### 3. Headless Mode - Automation & CI/CD
 
@@ -185,7 +185,7 @@ stegvault vault get vault.png -k gmail --json
     echo "DB_PASSWORD=$PASSWORD" >> $GITHUB_ENV
 ```
 
-See [Headless Mode Guide](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/Headless-Mode-Guide) for automation examples and best practices.
+See [Headless Mode Guide](https://github.com/kalashnikxvxiii/StegVault/wiki/Headless-Mode-Guide) for automation examples and best practices.
 
 ---
 
@@ -240,34 +240,34 @@ See [Headless Mode Guide](https://github.com/kalashnikxvxiii-collab/StegVault/wi
 
 **Security Philosophy**: Cryptographic strength provides security, not the embedding method.
 
-See [Architecture Overview](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/Architecture-Overview) and [Cryptography Details](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/Cryptography-Details) for technical details.
+See [Architecture Overview](https://github.com/kalashnikxvxiii/StegVault/wiki/Architecture-Overview) and [Cryptography Details](https://github.com/kalashnikxvxiii/StegVault/wiki/Cryptography-Details) for technical details.
 
 ---
 
 ## Documentation
 
-Complete documentation is available on the [Wiki](https://github.com/kalashnikxvxiii-collab/StegVault/wiki):
+Complete documentation is available on the [Wiki](https://github.com/kalashnikxvxiii/StegVault/wiki):
 
 ### Getting Started
-- [Installation Guide](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/Installation-Guide)
-- [Quick Start Tutorial](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/Quick-Start-Tutorial)
-- [Basic Usage Examples](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/Basic-Usage-Examples) (27 examples)
+- [Installation Guide](https://github.com/kalashnikxvxiii/StegVault/wiki/Installation-Guide)
+- [Quick Start Tutorial](https://github.com/kalashnikxvxiii/StegVault/wiki/Quick-Start-Tutorial)
+- [Basic Usage Examples](https://github.com/kalashnikxvxiii/StegVault/wiki/Basic-Usage-Examples) (27 examples)
 
 ### User Guides
-- [CLI Commands Reference](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/CLI-Commands-Reference) (Complete command reference)
-- [TUI User Guide](https://github.com/kalashnikxvxiii-collab/StegVault/blob/main/TUI_USER_GUIDE.md) (Terminal UI)
-- [Headless Mode Guide](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/Headless-Mode-Guide) (Automation & CI/CD)
-- [Security Best Practices](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/Security-Best-Practices)
+- [CLI Commands Reference](https://github.com/kalashnikxvxiii/StegVault/wiki/CLI-Commands-Reference) (Complete command reference)
+- [TUI User Guide](https://github.com/kalashnikxvxiii/StegVault/blob/main/TUI_USER_GUIDE.md) (Terminal UI)
+- [Headless Mode Guide](https://github.com/kalashnikxvxiii/StegVault/wiki/Headless-Mode-Guide) (Automation & CI/CD)
+- [Security Best Practices](https://github.com/kalashnikxvxiii/StegVault/wiki/Security-Best-Practices)
 
 ### Technical Documentation
-- [Architecture Overview](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/Architecture-Overview)
-- [Cryptography Details](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/Cryptography-Details)
-- [Steganography Techniques](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/Steganography-Techniques)
-- [Security Model](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/Security-Model)
+- [Architecture Overview](https://github.com/kalashnikxvxiii/StegVault/wiki/Architecture-Overview)
+- [Cryptography Details](https://github.com/kalashnikxvxiii/StegVault/wiki/Cryptography-Details)
+- [Steganography Techniques](https://github.com/kalashnikxvxiii/StegVault/wiki/Steganography-Techniques)
+- [Security Model](https://github.com/kalashnikxvxiii/StegVault/wiki/Security-Model)
 
 ### Development
-- [Developer Guide](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/Developer-Guide)
-- [API Reference](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/API-Reference)
+- [Developer Guide](https://github.com/kalashnikxvxiii/StegVault/wiki/Developer-Guide)
+- [API Reference](https://github.com/kalashnikxvxiii/StegVault/wiki/API-Reference)
 - [Contributing Guidelines](CONTRIBUTING.md)
 
 ---
@@ -295,7 +295,7 @@ Complete documentation is available on the [Wiki](https://github.com/kalashnikxv
 3. **Verify Backups**: Test restore process after creating backup
 4. **Secure Storage**: Protect image files as you would protect passwords
 
-See [Security Model](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/Security-Model) and [Threat Model](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/Threat-Model) for comprehensive security information.
+See [Security Model](https://github.com/kalashnikxvxiii/StegVault/wiki/Security-Model) and [Threat Model](https://github.com/kalashnikxvxiii/StegVault/wiki/Threat-Model) for comprehensive security information.
 
 ---
 
@@ -324,7 +324,7 @@ black stegvault tests
 mypy stegvault
 ```
 
-See [Developer Guide](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/Developer-Guide) and [Testing Guide](https://github.com/kalashnikxvxiii-collab/StegVault/wiki/Testing-Guide) for complete development documentation.
+See [Developer Guide](https://github.com/kalashnikxvxiii/StegVault/wiki/Developer-Guide) and [Testing Guide](https://github.com/kalashnikxvxiii/StegVault/wiki/Testing-Guide) for complete development documentation.
 
 ---
 
@@ -373,5 +373,5 @@ StegVault is provided "as-is" for educational and personal use. The authors are 
 ---
 
 <p align="center">
-  Made with ❤️ by <a href="https://github.com/kalashnikxvxiii-collab">Kalashnikxv</a>
+  Made with ❤️ by <a href="https://github.com/kalashnikxvxiii">Kalashnikxv</a>
 </p>

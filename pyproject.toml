@@ -56,10 +56,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/kalashnikxvxiii-collab/stegvault"
-Repository = "https://github.com/kalashnikxvxiii-collab/stegvault"
-Issues = "https://github.com/kalashnikxvxiii-collab/stegvault/issues"
-Changelog = "https://github.com/kalashnikxvxiii-collab/stegvault/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/kalashnikxvxiii/stegvault"
+Repository = "https://github.com/kalashnikxvxiii/stegvault"
+Issues = "https://github.com/kalashnikxvxiii/stegvault/issues"
+Changelog = "https://github.com/kalashnikxvxiii/stegvault/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [

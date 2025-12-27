@@ -43,7 +43,7 @@ To report a security vulnerability, please use **one** of the following methods:
 #### 3. Encrypted Communication
 For highly sensitive disclosures:
 - PGP Key: `38027F466AF1A48FD95C175C127BD97B6B1D7CA8`
-- Public key available at: `https://github.com/kalashnikxvxiii-collab.gpg`
+- Public key available at: `https://github.com/kalashnikxvxiii.gpg`
 
 ### What to Include
 

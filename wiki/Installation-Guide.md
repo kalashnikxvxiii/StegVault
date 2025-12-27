@@ -23,7 +23,7 @@ This is currently the primary installation method.
 # Download from https://www.python.org/downloads/
 
 # Clone repository
-git clone https://github.com/kalashnikxvxiii-collab/stegvault.git
+git clone https://github.com/kalashnikxvxiii/stegvault.git
 cd stegvault
 
 # Create virtual environment
@@ -49,7 +49,7 @@ stegvault --version
 brew install python@3.9
 
 # Clone repository
-git clone https://github.com/kalashnikxvxiii-collab/stegvault.git
+git clone https://github.com/kalashnikxvxiii/stegvault.git
 cd stegvault
 
 # Create virtual environment
@@ -76,7 +76,7 @@ sudo apt update
 sudo apt install python3.9 python3-pip python3-venv git
 
 # Clone repository
-git clone https://github.com/kalashnikxvxiii-collab/stegvault.git
+git clone https://github.com/kalashnikxvxiii/stegvault.git
 cd stegvault
 
 # Create virtual environment

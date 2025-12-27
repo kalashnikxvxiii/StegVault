@@ -197,11 +197,11 @@ Formula: `capacity = (width * height * 3) / 8`
 
 ## Learn More
 
-- [Main README](https://github.com/kalashnikxvxiii-collab/StegVault/blob/main/README.md) - Full project documentation
-- [Contributing Guide](https://github.com/kalashnikxvxiii-collab/StegVault/blob/main/CONTRIBUTING.md) - How to contribute
-- [Security Policy](https://github.com/kalashnikxvxiii-collab/StegVault/blob/main/SECURITY.md) - Security information
-- [Roadmap](https://github.com/kalashnikxvxiii-collab/StegVault/blob/main/ROADMAP.md) - Future features
+- [Main README](https://github.com/kalashnikxvxiii/StegVault/blob/main/README.md) - Full project documentation
+- [Contributing Guide](https://github.com/kalashnikxvxiii/StegVault/blob/main/CONTRIBUTING.md) - How to contribute
+- [Security Policy](https://github.com/kalashnikxvxiii/StegVault/blob/main/SECURITY.md) - Security information
+- [Roadmap](https://github.com/kalashnikxvxiii/StegVault/blob/main/ROADMAP.md) - Future features
 
 ## License
 
-See [LICENSE](https://github.com/kalashnikxvxiii-collab/StegVault/blob/main/LICENSE) file for details.
+See [LICENSE](https://github.com/kalashnikxvxiii/StegVault/blob/main/LICENSE) file for details.

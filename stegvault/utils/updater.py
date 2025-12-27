@@ -162,7 +162,7 @@ def fetch_changelog(version: str) -> Optional[str]:
     """
     # Try 1: Raw CHANGELOG.md
     try:
-        url = "https://raw.githubusercontent.com/kalashnikxvxiii-collab/StegVault/main/CHANGELOG.md"
+        url = "https://raw.githubusercontent.com/kalashnikxvxiii/StegVault/main/CHANGELOG.md"
         req = Request(url, headers={"User-Agent": f"StegVault/{__version__}"})
 
         with urlopen(req, timeout=10) as response:  # nosec B310
@@ -176,7 +176,7 @@ def fetch_changelog(version: str) -> Optional[str]:
 
     # Try 2: GitHub Releases API
     try:
-        url = f"https://api.github.com/repos/kalashnikxvxiii-collab/StegVault/releases/tags/v{version}"
+        url = f"https://api.github.com/repos/kalashnikxvxiii/StegVault/releases/tags/v{version}"
         req = Request(url, headers={"User-Agent": f"StegVault/{__version__}"})
 
         with urlopen(req, timeout=10) as response:  # nosec B310
@@ -619,5 +619,5 @@ def _update_portable() -> Tuple[bool, str]:
         "1. Download latest release from GitHub\n"
         "2. Extract to StegVault folder (overwrite)\n"
         "3. Run setup_portable.bat\n\n"
-        "URL: https://github.com/kalashnikxvxiii-collab/StegVault/releases/latest",
+        "URL: https://github.com/kalashnikxvxiii/StegVault/releases/latest",
     )

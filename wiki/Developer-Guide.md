@@ -19,7 +19,7 @@ Complete guide for developers contributing to StegVault or integrating it into o
 
 ```bash
 # Clone repository
-git clone https://github.com/kalashnikxvxiii-collab/StegVault.git
+git clone https://github.com/kalashnikxvxiii/StegVault.git
 cd StegVault
 
 # Create virtual environment
@@ -634,9 +634,9 @@ Follow [Semantic Versioning](https://semver.org/):
 
 ## Getting Help
 
-- **Discussions**: [GitHub Discussions](https://github.com/kalashnikxvxiii-collab/stegvault/discussions)
-- **Issues**: [Issue Tracker](https://github.com/kalashnikxvxiii-collab/stegvault/issues)
-- **Wiki**: [GitHub Wiki](https://github.com/kalashnikxvxiii-collab/stegvault/wiki)
+- **Discussions**: [GitHub Discussions](https://github.com/kalashnikxvxiii/stegvault/discussions)
+- **Issues**: [Issue Tracker](https://github.com/kalashnikxvxiii/stegvault/issues)
+- **Wiki**: [GitHub Wiki](https://github.com/kalashnikxvxiii/stegvault/wiki)
 
 ## License
 

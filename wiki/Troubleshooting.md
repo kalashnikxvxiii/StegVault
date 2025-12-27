@@ -17,7 +17,7 @@ ERROR: Could not find a version that satisfies the requirement stegvault
 **Solution**:
 ```bash
 # Clone and install from source
-git clone https://github.com/kalashnikxvxiii-collab/StegVault.git
+git clone https://github.com/kalashnikxvxiii/StegVault.git
 cd StegVault
 pip install -e .
 ```
