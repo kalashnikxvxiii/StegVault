@@ -5,8 +5,8 @@
 [![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![Version](https://img.shields.io/badge/version-0.7.9-blue.svg)](https://github.com/kalashnikxvxiii/StegVault)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-1036_passing-brightgreen.svg)](tests/)
-[![Coverage](https://img.shields.io/badge/coverage-79%25-yellow.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-1035_passing-brightgreen.svg)](tests/)
+[![Coverage](https://img.shields.io/badge/coverage-80%25-green.svg)](tests/)
 
 **StegVault** combines modern cryptography with steganography to create portable, zero-knowledge password backups. Store a single password or entire vault of credentials, all encrypted with XChaCha20-Poly1305 + Argon2id and hidden within ordinary PNG or JPEG images.
 
@@ -24,7 +24,7 @@
 - 🎯 **Auto-Detection**: Automatically detects image format (PNG/JPEG)
 - 🔒 **Zero-Knowledge**: All operations performed locally, no cloud dependencies
 - ✅ **Authenticated**: AEAD tag ensures data integrity
-- 🧪 **Well-Tested**: 994 unit tests with 79% coverage (all passing)
+- 🧪 **Well-Tested**: 1035 unit tests with 80% coverage (all passing)
 
 ### Vault Mode
 - 🗄️ **Multiple Passwords**: Store entire password vault in one image

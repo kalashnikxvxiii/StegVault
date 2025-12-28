@@ -94,7 +94,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Testing
 
-**New Tests** (+42 tests, 1036 total):
+**New Tests** (+41 tests, 1035 total):
 - `tests/unit/test_tui_widgets.py`: Added `TestSettingsScreenAdvanced` class (42 tests)
   - **Reset Functionality** (2 tests):
     - `test_reset_crypto_params`
@@ -120,7 +120,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Save with invalid parallelism, save with valid params
 - **Test Coverage**:
   - `stegvault/tui/widgets.py`: Validation logic 100% covered
-  - All tests passing: **1036/1036** ✅
+  - All tests passing: **1030/1035** ✅ (5 skipped)
   - Pass rate: 100%
 
 ### Technical Details

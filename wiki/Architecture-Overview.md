@@ -348,7 +348,7 @@ Each UI handles errors appropriately:
 
 ## Testing Architecture
 
-### Test Coverage (994 tests, 79%)
+### Test Coverage (1035 tests, 80%)
 
 - **Unit Tests**: Test individual functions/classes
 - **Integration Tests**: Test module interactions

@@ -114,7 +114,7 @@ StegVault/
 │       ├── json_output.py          # JSON formatting (67 lines) **v0.6.0**
 │       └── passphrase.py           # Passphrase handling (36 lines) **v0.6.0**
 │
-├── tests/unit/                     # Unit tests (994 tests, 79% coverage)
+├── tests/unit/                     # Unit tests (1035 tests, 80% coverage)
 │   ├── test_crypto.py              # Crypto module (26 tests, 100% coverage)
 │   ├── test_crypto_controller.py   # CryptoController (14 tests, 96%) **v0.6.1**
 │   ├── test_vault.py               # Vault core (55 tests, 100% coverage)
@@ -133,7 +133,7 @@ StegVault/
 │   ├── test_tui_widgets.py         # TUI widgets (126 tests, 88%) **v0.7.0**
 │   ├── test_tui_screens.py         # TUI screens (27 tests, 66%) **v0.7.0**
 │   ├── test_updater.py             # Auto-update (87 tests, 91%) **v0.7.6-v0.7.8**
-│   └── ...                         # Total: 994 tests
+│   └── ...                         # Total: 1035 tests
 │
 ├── wiki/                           # GitHub wiki documentation
 │   ├── Home.md
