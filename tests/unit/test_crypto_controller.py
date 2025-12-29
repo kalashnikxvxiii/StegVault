@@ -236,3 +236,18 @@ class TestCryptoController:
         assert success is False
         assert error == "Mock error"
         assert payload == b""
+
+    def test_encrypt_with_payload_serialization_failure(self, controller):
+        """Should handle serialization failure in encrypt_with_payload."""
+        from unittest.mock import patch
+
+        # Mock serialize_payload to raise exception
+        with patch("stegvault.utils.serialize_payload") as mock_serialize:
+            mock_serialize.side_effect = Exception("Serialization error")
+
+            payload, success, error = controller.encrypt_with_payload(b"data", "passphrase")
+
+            assert success is False
+            assert "Failed to serialize payload" in error
+            assert "Serialization error" in error
+            assert payload == b""

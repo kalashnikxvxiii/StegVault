@@ -297,3 +297,55 @@ class TestVaultController:
         assert entry.notes == "Test notes"
         assert entry.tags == ["work", "important"]
         assert entry.totp_secret == "BASE32SECRET"
+
+    def test_load_vault_file_not_found(self, controller):
+        """Should handle image format detection error for non-existent files."""
+        result = controller.load_vault("nonexistent_file.png", "passphrase")
+
+        assert result.success is False
+        assert "unsupported" in result.error.lower() or "not found" in result.error.lower()
+        assert result.vault is None
+
+    def test_save_vault_encryption_failure(self, controller, tmp_path):
+        """Should handle encryption failure in save_vault."""
+        from stegvault.vault import create_vault, add_entry
+        from unittest.mock import patch
+
+        vault = create_vault()
+        add_entry(vault, "test", "password")
+
+        output_path = str(tmp_path / "vault.png")
+        test_image = str(tmp_path / "test.png")
+        from PIL import Image
+
+        Image.new("RGB", (100, 100)).save(test_image)
+
+        # Mock encrypt_with_payload to return failure
+        with patch.object(controller.crypto, "encrypt_with_payload") as mock_encrypt:
+            mock_encrypt.return_value = (b"", False, "Encryption failed")
+
+            result = controller.save_vault(vault, output_path, "pass", cover_image=test_image)
+
+            assert result.success is False
+            assert "Encryption failed" in result.error
+            assert result.output_path == ""
+
+    def test_save_vault_general_exception(self, controller, tmp_path):
+        """Should handle general exceptions in save_vault."""
+        from stegvault.vault import create_vault, add_entry
+        from unittest.mock import patch
+
+        vault = create_vault()
+        add_entry(vault, "test", "password")
+
+        output_path = str(tmp_path / "vault.png")
+
+        # Mock vault_to_json to raise exception
+        with patch("stegvault.app.controllers.vault_controller.vault_to_json") as mock_to_json:
+            mock_to_json.side_effect = Exception("JSON serialization error")
+
+            result = controller.save_vault(vault, output_path, "pass")
+
+            assert result.success is False
+            assert "JSON serialization error" in result.error
+            assert result.output_path == ""
