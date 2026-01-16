@@ -4,10 +4,29 @@ SQLite database operations for Gallery.
 
 import sqlite3
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple, Any
 from stegvault.gallery.core import VaultMetadata, VaultEntryCache
+
+
+# Register custom datetime adapter for Python 3.12+ compatibility
+# Python 3.12 deprecated the default datetime adapter
+def _adapt_datetime_iso(val: datetime) -> str:
+    """Convert datetime to ISO format string for SQLite storage."""
+    return val.isoformat()
+
+
+def _convert_datetime(val: bytes) -> datetime:
+    """Convert ISO format string from SQLite to datetime object."""
+    return datetime.fromisoformat(val.decode())
+
+
+# Only register if Python 3.12+ (where default adapter is deprecated)
+if sys.version_info >= (3, 12):
+    sqlite3.register_adapter(datetime, _adapt_datetime_iso)
+    sqlite3.register_converter("timestamp", _convert_datetime)
 
 
 class GalleryDBError(Exception):

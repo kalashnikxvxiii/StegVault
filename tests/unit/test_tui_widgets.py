@@ -2713,7 +2713,6 @@ class TestSettingsScreenAdvanced:
             # Should not dismiss
             screen.dismiss.assert_not_called()
 
-    @pytest.mark.asyncio
     @patch("stegvault.utils.updater.check_for_updates")
     @patch("stegvault.utils.updater.cache_check_result")
     def test_force_update_check_update_available(self, mock_cache, mock_check):
@@ -2736,7 +2735,6 @@ class TestSettingsScreenAdvanced:
             assert any("Update available" in call for call in notify_calls)
             mock_cache.assert_called_once()
 
-    @pytest.mark.asyncio
     @patch("stegvault.utils.updater.check_for_updates")
     @patch("stegvault.utils.updater.cache_check_result")
     def test_force_update_check_up_to_date(self, mock_cache, mock_check):
@@ -2759,7 +2757,6 @@ class TestSettingsScreenAdvanced:
             assert any("up-to-date" in call for call in notify_calls)
             mock_cache.assert_called_once()
 
-    @pytest.mark.asyncio
     @patch("stegvault.utils.updater.check_for_updates")
     def test_force_update_check_error(self, mock_check):
         """Should handle update check error."""
@@ -2779,7 +2776,6 @@ class TestSettingsScreenAdvanced:
             notify_calls = [call[0][0] for call in mock_app.notify.call_args_list]
             assert any("failed" in call for call in notify_calls)
 
-    @pytest.mark.asyncio
     @patch("stegvault.utils.updater.check_for_updates")
     def test_force_update_check_exception(self, mock_check):
         """Should handle exception during update check."""
