@@ -349,3 +349,92 @@ class TestVaultController:
             assert result.success is False
             assert "JSON serialization error" in result.error
             assert result.output_path == ""
+
+    def test_create_new_vault_exception(self, controller):
+        """Should handle exceptions in create_new_vault."""
+        from unittest.mock import patch
+
+        # Mock create_vault to raise exception
+        with patch("stegvault.app.controllers.vault_controller.create_vault") as mock_create:
+            mock_create.side_effect = Exception("Vault creation failed")
+
+            vault, success, error = controller.create_new_vault(key="test", password="pass")
+
+            assert success is False
+            assert vault is None
+            assert "Vault creation failed" in error
+
+    def test_add_vault_entry_exception(self, controller):
+        """Should handle exceptions in add_vault_entry."""
+        from unittest.mock import patch
+
+        vault, _, _ = controller.create_new_vault(key="test", password="pass")
+
+        # Mock add_entry to raise exception
+        with patch("stegvault.app.controllers.vault_controller.add_entry") as mock_add:
+            mock_add.side_effect = Exception("Add entry failed")
+
+            vault, success, error = controller.add_vault_entry(vault, key="new", password="pass")
+
+            assert success is False
+            assert "Add entry failed" in error
+
+    def test_get_vault_entry_exception(self, controller):
+        """Should handle exceptions in get_vault_entry."""
+        from unittest.mock import patch
+
+        vault, _, _ = controller.create_new_vault(key="test", password="pass")
+
+        # Mock get_entry to raise exception
+        with patch("stegvault.app.controllers.vault_controller.get_entry") as mock_get:
+            mock_get.side_effect = Exception("Get entry failed")
+
+            result = controller.get_vault_entry(vault, "test")
+
+            assert result.success is False
+            assert "Get entry failed" in result.error
+            assert result.entry is None
+
+    def test_update_vault_entry_exception(self, controller):
+        """Should handle exceptions in update_vault_entry."""
+        from unittest.mock import patch
+
+        vault, _, _ = controller.create_new_vault(key="test", password="pass")
+
+        # Mock update_entry to raise exception
+        with patch("stegvault.app.controllers.vault_controller.update_entry") as mock_update:
+            mock_update.side_effect = Exception("Update entry failed")
+
+            vault, success, error = controller.update_vault_entry(vault, key="test", password="new")
+
+            assert success is False
+            assert "Update entry failed" in error
+
+    def test_delete_vault_entry_exception(self, controller):
+        """Should handle exceptions in delete_vault_entry."""
+        from unittest.mock import patch
+
+        vault, _, _ = controller.create_new_vault(key="test", password="pass")
+
+        # Mock delete_entry to raise exception
+        with patch("stegvault.app.controllers.vault_controller.delete_entry") as mock_delete:
+            mock_delete.side_effect = Exception("Delete entry failed")
+
+            vault, success, error = controller.delete_vault_entry(vault, "test")
+
+            assert success is False
+            assert "Delete entry failed" in error
+
+    def test_check_image_capacity_exception(self, controller):
+        """Should handle exceptions in check_image_capacity."""
+        from unittest.mock import patch
+
+        # Mock calculate_capacity to raise exception
+        with patch("stegvault.app.controllers.vault_controller.calculate_capacity") as mock_calc:
+            mock_calc.side_effect = Exception("Capacity check failed")
+
+            capacity, success, error = controller.check_image_capacity("test.png")
+
+            assert success is False
+            assert capacity == 0
+            assert "Capacity check failed" in error
