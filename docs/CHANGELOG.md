@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - Critical Bug Fixes 🐛
+
+**Name Collision with Built-in `list()` Function**:
+- **Issue**: `vault filter --tag` and `gallery add --tag` commands completely broken
+  - Calling `list(tag)` resolved to Click command object instead of built-in function
+  - Error: `TypeError: 'Command' object is not callable`
+  - 5 tests disabled due to bug
+- **Root Cause**: Name collision between Python built-in `list()` and Click `@vault.command() def list(...)`
+  - Python's name resolution (LEGB rule) resolved `list` to Click command in same module
+  - Affected 3 locations in `stegvault/cli.py` (lines 2520, 2529, 2863)
+- **Solution**: Replaced `list(tag)` with `[*tag]` (unpacking operator)
+  - Avoids name collision entirely
+  - More Pythonic and cleaner than `builtins.list(tag)`
+  - Zero performance impact
+- **Impact**: 
+  - ✅ `vault filter --tag work` now functional
+  - ✅ `gallery add --tag personal` now functional
+  - ✅ 5 previously disabled tests re-enabled and passing
+- **Files Modified**:
+  - `stegvault/cli.py`: 3 fixes applied
+  - `tests/unit/test_vault_search_filter_cli.py`: 5 tests re-enabled
+- **Testing**: All 10 tests in `TestVaultFilterCLI` now passing (100% success rate)
+- **Commit**: `fdfb337`
+
 ### Testing
 **TUI Test Coverage Improvements** (+31 tests, 1066 total):
 - Improved overall coverage: 80% → 81%
