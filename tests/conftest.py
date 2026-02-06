@@ -2,11 +2,30 @@
 Pytest configuration and fixtures for memory-efficient testing.
 
 Provides cleanup hooks to reduce RAM usage during test execution.
+Skips TUI test modules when the 'textual' package is not installed (e.g. Python 3.14).
 """
 
 import gc
 import asyncio
 import pytest
+
+
+def pytest_ignore_collect(collection_path):
+    """
+    Skip TUI-related test modules when 'textual' is not installed.
+
+    Allows the rest of the test suite to run on environments where textual
+    has no wheel (e.g. Python 3.14) so pre-commit and CI can pass.
+
+    In pytest 9+, this hook receives a single pathlib.Path (collection_path).
+    """
+    path_str = str(collection_path)
+    if "test_tui" in path_str or "test_settings_screen" in path_str:
+        try:
+            import textual  # noqa: F401
+        except ImportError:
+            return True
+    return False
 
 
 @pytest.fixture(autouse=True)

@@ -187,6 +187,9 @@ Run before commit: `.\pre-commit.ps1`
 
 ### Common CI Failure Fixes
 
+**Problem**: `ModuleNotFoundError: No module named 'textual'` (or 4 collection errors on TUI tests)
+**Fix**: Install full dependencies with `pip install -e ".[dev]"`. On Python 3.14, `textual` may have no wheel yet: the suite will skip TUI tests automatically and run the rest (see `tests/conftest.py`). For the full 1078 tests use Python 3.9–3.13.
+
 **Problem**: Black formatting failure
 **Fix**: Run `black stegvault tests` locally before commit
 
