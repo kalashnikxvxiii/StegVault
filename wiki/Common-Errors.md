@@ -410,7 +410,7 @@ KeyError: 'ciphertext'
 
 ### ConnectionError
 
-Not applicable to v0.7.8 (no cloud features yet)
+Not applicable to v0.7.10 (no cloud features yet)
 
 The auto-update system (v0.7.6+) checks PyPI for updates but does not sync data. Cloud sync features may be added in future versions.
 
@@ -518,8 +518,6 @@ stegvault backup -i cover.png -o backup.png
 | Unsupported format | Wrong image type | Convert to PNG |
 | Memory error | Insufficient RAM | Close apps, use smaller image |
 
----
-```
 ## Next Steps
 
 - Full solutions: [Troubleshooting Guide](Troubleshooting.md)

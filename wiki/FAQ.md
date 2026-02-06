@@ -8,7 +8,7 @@ Common questions about StegVault.
 
 StegVault is a full-featured password manager that uses steganography to hide encrypted credentials within images. It combines modern cryptography (XChaCha20-Poly1305 + Argon2id) with dual steganography (PNG LSB + JPEG DCT) to create portable, secure password vaults.
 
-**Current version**: 0.7.8 (Auto-Update Critical Bug Fixes)
+**Current version**: 0.7.10 (Critical Bug Fixes & Test Quality)
 **Features**: Full vault mode, TOTP/2FA application lock, Gallery management, TUI with favorite folders, Headless mode, Auto-update system with WinError 32 fix
 
 ---
@@ -120,11 +120,9 @@ Yes! StegVault is open source under the MIT license:
 
 ### How many passwords can I store in one image?
 
-**Design**: One backup = one password
+**Vault Mode**: You can store many entries (passwords) in a single image using the `vault` commands (`vault create`, `vault add`, etc.). One image = one vault with multiple credentials.
 
-**Workaround**: Create separate backups for different passwords
-
-**Why**: Simplicity and security. Each password has its own independent backup.
+**Single Password Mode**: The `backup`/`restore` commands store one password per image. Use vault mode for multiple passwords in one image.
 
 ---
 
@@ -366,15 +364,15 @@ See [Troubleshooting](Troubleshooting.md) for more.
 - **v0.7.0**: Terminal UI (TUI) with Textual ✅ COMPLETED
 - **v0.8.0**: Desktop GUI with PySide6 🔜 PLANNED
 
-**Current (v0.7.8)**: CLI, TUI (full-featured terminal interface), and headless mode for automation
+**Current (v0.7.10)**: CLI, TUI (full-featured terminal interface), and headless mode for automation
 
 ---
 
 ### Will StegVault support multiple passwords?
 
-**Maybe**. Under consideration for future versions.
+**Yes.** Vault Mode (v0.4.0+) stores multiple credentials in one image. Use `stegvault vault create`, `vault add`, `vault get`, etc.
 
-**Current**: One backup = one password (by design)
+**Single Password Mode** (`backup`/`restore`) remains for one-password-per-image backups.
 
 ---
 

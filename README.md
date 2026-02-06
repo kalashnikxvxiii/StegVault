@@ -3,14 +3,14 @@
 > Secure password manager using steganography to embed encrypted credentials within images
 
 [![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-0.7.9-blue.svg)](https://github.com/kalashnikxvxiii/StegVault/releases)
+[![Version](https://img.shields.io/badge/version-0.7.10-blue.svg)](https://github.com/kalashnikxvxiii/StegVault/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-1066_passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-1078_passing-brightgreen.svg)](tests/)
 [![Coverage](https://img.shields.io/badge/coverage-81%25-green.svg)](tests/)
 
 **StegVault** combines modern cryptography with steganography to create portable, zero-knowledge password backups. Store a single password or entire vault of credentials, all encrypted with XChaCha20-Poly1305 + Argon2id and hidden within ordinary PNG or JPEG images.
 
-**Latest Release (v0.7.9):** Advanced Settings for Argon2id cryptographic parameters with comprehensive validation system, real-time feedback, smart warnings, and expert control for fine-tuning security vs performance trade-offs!
+**Latest Release (v0.7.10):** Critical bug fixes (vault filter/gallery tag name collision), test quality improvements (SQLite datetime adapter, VaultController exception coverage), and Python 3.12+ compatibility.
 
 ---
 
@@ -24,7 +24,7 @@
 - 🎯 **Auto-Detection**: Automatically detects image format (PNG/JPEG)
 - 🔒 **Zero-Knowledge**: All operations performed locally, no cloud dependencies
 - ✅ **Authenticated**: AEAD tag ensures data integrity
-- 🧪 **Well-Tested**: 1066 unit tests with 81% coverage (all passing)
+- 🧪 **Well-Tested**: 1078 unit tests with 81% coverage (all passing)
 
 ### Vault Mode
 - 🗄️ **Multiple Passwords**: Store entire password vault in one image
@@ -45,7 +45,7 @@
 - 🤖 **Command Line (CLI)**: Scriptable commands for automation
 - 📊 **Headless Mode**: JSON output for CI/CD pipelines (v0.6.0)
 
-### Auto-Update System (v0.7.8)
+### Auto-Update System (v0.7.6+)
 - 🔄 **Update Checking**: Check for new versions from PyPI
 - ⚡ **Auto-Upgrade**: Optionally install updates automatically (fixed WinError 32)
 - 🔧 **Detached Update**: Updates run after app closure to prevent file conflicts
@@ -84,11 +84,11 @@ pip install -e .
 # Standard update
 pip install --upgrade stegvault
 
-# Built-in auto-update (v0.7.8)
+# Built-in auto-update
 stegvault updates check     # Check for updates
 stegvault updates upgrade   # Install latest version
 
-# TUI "Update Now" button (NEW in v0.7.8)
+# TUI "Update Now" button
 stegvault tui               # Launch TUI → Settings → "Update Now"
 # Detached update runs after you close StegVault (fixes WinError 32)
 
@@ -375,8 +375,8 @@ StegVault is provided "as-is" for educational and personal use. The authors are 
 
 ---
 
-**Version**: 0.7.9
-**Last Updated**: 2025-12-27
+**Version**: 0.7.10
+**Last Updated**: 2026-02-06
 
 ---
 

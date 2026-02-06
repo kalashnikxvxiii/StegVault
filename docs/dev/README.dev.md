@@ -54,7 +54,7 @@ StegVault leverages AI assistance (Claude by Anthropic) for enhanced development
   - Edge case identification and coverage improvement
   - Mock object creation and test fixture design
   - Async test patterns for TUI components (pytest-asyncio)
-  - Achieved 81% overall coverage with 1066 tests (as of v0.7.9)
+  - Achieved 81% overall coverage with 1078 tests (as of v0.7.10)
 
 ### Bug Identification & Debugging
 - **Root Cause Analysis**: Deep investigation of complex issues
@@ -106,7 +106,7 @@ black stegvault tests
 ```bash
 pytest
 ```
-**Why**: Catch test failures early. All 1066 tests must pass.
+**Why**: Catch test failures early. All 1078 tests must pass.
 **Expected**: `1063 passed, 3 skipped` (or current test count)
 
 ### 3. Run Bandit Security Scan

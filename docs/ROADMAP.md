@@ -22,7 +22,8 @@ This document outlines the planned development roadmap for StegVault.
 - **v0.7.5-v0.7.6** - Auto-Update System (2025-12-14 to 2025-12-24)
 - **v0.7.7** - TOTP/2FA Protection & UI Enhancements (2025-12-25)
 - **v0.7.8** - Auto-Update System Critical Bug Fixes (2025-12-25)
-- **v0.7.9** - Advanced Settings for Cryptography (2025-12-27) ✅ **CURRENT**
+- **v0.7.9** - Advanced Settings for Cryptography (2025-12-27)
+- **v0.7.10** - Critical Bug Fixes & Test Quality (2026-01-16) ✅ **CURRENT**
 
 ## Completed Milestones
 
@@ -123,7 +124,7 @@ This document outlines the planned development roadmap for StegVault.
 - [x] 70+ type checking error fixes
 - [x] Total: 970 tests, 79% coverage
 
-### v0.7.8 ✅ (Released 2025-12-25) **CURRENT**
+### v0.7.8 ✅ (Released 2025-12-25)
 - [x] Auto-update system critical bug fixes
 - [x] WinError 32 fix (file in use)
 - [x] Detached update mechanism
@@ -133,6 +134,17 @@ This document outlines the planned development roadmap for StegVault.
 - [x] 26 new tests
 - [x] Total: 994 tests, 79% coverage
 - [x] updater.py coverage: 28% → 91% (+63%)
+
+### v0.7.9 ✅ (Released 2025-12-27)
+- [x] Advanced Settings for Argon2id (time_cost, memory_cost, parallelism)
+- [x] Real-time validation and cross-parameter compatibility
+- [x] 41 new tests (1066 total), 81% coverage
+
+### v0.7.10 ✅ (Released 2026-01-16) **CURRENT**
+- [x] Fix vault filter / gallery add --tag (list() name collision)
+- [x] SQLite datetime adapter for Python 3.12+ (deprecation warnings)
+- [x] VaultController exception handler tests (+6)
+- [x] Total: 1078 tests, 81% coverage
 
 ## Version 0.8.0 - Desktop GUI (Q1 2026)
 
@@ -245,63 +257,33 @@ Advanced security features and quality of life improvements
 - [ ] Session timeout with auto-lock
 - [ ] Passphrase strength requirements
 
-## Version 1.0.0 - Production Ready (Q3 2026)
+## Version 1.0.0 - Production Ready (Q3-Q4 2026)
 
 ### Goals
-Visual gallery interface - the complete StegVault experience
+Visual gallery interface plus stable, audited, production-ready release.
 
-### Technology Choices
-- **Option 1**: Electron + React (cross-platform, web tech)
-- **Option 2**: Qt/PySide6 (native look, better performance)
-- **Option 3**: Tauri + React (Rust-based, lightweight)
-
-### Features - Gallery View
+### Part A: Gallery & UX (Q3 2026)
 - [ ] **Photo gallery interface** - thumbnails of all vault files
-- [ ] Visual indicators: 🔐 badge showing number of passwords per file
+- [ ] Visual indicators: badge showing number of passwords per file
 - [ ] Drag-and-drop support for adding new vault files
 - [ ] Double-click to unlock and view vault contents
-- [ ] Image preview with vault statistics
-- [ ] Grid/list view toggle
-- [ ] Sort and filter (by date, size, password count)
+- [ ] Image preview with vault statistics, grid/list view, sort and filter
+- [ ] Visual password entry editor, strength meter, generator
+- [ ] Search across all vaults, tag-based organization, bulk operations
+- [ ] Onboarding tutorial, dark mode, context-sensitive help, recent vaults
 
-### Features - Vault Management
-- [ ] Visual password entry editor
-- [ ] Password strength meter and generator
-- [ ] Search across all vaults in gallery
-- [ ] Tag-based organization
-- [ ] Bulk operations (export, backup, verify)
+**Technology**: Qt/PySide6 (v0.8.0) or Electron/Tauri for gallery UI (TBD).
 
-### Features - User Experience
-- [ ] Onboarding tutorial explaining gallery concept
-- [ ] Dark mode support
-- [ ] Context-sensitive help
-- [ ] Settings panel with gallery preferences
-- [ ] Recent vaults history
-- [ ] Visual capacity indicators
-- [ ] Side-by-side comparison (before/after embedding)
-
-## Version 1.0.0 - Production Ready (Q4 2026)
-
-### Goals
-Stable, secure, production-ready release
-
-### Requirements
+### Part B: Security & Distribution (Q4 2026)
 - [ ] Complete security audit by external firm
-- [ ] Penetration testing
-- [ ] Code review by cryptography experts
-- [ ] Performance optimization
-- [ ] Comprehensive documentation
+- [ ] Penetration testing, code review by cryptography experts
+- [ ] Performance optimization, comprehensive documentation
 - [ ] User manual and video tutorials
-- [ ] Cross-platform testing (Windows, macOS, Linux, iOS, Android)
+- [ ] Cross-platform testing (Windows, macOS, Linux)
 
-### Distribution
-- [ ] PyPI package publication
-- [ ] Homebrew formula (macOS)
-- [ ] Chocolatey package (Windows)
-- [ ] Snap package (Linux)
-- [ ] DMG installer (macOS)
-- [ ] MSI installer (Windows)
-- [ ] AppImage (Linux)
+**Distribution**:
+- [ ] PyPI (existing), Homebrew (macOS), Chocolatey (Windows), Snap (Linux)
+- [ ] DMG installer (macOS), MSI installer (Windows), AppImage (Linux)
 
 ## Future Versions (Post 1.0)
 
@@ -309,10 +291,10 @@ Stable, secure, production-ready release
 **Expanding beyond images - the complete multimedia gallery**
 
 #### JPEG Support
-- [ ] JPEG DCT-based steganography
-- [ ] F5/nsF5 algorithm implementation
-- [ ] Resistance to recompression
-- [ ] Quality-preserving embedding
+- [x] JPEG DCT-based steganography (v0.5.1 - implemented)
+- [ ] F5/nsF5 or advanced algorithms (optional enhancement)
+- [x] Resistance to mild recompression (current DCT ±1 approach)
+- [ ] Quality-preserving embedding (future refinement)
 
 #### Video Steganography
 - [ ] MP4/AVI support
@@ -483,28 +465,25 @@ StegVault follows [Semantic Versioning](https://semver.org/):
 
 ---
 
-**Last Updated**: 2025-12-25
+**Last Updated**: 2026-02-06
 **Status**: Living document, subject to change based on community feedback and security research
 
-## Quick Reference: Current Status (v0.7.8)
+## Quick Reference: Current Status (v0.7.10)
 
-**CURRENT VERSION (v0.7.8):**
-- ✅ 994 tests passing (79% coverage)
-- ✅ Auto-update system with bug fixes (WinError 32, cache sync)
+**CURRENT VERSION (v0.7.10):**
+- ✅ 1078 tests passing (81% coverage)
+- ✅ Critical bug fixes (vault filter / gallery tag, SQLite 3.12+, VaultController coverage)
 - ✅ Terminal UI (TUI) with full vault management
-- ✅ TOTP/2FA application lock
+- ✅ TOTP/2FA application lock, Advanced Settings (Argon2id)
 - ✅ Gallery Foundation with cross-vault search
 - ✅ JPEG DCT + PNG LSB steganography
 - ✅ Headless mode for automation
 - ✅ Application layer architecture
 
-**RECENTLY COMPLETED (v0.7.0-v0.7.8):**
-1. ✅ Full-featured Terminal UI with Textual
-2. ✅ Auto-update system with Settings integration
-3. ✅ TOTP/2FA application lock for enhanced security
-4. ✅ Critical auto-update bug fixes (WinError 32, cache sync)
-5. ✅ Dynamic "Update Now" button
-6. ✅ Favorite folders for quick vault access
+**RECENTLY COMPLETED (v0.7.9-v0.7.10):**
+1. ✅ Advanced Settings for cryptography (v0.7.9)
+2. ✅ Vault filter / gallery add --tag fix (v0.7.10)
+3. ✅ Test quality: SQLite datetime adapter, exception tests (v0.7.10)
 
 **NEXT UP (v0.8.0 / Desktop GUI):**
 - Native desktop application with PySide6

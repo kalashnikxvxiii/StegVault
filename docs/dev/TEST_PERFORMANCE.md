@@ -2,7 +2,7 @@
 
 ## Overview
 
-StegVault has a comprehensive test suite with **1066 tests** covering 81% of the codebase. Due to the extensive use of Textual UI framework and async testing, the full test suite can consume significant memory (up to 14GB RAM) when run all at once.
+StegVault has a comprehensive test suite with **1078 tests** covering 81% of the codebase. Due to the extensive use of Textual UI framework and async testing, the full test suite can consume significant memory (up to 14GB RAM) when run all at once.
 
 This guide provides strategies for memory-efficient test execution.
 
@@ -107,7 +107,7 @@ Only run full suite on final validation or CI:
 # Full suite with coverage
 pytest
 
-# Expected: 1066 tests, ~10-14GB RAM peak usage
+# Expected: 1078 tests, ~10-14GB RAM peak usage
 ```
 
 **Requirements**:
@@ -185,7 +185,7 @@ jobs:
 
 2. **Before commit**:
    - Run full suite with coverage
-   - Verify 1066 tests passing
+   - Verify 1078 tests passing
    - Check coverage remains ≥81%
 
 3. **On low-memory systems (<8GB RAM)**:
@@ -216,3 +216,26 @@ pytest tests/unit/test_tui_app.py
 **Total time**: ~4-5 minutes
 **Peak memory**: ~10-12GB
 **Requirements**: 16GB+ RAM system
+
+## Known Test Behavior (Skipped Tests & Warnings)
+
+### Skipped Tests (5 total)
+
+Skipped tests are intentional and do not indicate failures:
+
+| Location | Reason |
+|----------|--------|
+| `test_tui_app.py` | 2 tests: require full Textual app initialization with screen stack (toast notification, path truncation) |
+| `test_tui_app.py` | 1 test: complex async loop with file selection retry, difficult to mock |
+| `test_updater.py` | 2 tests: conditional skip when not run from source installation |
+
+Run `pytest -v` and look for "5 skipped" in the summary; all other tests should pass.
+
+### Acceptable Warnings (~33)
+
+When running the full suite you may see:
+
+- **ResourceWarning (unclosed DB/socket)**: Typically in error-path tests where the test intentionally triggers failure before normal cleanup. Test-only impact; production code is not affected. Suppressing would require complex mock teardown for low benefit.
+- **RuntimeWarning (unawaited coroutine)**: Emitted by the Textual framework in async tests (e.g. unawaited coroutines in internal code). Framework behavior, not application code. Resolving would require changes in Textual.
+
+These warnings do not affect pass/fail. To reduce noise during development you can run specific modules (see "Option 1" above) or filter warnings in `pytest.ini`/`pyproject.toml` if desired.

@@ -227,7 +227,7 @@ python -m venv venv
 
 To update to the latest version:
 
-### Method 1: Auto-Update (v0.7.8+)
+### Method 1: Auto-Update (v0.7.6+)
 
 StegVault includes built-in update commands with critical bug fixes:
 
@@ -239,7 +239,7 @@ stegvault updates check
 stegvault updates upgrade
 ```
 
-Or use the TUI "Update Now" button (NEW in v0.7.8):
+Or use the TUI "Update Now" button:
 1. Launch TUI: `stegvault tui`
 2. Click `━━━` button (bottom-right) → Settings
 3. If update available, click **Update Now** (replaces "Check Updates")

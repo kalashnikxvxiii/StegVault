@@ -47,24 +47,24 @@ StegVault is a secure password manager that uses steganography to hide encrypted
 
 ## Project Status
 
-- **Version**: 0.7.9 (Advanced Settings for Cryptography)
+- **Version**: 0.7.10 (Critical Bug Fixes & Test Quality)
 - **Status**: Stable - Production-ready
 - **License**: MIT
 - **Language**: Python 3.9+
-- **Tests**: 1066 passing (81% coverage)
+- **Tests**: 1078 passing (81% coverage)
 
 ## Key Features
 
 - ✅ XChaCha20-Poly1305 AEAD encryption
 - ✅ Argon2id key derivation (configurable parameters)
-- ✅ Advanced Settings with real-time validation (v0.7.9) ✨ NEW
+- ✅ Advanced Settings with real-time validation (v0.7.9)
 - ✅ Argon2id parameter tuning (time cost, memory cost, parallelism)
 - ✅ Smart warnings (security, performance, compatibility)
 - ✅ Dual steganography (PNG LSB + JPEG DCT)
 - ✅ Full vault mode with CRUD operations
 - ✅ Password history tracking (v0.7.1)
 - ✅ TOTP/2FA application lock (v0.7.7)
-- ✅ Auto-update system with critical bug fixes (v0.7.8)
+- ✅ Auto-update system with critical bug fixes (v0.7.6+)
 - ✅ Detached update mechanism (fixes WinError 32)
 - ✅ Dynamic "Update Now" button in Settings
 - ✅ TOTP/2FA authenticator
@@ -73,7 +73,7 @@ StegVault is a secure password manager that uses steganography to hide encrypted
 - ✅ Headless mode (JSON output, automation)
 - ✅ Application layer (UI-agnostic controllers)
 - ✅ CLI interface
-- ✅ 1066 unit tests with 81% coverage
+- ✅ 1078 unit tests with 81% coverage
 - ✅ Zero-knowledge architecture
 
 ## Coming Soon

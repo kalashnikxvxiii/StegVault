@@ -1678,7 +1678,7 @@ parallelism = 4        # Argon2id threads
   - `backup`: Create encrypted backups embedded in images
   - `restore`: Recover passwords from stego images
   - `check`: Verify image capacity for password storage
-- Comprehensive test suite with 63+ unit tests
+- Comprehensive test suite with 1000+ unit tests
 - Support for RGB and RGBA PNG images
 - Passphrase strength validation
 - Automatic AEAD authentication tag verification

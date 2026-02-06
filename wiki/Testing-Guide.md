@@ -2,8 +2,8 @@
 
 Comprehensive guide to testing in StegVault.
 
-**Version**: 0.7.9 (Advanced Settings for Cryptography)
-**Test Suite**: 1066 tests, 81% coverage
+**Version**: 0.7.10
+**Test Suite**: 1078 tests, 81% coverage
 
 ## Table of Contents
 
@@ -16,14 +16,14 @@ Comprehensive guide to testing in StegVault.
 
 ## Overview
 
-### Test Statistics (v0.7.9)
+### Test Statistics (v0.7.10)
 
 ```
-Total Tests:     1066
-Pass Rate:       100% (1063 passing, 3 skipped)
+Total Tests:     1078
+Pass Rate:       100% (1073 passing, 5 skipped)
 Overall Coverage: 81%
 Modules at 100%:  20/37 (54%)
-Test Duration:    ~2 minutes
+Test Duration:    ~2 minutes (full suite: ~4-5 min with test_tui_app.py)
 ```
 
 ### Test Framework
@@ -40,6 +40,11 @@ Test Duration:    ~2 minutes
 - **Critical Modules**: 100%
 - **Controllers**: 85%+
 - **CLI**: 80%+
+
+### Skipped Tests and Warnings
+
+- **5 tests are skipped by design** (TUI/updater edge cases; see [TEST_PERFORMANCE.md](../docs/dev/TEST_PERFORMANCE.md#known-test-behavior-skipped-tests--warnings)).
+- **~33 warnings** (ResourceWarning, RuntimeWarning) may appear; they are acceptable and documented in the same guide. They do not affect the pass count.
 
 ## Running Tests
 

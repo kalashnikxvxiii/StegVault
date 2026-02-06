@@ -2,7 +2,7 @@
 
 Complete guide for developers contributing to StegVault or integrating it into other projects.
 
-**Version**: 0.6.1 (Application Layer)
+**Version**: 0.7.10
 
 ## Table of Contents
 
@@ -65,8 +65,8 @@ mypy stegvault
 ```
 StegVault/
 ├── stegvault/                      # Main package
-│   ├── __init__.py                 # Package exports (version: 0.7.8)
-│   ├── cli.py                      # CLI interface (Click, 1389 lines)
+│   ├── __init__.py                 # Package exports (version: 0.7.10)
+│   ├── cli.py                      # CLI interface (Click)
 │   │
 │   ├── app/                        # Application layer (v0.6.1)
 │   │   ├── __init__.py
@@ -109,12 +109,14 @@ StegVault/
 │   │
 │   └── utils/                      # Utilities
 │       ├── __init__.py
-│       ├── payload.py              # Payload format (83 lines)
-│       ├── image_format.py         # Magic byte detection (50 lines) **v0.5.1**
-│       ├── json_output.py          # JSON formatting (67 lines) **v0.6.0**
-│       └── passphrase.py           # Passphrase handling (36 lines) **v0.6.0**
+│       ├── payload.py              # Payload format
+│       ├── image_format.py         # Magic byte detection (v0.5.1)
+│       ├── json_output.py          # JSON formatting (v0.6.0)
+│       ├── passphrase.py           # Passphrase handling (v0.6.0)
+│       ├── updater.py              # Auto-update system (v0.7.6+)
+│       └── favorite_folders.py     # TUI favorite folders (v0.7.4)
 │
-├── tests/unit/                     # Unit tests (1066 tests, 81% coverage)
+├── tests/unit/                     # Unit tests (1078 tests, 81% coverage)
 │   ├── test_crypto.py              # Crypto module (26 tests, 100% coverage)
 │   ├── test_crypto_controller.py   # CryptoController (14 tests, 96%) **v0.6.1**
 │   ├── test_vault.py               # Vault core (55 tests, 100% coverage)
@@ -132,8 +134,9 @@ StegVault/
 │   ├── test_tui_app.py             # TUI app (38 tests, 80%) **v0.7.0**
 │   ├── test_tui_widgets.py         # TUI widgets (205 tests, 59%) **v0.7.0**
 │   ├── test_tui_screens.py         # TUI screens (57 tests, 81%) **v0.7.0**
-│   ├── test_updater.py             # Auto-update (87 tests, 91%) **v0.7.6-v0.7.8**
-│   └── ...                         # Total: 1066 tests
+│   ├── test_updater.py             # Auto-update (91% coverage)
+│   ├── test_favorite_folders.py    # Favorite folders (v0.7.4)
+│   └── ...                         # Total: 1078 tests
 │
 ├── wiki/                           # GitHub wiki documentation
 │   ├── Home.md
@@ -173,7 +176,7 @@ if result.success:
 - **vault/**: Password vault data structures and operations
 - **stego/**: Dual steganography (PNG LSB + JPEG DCT with auto-detection)
 - **gallery/**: Multi-vault management with SQLite
-- **utils/**: Shared utilities (payload, JSON, passphrase handling)
+- **utils/**: Shared utilities (payload, JSON, passphrase handling, updater, favorite_folders)
 
 ## Development Workflow
 
@@ -433,7 +436,7 @@ class TestVaultController:
 
 ### Coverage Goals
 
-- **Overall**: 80%+ (current: 92%)
+- **Overall**: 80%+ (current: 81%)
 - **Critical Modules**: 100%
   - crypto/core.py ✅
   - vault/core.py ✅
