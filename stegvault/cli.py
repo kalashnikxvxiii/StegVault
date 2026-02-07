@@ -1424,7 +1424,9 @@ def get(
                         )
                     )
                 else:
-                    click.echo("Error: This image contains a single password, not a vault", err=True)
+                    click.echo(
+                        "Error: This image contains a single password, not a vault", err=True
+                    )
                 sys.exit(1)
             vault_obj = parsed
         finally:
@@ -1574,7 +1576,9 @@ def list(
                         )
                     )
                 else:
-                    click.echo("Error: This image contains a single password, not a vault", err=True)
+                    click.echo(
+                        "Error: This image contains a single password, not a vault", err=True
+                    )
                 sys.exit(1)
             vault_obj = parsed
         finally:

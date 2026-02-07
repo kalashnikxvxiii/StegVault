@@ -105,7 +105,9 @@ class CryptoController:
             return DecryptionResult(plaintext=plaintext, success=True)
 
         except DecryptionError as e:
-            return DecryptionResult(plaintext=bytearray(), success=False, error=f"Decryption failed: {e}")
+            return DecryptionResult(
+                plaintext=bytearray(), success=False, error=f"Decryption failed: {e}"
+            )
         except Exception as e:
             return DecryptionResult(plaintext=bytearray(), success=False, error=str(e))
 
