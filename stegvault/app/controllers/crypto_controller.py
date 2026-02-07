@@ -27,7 +27,7 @@ class EncryptionResult:
 class DecryptionResult:
     """Result of a decryption operation."""
 
-    plaintext: bytes
+    plaintext: bytearray  # Mutable so caller can secure_wipe() after use
     success: bool = True
     error: Optional[str] = None
 
@@ -105,9 +105,9 @@ class CryptoController:
             return DecryptionResult(plaintext=plaintext, success=True)
 
         except DecryptionError as e:
-            return DecryptionResult(plaintext=b"", success=False, error=f"Decryption failed: {e}")
+            return DecryptionResult(plaintext=bytearray(), success=False, error=f"Decryption failed: {e}")
         except Exception as e:
-            return DecryptionResult(plaintext=b"", success=False, error=str(e))
+            return DecryptionResult(plaintext=bytearray(), success=False, error=str(e))
 
     def encrypt_with_payload(
         self, data: bytes, passphrase: str
@@ -153,11 +153,11 @@ class CryptoController:
         try:
             salt, nonce, ciphertext = parse_payload(payload)
         except Exception as e:
-            return b"", False, f"Failed to parse payload: {e}"
+            return bytearray(), False, f"Failed to parse payload: {e}"
 
         result = self.decrypt(ciphertext, salt, nonce, passphrase)
 
         if not result.success:
-            return b"", False, result.error
+            return bytearray(), False, result.error
 
         return result.plaintext, True, None

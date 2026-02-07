@@ -17,6 +17,7 @@ from stegvault.utils.payload import (
 )
 from stegvault.utils.json_output import JSONOutput
 from stegvault.utils.passphrase import get_passphrase, validate_passphrase_sources
+from stegvault.utils.secure_memory import secure_wipe
 
 __all__ = [
     "PayloadFormat",
@@ -31,4 +32,5 @@ __all__ = [
     "JSONOutput",
     "get_passphrase",
     "validate_passphrase_sources",
+    "secure_wipe",
 ]

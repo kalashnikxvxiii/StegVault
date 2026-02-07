@@ -195,6 +195,7 @@ class TestDecryption:
         ciphertext, salt, nonce = encrypt_data(plaintext, passphrase)
         decrypted = decrypt_data(ciphertext, salt, nonce, passphrase)
 
+        assert type(decrypted) is bytearray  # mutable for secure_wipe (T6)
         assert decrypted == plaintext
 
     def test_decrypt_wrong_passphrase(self):
