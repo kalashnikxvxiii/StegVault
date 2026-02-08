@@ -274,7 +274,7 @@ Analysis of threats against StegVault and their mitigations.
 | T3: Steganalysis | Low | Easy | Encryption layer | Low |
 | T4: Tampering | Medium | Easy | AEAD authentication | None |
 | T5: Keylogger | Critical | Hard | Out of scope | High |
-| T6: Memory Dump | Medium | Hard | Memory clearing (future) | Medium |
+| T6: Memory Dump | Medium | Hard | Memory clearing (secure_wipe) | Low |
 | T7: Weak RNG | Critical | Very Hard | Use CSPRNG | Very Low |
 | T8: JPEG Corruption | Medium | Easy | PNG recommendation | Medium |
 | T9: Timing Attack | Low | Very Hard | Constant-time crypto | Very Low |
@@ -298,7 +298,7 @@ Analysis of threats against StegVault and their mitigations.
 
 ### Medium Risks
 
-- **Memory dumps**: Password lingers in RAM
+- **Memory dumps**: Mitigated by secure_wipe() on decrypted buffers (best-effort; residual risk low).
 - **Social engineering**: Attacker tricks user into revealing passphrase
 
 **Mitigation**: Security hardening, user awareness
@@ -377,7 +377,7 @@ Documentation, warnings, best practices guidance.
 
 1. Keep dependencies updated
 2. Monitor CVE databases
-3. Implement memory clearing for sensitive data
+3. Use `stegvault.utils.secure_wipe()` for sensitive buffers (already integrated in vault/CLI/batch/gallery)
 4. Consider post-quantum migration path
 5. Regular security audits
 

@@ -156,7 +156,7 @@ Total time: 10^21 years (single CPU)
 ❌ **Steganography undetectability**: LSB can be found
 ❌ **Metadata hiding**: Payload format reveals usage
 ❌ **Post-quantum security**: Quantum computers can break XChaCha20
-❌ **Physical security**: No protection against memory dumps
+❌ **Physical security**: Best-effort mitigation only—decrypted buffers are wiped with `secure_wipe()` (see Threat Model T6); memory dumps may still expose copies in interpreter/C extensions
 
 ## Key Management
 

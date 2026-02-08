@@ -164,7 +164,7 @@ We will:
 
 :x: **Compromised system**
 - Keyloggers can capture passphrase during entry
-- Malware can extract plaintext from memory
+- Malware can extract plaintext from memory (mitigated by secure_wipe of decrypted buffers; best-effort)
 - Use dedicated secure system for sensitive operations
 
 :x: **Image format conversion**

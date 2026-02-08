@@ -3,14 +3,14 @@
 > Secure password manager using steganography to embed encrypted credentials within images
 
 [![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-0.7.10-blue.svg)](https://github.com/kalashnikxvxiii/StegVault/releases)
+[![Version](https://img.shields.io/badge/version-0.7.11-blue.svg)](https://github.com/kalashnikxvxiii/StegVault/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-1078_passing-brightgreen.svg)](tests/)
 [![Coverage](https://img.shields.io/badge/coverage-81%25-green.svg)](tests/)
 
 **StegVault** combines modern cryptography with steganography to create portable, zero-knowledge password backups. Store a single password or entire vault of credentials, all encrypted with XChaCha20-Poly1305 + Argon2id and hidden within ordinary PNG or JPEG images.
 
-**Latest Release (v0.7.10):** Critical bug fixes (vault filter/gallery tag name collision), test quality improvements (SQLite datetime adapter, VaultController exception coverage), and Python 3.12+ compatibility.
+**Latest Release (v0.7.11):** Operative security: secure memory wiping for decrypted data (T6 mitigation), clearer error messages, CI fixes (Black 24.8.0, pytest 9, updater test mocks).
 
 ---
 
@@ -372,11 +372,6 @@ StegVault is provided "as-is" for educational and personal use. The authors are 
 - [Pillow](https://github.com/python-pillow/Pillow) - Python Imaging Library
 - [Textual](https://github.com/Textualize/textual) - Terminal UI framework
 - [jpeglib](https://github.com/martinbenes1996/jpeglib) - JPEG DCT manipulation
-
----
-
-**Version**: 0.7.10
-**Last Updated**: 2026-02-06
 
 ---
 

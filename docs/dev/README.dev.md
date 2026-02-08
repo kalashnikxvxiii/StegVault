@@ -107,7 +107,7 @@ black stegvault tests
 pytest
 ```
 **Why**: Catch test failures early. All 1078 tests must pass.
-**Expected**: `1063 passed, 3 skipped` (or current test count)
+**Expected**: Current test count (e.g. 1078 passed, 5 skipped)
 
 ### 3. Run Bandit Security Scan
 ```bash
@@ -188,7 +188,7 @@ Run before commit: `.\pre-commit.ps1`
 ### Common CI Failure Fixes
 
 **Problem**: `ModuleNotFoundError: No module named 'textual'` (or 4 collection errors on TUI tests)
-**Fix**: Install full dependencies with `pip install -e ".[dev]"`. On Python 3.14, `textual` may have no wheel yet: the suite will skip TUI tests automatically and run the rest (see `tests/conftest.py`). For the full 1078 tests use Python 3.9–3.13.
+**Fix**: Install full dependencies with `pip install -e ".[dev]"`. Black is pinned to 24.8.0 in dev deps. On Python 3.14, `textual` may have no wheel yet: the suite will skip TUI tests automatically (see `tests/conftest.py`). For the full 1078 tests use Python 3.9–3.13.
 
 **Problem**: Black formatting failure
 **Fix**: Run `black stegvault tests` locally before commit
