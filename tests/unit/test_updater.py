@@ -657,61 +657,53 @@ class TestUpdateOperations:
         assert success is False
         assert "Update failed" in message
 
-    def test_update_source_success(self):
-        """Test successful source update - integration test."""
-        # Skip if not in source install (git repo check will fail)
-        if get_install_method() != InstallMethod.SOURCE:
-            pytest.skip("Not a source installation")
-
-        # This is an integration test - we can't easily mock subprocess for this
-        # Just verify the function exists and returns proper tuple
+    @patch("stegvault.utils.updater.subprocess.run")
+    def test_update_source_success(self, mock_run):
+        """Test successful source update; mocks subprocess to avoid real git pull."""
+        mock_run.return_value = Mock(returncode=0, stdout="", stderr="")
         success, message = _update_source()
-        assert isinstance(success, bool)
-        assert isinstance(message, str)
+        assert success is True
+        assert message == "Successfully updated from source"
+        assert mock_run.call_count == 2  # git pull, then pip install
 
-    def test_update_source_git_pull_failure(self):
-        """Test source update with git pull failure - integration test."""
-        # Skip if not in source install
-        if get_install_method() != InstallMethod.SOURCE:
-            pytest.skip("Not a source installation")
-
-        # This is an integration test
+    @patch("stegvault.utils.updater.subprocess.run")
+    def test_update_source_git_pull_failure(self, mock_run):
+        """Test source update when git pull fails."""
+        mock_run.return_value = Mock(returncode=1, stdout="", stderr="pull failed")
         success, message = _update_source()
-        assert isinstance(success, bool)
-        assert isinstance(message, str)
+        assert success is False
+        assert "git pull failed" in message
+        assert mock_run.call_count == 1
 
-    def test_update_source_reinstall_failure(self):
-        """Test source update with reinstall failure - integration test."""
-        # Skip if not in source install
-        if get_install_method() != InstallMethod.SOURCE:
-            pytest.skip("Not a source installation")
-
-        # This is an integration test
+    @patch("stegvault.utils.updater.subprocess.run")
+    def test_update_source_reinstall_failure(self, mock_run):
+        """Test source update when pip reinstall fails."""
+        mock_run.side_effect = [
+            Mock(returncode=0, stdout="", stderr=""),
+            Mock(returncode=1, stdout="", stderr="reinstall failed"),
+        ]
         success, message = _update_source()
-        assert isinstance(success, bool)
-        assert isinstance(message, str)
+        assert success is False
+        assert "Reinstall failed" in message
+        assert mock_run.call_count == 2
 
-    def test_update_source_timeout(self):
-        """Test source update timeout - integration test."""
-        # Skip if not in source install
-        if get_install_method() != InstallMethod.SOURCE:
-            pytest.skip("Not a source installation")
+    @patch("stegvault.utils.updater.subprocess.run")
+    def test_update_source_timeout(self, mock_run):
+        """Test source update when subprocess times out."""
+        import subprocess as sp
 
-        # This is an integration test
+        mock_run.side_effect = sp.TimeoutExpired("git", 60)
         success, message = _update_source()
-        assert isinstance(success, bool)
-        assert isinstance(message, str)
+        assert success is False
+        assert "timed out" in message
 
-    def test_update_source_exception(self):
-        """Test source update exception - integration test."""
-        # Skip if not in source install
-        if get_install_method() != InstallMethod.SOURCE:
-            pytest.skip("Not a source installation")
-
-        # This is an integration test
+    @patch("stegvault.utils.updater.subprocess.run")
+    def test_update_source_exception(self, mock_run):
+        """Test source update when subprocess raises."""
+        mock_run.side_effect = OSError("git not found")
         success, message = _update_source()
-        assert isinstance(success, bool)
-        assert isinstance(message, str)
+        assert success is False
+        assert "Update failed" in message
 
     def test_update_portable_instructions(self):
         """Test portable update returns manual instructions."""
