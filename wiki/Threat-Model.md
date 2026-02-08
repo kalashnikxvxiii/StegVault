@@ -173,10 +173,11 @@ Analysis of threats against StegVault and their mitigations.
 3. Search for plaintext password in dump
 
 **Mitigations**:
-- Password cleared from memory after display (future improvement)
-- **Currently**: No explicit memory wiping
+- **Implemented**: Decrypted plaintext is returned as mutable bytearray; callers use
+  `secure_wipe()` after use to overwrite buffers (see `stegvault.utils.secure_memory`).
+- VaultController, CLI, batch, and gallery paths wipe decrypted buffers in try/finally.
 
-**Residual Risk**: Medium (plaintext may linger in RAM)
+**Residual Risk**: Low (best-effort; Python cannot guarantee no copies elsewhere)
 
 **Severity**: Medium | **Exploitability**: Hard | **Impact**: High
 

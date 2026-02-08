@@ -24,6 +24,7 @@ from stegvault.vault import (
 from stegvault.stego import embed_payload, extract_payload, calculate_capacity
 from stegvault.app.controllers.crypto_controller import CryptoController
 from stegvault.config import Config
+from stegvault.utils.secure_memory import secure_wipe
 
 
 @dataclass
@@ -87,14 +88,16 @@ class VaultController:
             # Extract payload from image
             payload = extract_full_payload(image_path)
 
-            # Decrypt payload
+            # Decrypt payload (plaintext is bytearray; wipe after use)
             plaintext, success, error = self.crypto.decrypt_from_payload(payload, passphrase)
 
             if not success:
                 return VaultLoadResult(vault=None, success=False, error=error)
 
-            # Parse vault JSON
-            vault = parse_vault_payload(plaintext.decode("utf-8"))
+            try:
+                vault = parse_vault_payload(plaintext.decode("utf-8"))
+            finally:
+                secure_wipe(plaintext)
 
             # Handle single password mode (backward compatibility)
             if isinstance(vault, str):

@@ -170,15 +170,17 @@ def _cache_vault_entries(db: GalleryDB, vault: VaultMetadata, passphrase: str) -
     from stegvault.crypto import decrypt_data
     from stegvault.utils.payload import parse_payload as parse_binary_payload
     from stegvault.vault import parse_payload as parse_vault_payload
+    from stegvault.utils.secure_memory import secure_wipe
 
     try:
         # Extract and decrypt
         payload_bytes = extract_full_payload(vault.image_path)
         salt, nonce, ciphertext = parse_binary_payload(payload_bytes)
         decrypted_data = decrypt_data(ciphertext, salt, nonce, passphrase)
-
-        # Parse vault
-        vault_obj = parse_vault_payload(decrypted_data.decode("utf-8"))
+        try:
+            vault_obj = parse_vault_payload(decrypted_data.decode("utf-8"))
+        finally:
+            secure_wipe(decrypted_data)
 
         # Check if it's a vault (not single password)
         if isinstance(vault_obj, str):

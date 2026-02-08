@@ -165,7 +165,7 @@ def decrypt_data(
     time_cost: int = ARGON2_TIME_COST,
     memory_cost: int = ARGON2_MEMORY_COST,
     parallelism: int = ARGON2_PARALLELISM,
-) -> bytes:
+) -> bytearray:
     """
     Decrypt data using XChaCha20-Poly1305 AEAD with Argon2id key derivation.
 
@@ -179,7 +179,9 @@ def decrypt_data(
         parallelism: Argon2id thread count (default: 4)
 
     Returns:
-        Decrypted plaintext
+        Decrypted plaintext as bytearray (mutable). Callers should call
+        stegvault.utils.secure_memory.secure_wipe() when done to reduce
+        exposure in RAM (T6 mitigation).
 
     Raises:
         DecryptionError: If decryption or authentication fails
@@ -205,7 +207,8 @@ def decrypt_data(
         # Decrypt and verify authentication tag
         plaintext = box.decrypt(encrypted_message)
 
-        return plaintext
+        # Return mutable copy so callers can secure_wipe() after use (T6 mitigation)
+        return bytearray(plaintext)
 
     except nacl.exceptions.CryptoError as e:
         # This is raised when authentication fails (wrong passphrase or corrupted data)

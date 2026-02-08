@@ -33,6 +33,7 @@ from stegvault.utils import (
     extract_full_payload,
     PayloadFormatError,
 )
+from stegvault.utils.secure_memory import secure_wipe
 from stegvault.config import (
     load_config,
     ConfigError,
@@ -544,21 +545,18 @@ def restore(image: str, passphrase: str, output: Any) -> None:
 
         password_bytes = result[0]
         click.echo("[OK] Decryption complete", err=True)
-
-        # Convert to string
-        password = password_bytes.decode("utf-8")
-
-        # Output
-        if output.name == "<stdout>":
-            click.echo("\n" + "=" * 50, err=True)
-            click.echo("[OK] Password recovered successfully!", err=True)
-            click.echo("=" * 50 + "\n", err=True)
-
-        output.write(password)
-
-        if output.name != "<stdout>":
-            output.write("\n")
-            click.echo(f"\n[OK] Password saved to: {output.name}", err=True)
+        try:
+            password = password_bytes.decode("utf-8")
+            if output.name == "<stdout>":
+                click.echo("\n" + "=" * 50, err=True)
+                click.echo("[OK] Password recovered successfully!", err=True)
+                click.echo("=" * 50 + "\n", err=True)
+            output.write(password)
+            if output.name != "<stdout>":
+                output.write("\n")
+                click.echo(f"\n[OK] Password saved to: {output.name}", err=True)
+        finally:
+            secure_wipe(password_bytes)
 
     except DecryptionError:
         click.echo("\nError: Decryption failed. Wrong passphrase or corrupted data.", err=True)
@@ -1252,15 +1250,15 @@ def add(
             memory_cost=config.crypto.argon2_memory_cost,
             parallelism=config.crypto.argon2_parallelism,
         )
-
-        # Parse vault
-        parsed = parse_vault_payload(decrypted.decode("utf-8"))
-        if isinstance(parsed, str):
-            click.echo("Error: This image contains a single password, not a vault", err=True)
-            click.echo("Use 'stegvault restore' to retrieve it", err=True)
-            sys.exit(1)
-
-        vault_obj = parsed
+        try:
+            parsed = parse_vault_payload(decrypted.decode("utf-8"))
+            if isinstance(parsed, str):
+                click.echo("Error: This image contains a single password, not a vault", err=True)
+                click.echo("Use 'stegvault restore' to retrieve it", err=True)
+                sys.exit(1)
+            vault_obj = parsed
+        finally:
+            secure_wipe(decrypted)
 
         # Add new entry
         click.echo(f"\nAdding entry '{key}' to vault...")
@@ -1415,22 +1413,24 @@ def get(
             memory_cost=config.crypto.argon2_memory_cost,
             parallelism=config.crypto.argon2_parallelism,
         )
-
-        # Parse vault
-        parsed = parse_vault_payload(decrypted.decode("utf-8"))
-        if isinstance(parsed, str):
-            if json_output:
-                click.echo(
-                    JSONOutput.error(
-                        "This image contains a single password, not a vault",
-                        error_type="wrong_format",
+        try:
+            parsed = parse_vault_payload(decrypted.decode("utf-8"))
+            if isinstance(parsed, str):
+                if json_output:
+                    click.echo(
+                        JSONOutput.error(
+                            "This image contains a single password, not a vault",
+                            error_type="wrong_format",
+                        )
                     )
-                )
-            else:
-                click.echo("Error: This image contains a single password, not a vault", err=True)
-            sys.exit(1)
-
-        vault_obj = parsed
+                else:
+                    click.echo(
+                        "Error: This image contains a single password, not a vault", err=True
+                    )
+                sys.exit(1)
+            vault_obj = parsed
+        finally:
+            secure_wipe(decrypted)
 
         # Get entry
         entry = get_entry(vault_obj, key)
@@ -1565,22 +1565,24 @@ def list(
             memory_cost=config.crypto.argon2_memory_cost,
             parallelism=config.crypto.argon2_parallelism,
         )
-
-        # Parse vault
-        parsed = parse_vault_payload(decrypted.decode("utf-8"))
-        if isinstance(parsed, str):
-            if json_output:
-                click.echo(
-                    JSONOutput.error(
-                        "This image contains a single password, not a vault",
-                        error_type="wrong_format",
+        try:
+            parsed = parse_vault_payload(decrypted.decode("utf-8"))
+            if isinstance(parsed, str):
+                if json_output:
+                    click.echo(
+                        JSONOutput.error(
+                            "This image contains a single password, not a vault",
+                            error_type="wrong_format",
+                        )
                     )
-                )
-            else:
-                click.echo("Error: This image contains a single password, not a vault", err=True)
-            sys.exit(1)
-
-        vault_obj = parsed
+                else:
+                    click.echo(
+                        "Error: This image contains a single password, not a vault", err=True
+                    )
+                sys.exit(1)
+            vault_obj = parsed
+        finally:
+            secure_wipe(decrypted)
 
         # List entries
         keys = list_entries(vault_obj)
@@ -1659,14 +1661,14 @@ def show(vault_image: str, passphrase: str, key: str) -> None:
             memory_cost=config.crypto.argon2_memory_cost,
             parallelism=config.crypto.argon2_parallelism,
         )
-
-        # Parse vault
-        parsed = vault_parse(decrypted.decode("utf-8"))
-        if isinstance(parsed, str):
-            click.echo("Error: This image contains a single password, not a vault", err=True)
-            sys.exit(1)
-
-        vault_obj = parsed
+        try:
+            parsed = vault_parse(decrypted.decode("utf-8"))
+            if isinstance(parsed, str):
+                click.echo("Error: This image contains a single password, not a vault", err=True)
+                sys.exit(1)
+            vault_obj = parsed
+        finally:
+            secure_wipe(decrypted)
 
         # Get entry
         entry = get_entry(vault_obj, key)
@@ -1779,14 +1781,14 @@ def update(
             memory_cost=config.crypto.argon2_memory_cost,
             parallelism=config.crypto.argon2_parallelism,
         )
-
-        # Parse vault
-        parsed = vault_parse(decrypted.decode("utf-8"))
-        if isinstance(parsed, str):
-            click.echo("Error: This image contains a single password, not a vault", err=True)
-            sys.exit(1)
-
-        vault_obj = parsed
+        try:
+            parsed = vault_parse(decrypted.decode("utf-8"))
+            if isinstance(parsed, str):
+                click.echo("Error: This image contains a single password, not a vault", err=True)
+                sys.exit(1)
+            vault_obj = parsed
+        finally:
+            secure_wipe(decrypted)
 
         # Handle TOTP updates
         final_totp_update = None
@@ -1922,14 +1924,14 @@ def delete(vault_image: str, output: str, passphrase: str, key: str, confirm: bo
             memory_cost=config.crypto.argon2_memory_cost,
             parallelism=config.crypto.argon2_parallelism,
         )
-
-        # Parse vault
-        parsed = vault_parse(decrypted.decode("utf-8"))
-        if isinstance(parsed, str):
-            click.echo("Error: This image contains a single password, not a vault", err=True)
-            sys.exit(1)
-
-        vault_obj = parsed
+        try:
+            parsed = vault_parse(decrypted.decode("utf-8"))
+            if isinstance(parsed, str):
+                click.echo("Error: This image contains a single password, not a vault", err=True)
+                sys.exit(1)
+            vault_obj = parsed
+        finally:
+            secure_wipe(decrypted)
 
         # Check if entry exists
         if not vault_obj.has_entry(key):
@@ -2022,14 +2024,14 @@ def export(vault_image: str, output: str, passphrase: str, decrypt: bool, pretty
             memory_cost=config.crypto.argon2_memory_cost,
             parallelism=config.crypto.argon2_parallelism,
         )
-
-        # Parse vault
-        parsed = vault_parse(decrypted.decode("utf-8"))
-        if isinstance(parsed, str):
-            click.echo("Error: This image contains a single password, not a vault", err=True)
-            sys.exit(1)
-
-        vault_obj = parsed
+        try:
+            parsed = vault_parse(decrypted.decode("utf-8"))
+            if isinstance(parsed, str):
+                click.echo("Error: This image contains a single password, not a vault", err=True)
+                sys.exit(1)
+            vault_obj = parsed
+        finally:
+            secure_wipe(decrypted)
 
         # Export
         if decrypt:
@@ -2299,14 +2301,14 @@ def totp(vault_image: str, passphrase: str, key: str, qr: bool) -> None:
             memory_cost=config.crypto.argon2_memory_cost,
             parallelism=config.crypto.argon2_parallelism,
         )
-
-        # Parse vault
-        parsed = parse_vault_payload(decrypted.decode("utf-8"))
-        if isinstance(parsed, str):
-            click.echo("Error: This image contains a single password, not a vault", err=True)
-            sys.exit(1)
-
-        vault_obj = parsed
+        try:
+            parsed = parse_vault_payload(decrypted.decode("utf-8"))
+            if isinstance(parsed, str):
+                click.echo("Error: This image contains a single password, not a vault", err=True)
+                sys.exit(1)
+            vault_obj = parsed
+        finally:
+            secure_wipe(decrypted)
 
         # Get entry
         entry = get_entry(vault_obj, key)
@@ -2406,11 +2408,13 @@ def search(
         payload_bytes = extract_full_payload(vault_image)
         salt, nonce, ciphertext = parse_binary_payload(payload_bytes)
         decrypted_data = decrypt_data(ciphertext, salt, nonce, passphrase)
-        vault_obj = parse_vault_payload(decrypted_data.decode("utf-8"))
-
-        if isinstance(vault_obj, str):
-            click.echo("Error: This is a single-password backup, not a vault", err=True)
-            sys.exit(1)
+        try:
+            vault_obj = parse_vault_payload(decrypted_data.decode("utf-8"))
+            if isinstance(vault_obj, str):
+                click.echo("Error: This is a single-password backup, not a vault", err=True)
+                sys.exit(1)
+        finally:
+            secure_wipe(decrypted_data)
 
         # Perform search
         search_fields = list(fields) if fields else None
@@ -2506,11 +2510,13 @@ def filter(
         payload_bytes = extract_full_payload(vault_image)
         salt, nonce, ciphertext = parse_binary_payload(payload_bytes)
         decrypted_data = decrypt_data(ciphertext, salt, nonce, passphrase)
-        vault_obj = parse_vault_payload(decrypted_data.decode("utf-8"))
-
-        if isinstance(vault_obj, str):
-            click.echo("Error: This is a single-password backup, not a vault", err=True)
-            sys.exit(1)
+        try:
+            vault_obj = parse_vault_payload(decrypted_data.decode("utf-8"))
+            if isinstance(vault_obj, str):
+                click.echo("Error: This is a single-password backup, not a vault", err=True)
+                sys.exit(1)
+        finally:
+            secure_wipe(decrypted_data)
 
         # Apply filters
         results_list = []
@@ -2599,27 +2605,37 @@ def history(
         )
 
         # Load and decrypt vault
+        from stegvault.vault import parse_payload as parse_vault_payload
+        from stegvault.utils.payload import parse_payload as parse_binary_payload
+        from stegvault.config import get_default_config
+
         payload = extract_full_payload(vault_image)
         if not payload:
             click.echo("Error: No hidden data found in this image", err=True)
             sys.exit(1)
-
-        decrypted_payload = decrypt_data(payload, passphrase)
-        vault = parse_payload(decrypted_payload)
-
-        # Verify it's a vault, not a single password
-        if isinstance(vault, str):
-            click.echo("Error: This image contains a single password, not a vault", err=True)
-            sys.exit(1)
-
-        # Get the entry
-        entry = vault.get_entry(key)
-        if not entry:
-            click.echo(f"Error: Entry '{key}' not found in vault", err=True)
-            sys.exit(1)
-
-        # Get password history
-        password_history = entry.get_password_history()
+        salt, nonce, ciphertext = parse_binary_payload(payload)
+        config = get_default_config()
+        decrypted_payload = decrypt_data(
+            ciphertext,
+            salt,
+            nonce,
+            passphrase,
+            time_cost=config.crypto.argon2_time_cost,
+            memory_cost=config.crypto.argon2_memory_cost,
+            parallelism=config.crypto.argon2_parallelism,
+        )
+        try:
+            vault = parse_vault_payload(decrypted_payload.decode("utf-8"))
+            if isinstance(vault, str):
+                click.echo("Error: This image contains a single password, not a vault", err=True)
+                sys.exit(1)
+            entry = vault.get_entry(key)
+            if not entry:
+                click.echo(f"Error: Entry '{key}' not found in vault", err=True)
+                sys.exit(1)
+            password_history = entry.get_password_history()
+        finally:
+            secure_wipe(decrypted_payload)
 
         if json_output:
             # JSON output mode
@@ -2707,24 +2723,36 @@ def history_clear(
         )
 
         # Load and decrypt vault
+        from stegvault.vault import parse_payload as parse_vault_payload
+        from stegvault.utils.payload import parse_payload as parse_binary_payload
+        from stegvault.config import get_default_config
+
         payload = extract_full_payload(vault_image)
         if not payload:
             click.echo("Error: No hidden data found in this image", err=True)
             sys.exit(1)
-
-        decrypted_payload = decrypt_data(payload, passphrase)
-        vault = parse_payload(decrypted_payload)
-
-        # Verify it's a vault, not a single password
-        if isinstance(vault, str):
-            click.echo("Error: This image contains a single password, not a vault", err=True)
-            sys.exit(1)
-
-        # Get the entry
-        entry = vault.get_entry(key)
-        if not entry:
-            click.echo(f"Error: Entry '{key}' not found in vault", err=True)
-            sys.exit(1)
+        salt, nonce, ciphertext = parse_binary_payload(payload)
+        config = get_default_config()
+        decrypted_payload = decrypt_data(
+            ciphertext,
+            salt,
+            nonce,
+            passphrase,
+            time_cost=config.crypto.argon2_time_cost,
+            memory_cost=config.crypto.argon2_memory_cost,
+            parallelism=config.crypto.argon2_parallelism,
+        )
+        try:
+            vault = parse_vault_payload(decrypted_payload.decode("utf-8"))
+            if isinstance(vault, str):
+                click.echo("Error: This image contains a single password, not a vault", err=True)
+                sys.exit(1)
+            entry = vault.get_entry(key)
+            if not entry:
+                click.echo(f"Error: Entry '{key}' not found in vault", err=True)
+                sys.exit(1)
+        finally:
+            secure_wipe(decrypted_payload)
 
         # Check if there's history to clear
         if not entry.password_history:

@@ -16,6 +16,7 @@ from stegvault.utils import (
     parse_payload,
     validate_payload_capacity,
 )
+from stegvault.utils.secure_memory import secure_wipe
 from stegvault.config import load_config, ConfigError, get_default_config
 from PIL import Image
 
@@ -290,19 +291,21 @@ def process_batch_restore(
                 memory_cost=user_config.crypto.argon2_memory_cost,
                 parallelism=user_config.crypto.argon2_parallelism,
             )
+            try:
+                password = password_bytes.decode("utf-8")
+                recovered[job_label] = password
 
-            password = password_bytes.decode("utf-8")
-            recovered[job_label] = password
+                # Save to file if specified
+                # SECURITY NOTE: This intentionally writes passwords to files as requested by user.
+                # The user is responsible for securing these output files appropriately.
+                # nosemgrep: python.lang.security.audit.dangerous-system-call.dangerous-system-call
+                if job.output:
+                    with open(job.output, "w", encoding="utf-8") as f:
+                        f.write(password)  # nosec B608 - intentional password write
 
-            # Save to file if specified
-            # SECURITY NOTE: This intentionally writes passwords to files as requested by user.
-            # The user is responsible for securing these output files appropriately.
-            # nosemgrep: python.lang.security.audit.dangerous-system-call.dangerous-system-call
-            if job.output:
-                with open(job.output, "w", encoding="utf-8") as f:
-                    f.write(password)  # nosec B608 - intentional password write
-
-            successful += 1
+                successful += 1
+            finally:
+                secure_wipe(password_bytes)
 
         except Exception as e:
             failed += 1
