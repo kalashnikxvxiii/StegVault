@@ -71,6 +71,25 @@ def tui() -> None:
 
 
 @main.command()
+def gui() -> None:
+    """Launch the Desktop GUI (PySide6) interface."""
+    try:
+        from stegvault.gui import StegVaultGUI
+
+        app = StegVaultGUI()
+        app.run()
+    except ImportError as e:
+        click.echo(
+            "Error: PySide6 is required for the GUI. Install with: pip install stegvault[gui]",
+            err=True,
+        )
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"Error launching GUI: {e}", err=True)
+        sys.exit(1)
+
+
+@main.command()
 @click.option(
     "--check-only",
     is_flag=True,
