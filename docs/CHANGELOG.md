@@ -7,7 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-(Nothing yet.)
+### Added - Desktop GUI (v0.8.0 preview)
+
+**Foundation** (9fe9aef):
+- Optional GUI dependencies: `pip install stegvault[gui]` (PySide6>=6.5.0).
+- New package `stegvault.gui`: `StegVaultGUI` in `stegvault/gui/__init__.py`, main window in `stegvault/gui/app.py`.
+- CLI command `stegvault gui`: launches desktop app; exits with code 1 and install hint if PySide6 is missing.
+
+**Vault viewer** (cd92ade):
+- GUI connected to application layer: `VaultController.load_vault()`, `list_entries()`, `get_entry()`.
+- File menu: Open Vault (Ctrl+O) with image picker and passphrase dialog, Exit (Ctrl+Q).
+- Dual-pane layout: left = entry keys list, right = selected entry details (key, username, URL, tags, created, modified, notes; password hidden by default).
+
+**Save / Close** (b2b6ef9):
+- File -> Save (Ctrl+S): overwrite current vault image; passphrase via dialog (not stored).
+- File -> Save As: choose destination, then passphrase; updates window title and current path.
+- File -> Close Vault: clear vault state, reset list and details panel.
+- Menu state: Save/Save As/Close disabled when no vault open; window title shows "StegVault - &lt;path&gt;" when vault loaded.
+
+**Usage**: `pip install -e ".[gui]"` (or `pip install stegvault[gui]`) then `stegvault gui`.
 
 ## [0.7.11] - 2026-02-08
 

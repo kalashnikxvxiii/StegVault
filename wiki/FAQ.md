@@ -359,12 +359,14 @@ See [Troubleshooting](Troubleshooting.md) for more.
 
 ### Will there be a GUI?
 
-**Yes!** Desktop GUI is planned for future releases:
+**Yes.** A desktop GUI **preview** is available (v0.8.0):
 
 - **v0.7.0**: Terminal UI (TUI) with Textual ✅ COMPLETED
-- **v0.8.0**: Desktop GUI with PySide6 🔜 PLANNED
+- **v0.8.0**: Desktop GUI with PySide6 ✅ PREVIEW (Open/Save/Save As/Close vault, dual-pane viewer)
 
-**Current (v0.7.10)**: CLI, TUI (full-featured terminal interface), and headless mode for automation
+**To use the GUI**: `pip install stegvault[gui]` then run `stegvault gui`. The preview supports opening a vault from an image, viewing entries, and saving changes. Full CRUD and extra features are planned for later releases.
+
+**Current interfaces**: CLI, TUI (full-featured terminal), Desktop GUI (preview), and headless mode for automation.
 
 ---
 

@@ -42,6 +42,7 @@
 
 ### Interfaces
 - 🖥️ **Terminal UI (TUI)**: Full-featured visual interface with keyboard shortcuts (v0.7.0)
+- 🖼️ **Desktop GUI (preview)**: PySide6-based vault viewer; optional install: `pip install stegvault[gui]` then `stegvault gui` (v0.8.0 preview)
 - 🤖 **Command Line (CLI)**: Scriptable commands for automation
 - 📊 **Headless Mode**: JSON output for CI/CD pipelines (v0.6.0)
 
@@ -72,10 +73,15 @@
 # Install from PyPI (recommended)
 pip install stegvault
 
+# Optional: include Desktop GUI (PySide6)
+pip install stegvault[gui]
+# Then run: stegvault gui
+
 # Or install from source
 git clone https://github.com/kalashnikxvxiii/stegvault.git
 cd stegvault
 pip install -e .
+# With GUI: pip install -e ".[gui]"
 ```
 
 ### Updating
