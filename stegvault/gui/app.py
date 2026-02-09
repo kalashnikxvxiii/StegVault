@@ -3,12 +3,20 @@ Main application and main window for StegVault Desktop GUI.
 
 Uses the same Application Layer (VaultController, CryptoController, Vault)
 as CLI and TUI.
+
+GUI foundation is complete when: Open, View, Save, Save As, Close vault
+work end-to-end. Next phase: Add/Edit/Delete entry dialogs and password
+visibility/copy.
 """
 
 from typing import Optional
 
 from stegvault import __version__
-from stegvault.app.controllers.vault_controller import VaultController, VaultLoadResult
+from stegvault.app.controllers.vault_controller import (
+    VaultController,
+    VaultLoadResult,
+    VaultSaveResult,
+)
 from stegvault.vault.operations import list_entries, get_entry
 
 try:
@@ -38,10 +46,9 @@ class MainWindow(QMainWindow):
     """
     Main application window.
 
-    First iteration focuses on a simple, read-only vault viewer:
-    - File → Open Vault…
-    - List of entry keys on the left
-    - Basic entry details on the right (no password editing yet)
+    Foundation: Open / View / Save / Close vault cycle.
+    - File → Open Vault…, Save, Save As…, Close vault, Exit
+    - List of entry keys + read-only entry details
     """
 
     def __init__(self) -> None:
@@ -55,6 +62,13 @@ class MainWindow(QMainWindow):
         self._current_image_path: Optional[str] = None
 
         self._setup_ui()
+        self._update_vault_dependent_actions()
+
+    def _has_vault(self) -> bool:
+        """True if a vault is currently loaded."""
+        from stegvault.vault.core import Vault
+
+        return isinstance(self._current_vault, Vault)
 
     # UI setup -------------------------------------------------------------
     def _setup_ui(self) -> None:
@@ -63,18 +77,38 @@ class MainWindow(QMainWindow):
 
     def _create_menu_bar(self) -> None:
         menubar: QMenuBar = self.menuBar()
-
         file_menu: QMenu = menubar.addMenu("&File")
 
         open_action = file_menu.addAction("Open Vault…")
         open_action.setShortcut("Ctrl+O")
         open_action.triggered.connect(self._on_open_vault)  # type: ignore[arg-type]
 
+        self._save_action = file_menu.addAction("Save")
+        self._save_action.setShortcut("Ctrl+S")
+        self._save_action.triggered.connect(self._on_save_vault)  # type: ignore[arg-type]
+
+        self._save_as_action = file_menu.addAction("Save As…")
+        self._save_as_action.triggered.connect(self._on_save_vault_as)  # type: ignore[arg-type]
+
+        self._close_vault_action = file_menu.addAction("Close Vault")
+        self._close_vault_action.triggered.connect(self._on_close_vault)  # type: ignore[arg-type]
+
         file_menu.addSeparator()
 
         exit_action = file_menu.addAction("Exit")
         exit_action.setShortcut("Ctrl+Q")
         exit_action.triggered.connect(self.close)  # type: ignore[arg-type]
+
+    def _update_vault_dependent_actions(self) -> None:
+        """Enable/disable Save, Save As, Close Vault based on whether a vault is loaded."""
+        enabled = self._has_vault()
+        self._save_action.setEnabled(enabled)
+        self._save_as_action.setEnabled(enabled)
+        self._close_vault_action.setEnabled(enabled)
+        if enabled and self._current_image_path:
+            self.setWindowTitle(f"StegVault - {self._current_image_path}")
+        else:
+            self.setWindowTitle("StegVault")
 
     def _create_central_layout(self) -> None:
         central = QWidget()
@@ -143,6 +177,7 @@ class MainWindow(QMainWindow):
         self._current_vault = result.vault
         self._current_image_path = image_path
         self._populate_entries()
+        self._update_vault_dependent_actions()
 
     def _populate_entries(self) -> None:
         """Populate the entry list with keys from the current vault."""
@@ -192,6 +227,93 @@ class MainWindow(QMainWindow):
             entry.notes or "",
         ]
         self._detail_label.setText("\n".join(details))
+
+    def _ask_passphrase(self, title: str = "Vault Passphrase") -> Optional[str]:
+        """Ask for passphrase via dialog. Returns None if cancelled or empty."""
+        from PySide6.QtWidgets import QInputDialog
+
+        passphrase, ok = QInputDialog.getText(
+            self,
+            title,
+            "Enter vault passphrase:",
+            QLineEdit.EchoMode.Password,
+        )
+        if not ok or not passphrase:
+            return None
+        return passphrase
+
+    def _on_save_vault(self) -> None:
+        """Save current vault to the same image path (overwrite)."""
+        if not self._has_vault() or not self._current_image_path:
+            return
+        passphrase = self._ask_passphrase("Save Vault - Passphrase")
+        if not passphrase:
+            return
+        result: VaultSaveResult = self._vault_controller.save_vault(
+            vault=self._current_vault,
+            output_path=self._current_image_path,
+            passphrase=passphrase,
+            cover_image=self._current_image_path,
+        )
+        if result.success:
+            QMessageBox.information(
+                self,
+                "Saved",
+                f"Vault saved to:\n{result.output_path}",
+            )
+        else:
+            QMessageBox.critical(
+                self,
+                "Save Failed",
+                result.error or "Failed to save vault.",
+            )
+
+    def _on_save_vault_as(self) -> None:
+        """Save current vault to a new image path."""
+        if not self._has_vault() or not self._current_image_path:
+            return
+        new_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Vault As",
+            "",
+            "Images (*.png *.jpg *.jpeg);;All Files (*)",
+        )
+        if not new_path:
+            return
+        passphrase = self._ask_passphrase("Save Vault As - Passphrase")
+        if not passphrase:
+            return
+        result: VaultSaveResult = self._vault_controller.save_vault(
+            vault=self._current_vault,
+            output_path=new_path,
+            passphrase=passphrase,
+            cover_image=self._current_image_path,
+        )
+        if result.success:
+            self._current_image_path = new_path
+            self._update_vault_dependent_actions()
+            QMessageBox.information(
+                self,
+                "Saved",
+                f"Vault saved to:\n{result.output_path}",
+            )
+        else:
+            QMessageBox.critical(
+                self,
+                "Save Failed",
+                result.error or "Failed to save vault.",
+            )
+
+    def _on_close_vault(self) -> None:
+        """Clear current vault and reset UI."""
+        self._current_vault = None
+        self._current_image_path = None
+        self._entry_list.clear()
+        self._detail_label.setText(
+            f"StegVault GUI v{__version__}\n\n"
+            "Use File → Open Vault… to load an image-based vault."
+        )
+        self._update_vault_dependent_actions()
 
 
 class StegVaultGUI:
