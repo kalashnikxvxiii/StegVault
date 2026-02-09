@@ -23,7 +23,9 @@ This document outlines the planned development roadmap for StegVault.
 - **v0.7.7** - TOTP/2FA Protection & UI Enhancements (2025-12-25)
 - **v0.7.8** - Auto-Update System Critical Bug Fixes (2025-12-25)
 - **v0.7.9** - Advanced Settings for Cryptography (2025-12-27)
-- **v0.7.10** - Critical Bug Fixes & Test Quality (2026-01-16) ✅ **CURRENT**
+- **v0.7.10** - Critical Bug Fixes & Test Quality (2026-01-16)
+- **v0.7.11** - Operative Security (2026-02-08)
+- **v0.8.0 (preview)** - Desktop GUI foundation (in development) ✅ **CURRENT**
 
 ## Completed Milestones
 
@@ -140,16 +142,29 @@ This document outlines the planned development roadmap for StegVault.
 - [x] Real-time validation and cross-parameter compatibility
 - [x] 41 new tests (1066 total), 81% coverage
 
-### v0.7.10 ✅ (Released 2026-01-16) **CURRENT**
+### v0.7.10 ✅ (Released 2026-01-16)
 - [x] Fix vault filter / gallery add --tag (list() name collision)
 - [x] SQLite datetime adapter for Python 3.12+ (deprecation warnings)
 - [x] VaultController exception handler tests (+6)
 - [x] Total: 1078 tests, 81% coverage
 
+### v0.8.0 (Preview - In Development)
+- [x] Optional `[gui]` extra: `pip install stegvault[gui]` (PySide6>=6.5.0)
+- [x] `stegvault gui` CLI command; graceful exit with install hint if PySide6 missing
+- [x] `stegvault.gui` package: MainWindow, StegVaultGUI (app.py)
+- [x] File menu: Open Vault (Ctrl+O), Save (Ctrl+S), Save As, Close Vault, Exit (Ctrl+Q)
+- [x] Dual-pane vault viewer: entry list (left), entry details (right); password hidden by default
+- [x] VaultController integration (load_vault, list_entries, get_entry, save_vault)
+- [x] Dynamic window title and menu state (Save/Save As/Close enabled only when vault open)
+- [ ] Drag-and-drop image support
+- [ ] Password generator widget and full CRUD in GUI
+- [ ] Background decryption (QThread), settings dialog, keyboard shortcuts
+- [ ] GUI test suite (pytest-qt)
+
 ## Version 0.8.0 - Desktop GUI (Q1 2026)
 
 ### Goals
-Native desktop application with visual vault management
+Native desktop application with visual vault management. **Preview available**: install with `pip install stegvault[gui]` and run `stegvault gui`.
 
 ### Technology Choice
 **PySide6 (Qt for Python)** - Selected for:
@@ -161,8 +176,9 @@ Native desktop application with visual vault management
 - Qt Designer for rapid UI development
 
 ### Features
-- [ ] Native desktop application with Qt/PySide6
-- [ ] Visual vault entry editor
+- [x] Native desktop application with Qt/PySide6 (preview)
+- [x] Open/Save/Save As/Close vault; dual-pane viewer
+- [ ] Visual vault entry editor (add/edit/delete in GUI)
 - [ ] Password strength meter and generator UI
 - [ ] Search across all vaults
 - [ ] Tag-based organization

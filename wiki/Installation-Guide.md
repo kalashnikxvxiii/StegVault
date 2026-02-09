@@ -107,6 +107,17 @@ To upgrade to the latest version:
 pip install --upgrade stegvault
 ```
 
+### Optional: Desktop GUI (v0.8.0 preview)
+
+To use the desktop GUI (PySide6-based vault viewer):
+
+```bash
+pip install stegvault[gui]
+stegvault gui
+```
+
+If PySide6 is not installed, `stegvault gui` will exit with an error and show install instructions. From source, use: `pip install -e ".[gui]"`.
+
 ## Dependency Information
 
 StegVault requires the following Python packages:
@@ -147,6 +158,7 @@ stegvault restore --help         # Single password restore
 stegvault vault --help           # Vault mode (multi-password manager)
 stegvault gallery --help         # Multi-vault management
 stegvault check --help           # Image capacity check
+stegvault gui --help             # Desktop GUI (requires: pip install stegvault[gui])
 ```
 
 Expected output:

@@ -1,12 +1,12 @@
 # Architecture Overview
 
-This document provides a technical overview of StegVault's architecture (v0.7.10).
+This document provides a technical overview of StegVault's architecture (v0.7.11; GUI preview in v0.8.0).
 
 ## System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                       StegVault System (v0.7.10)                │
+│                       StegVault System (v0.7.11 / GUI preview)   │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  ┌──────────────────────────────────────────────────────────┐   │
@@ -69,9 +69,9 @@ Multiple interfaces sharing the same business logic:
 
 - **CLI (Current)**: Click-based command-line interface
 - **TUI (Current - v0.7.0)**: Textual-based terminal UI with full keyboard navigation
-- **GUI (Planned v0.8.0)**: PySide6-based desktop application
+- **GUI (Preview v0.8.0)**: PySide6-based desktop application; optional `pip install stegvault[gui]`, then `stegvault gui`. Package: `stegvault/gui/` (Open/Save/Save As/Close vault, dual-pane viewer).
 
-**Benefits**: Users can choose the interface that fits their workflow - terminal purists use TUI, automation uses CLI headless mode, casual users will use GUI.
+**Benefits**: Users can choose the interface that fits their workflow - terminal purists use TUI, automation uses CLI headless mode, casual users can use the GUI preview.
 
 ### 2. Application Layer (v0.6.1)
 
@@ -463,11 +463,11 @@ check_interval = 86400  # 24 hours
 - ✅ Password history viewer (v0.7.1)
 - ✅ Auto-update system with Settings screen (v0.7.6)
 
-### v0.8.0: GUI (PySide6) - 🔜 PLANNED
+### v0.8.0: GUI (PySide6) - ✅ PREVIEW
 
-- Add `stegvault/gui/` package
-- Thread-safe controller usage (QThread)
-- Native desktop application
+- `stegvault/gui/` package (StegVaultGUI, MainWindow); optional [gui] extra
+- Open/Save/Save As/Close vault; dual-pane viewer; VaultController integration
+- Planned: QThread for background decryption, full CRUD, password generator widget
 
 ### v0.9.0: Cloud Sync (Optional)
 

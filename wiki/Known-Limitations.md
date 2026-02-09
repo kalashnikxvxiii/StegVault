@@ -146,13 +146,19 @@ Known limitations and constraints of StegVault.
 
 ---
 
-### No Desktop GUI Yet (v0.7.10)
+### Desktop GUI (Preview, v0.8.0)
 
-**Limitation**: No graphical desktop application yet
+**Status**: Desktop GUI is available as a **preview** (v0.8.0). Install with `pip install stegvault[gui]` and run `stegvault gui`.
 
-**Impact**: May be less accessible to some non-technical users
+**Current GUI capabilities**:
+- Open vault from image (File → Open Vault, Ctrl+O); passphrase via dialog
+- Dual-pane viewer: entry list (left), entry details (right); password hidden by default
+- Save (Ctrl+S), Save As, Close Vault, Exit (Ctrl+Q)
+- Window title shows current vault path when open
 
-**Current Interfaces** (v0.7.10):
+**Limitation**: GUI is preview-only. Full CRUD (add/edit/delete entries), password generator widget, drag-drop, and advanced features are planned for later releases.
+
+**Current Interfaces**:
 - ✅ **CLI**: Full-featured command-line interface
 - ✅ **TUI**: Terminal UI with full keyboard navigation (v0.7.0+)
   - Live TOTP codes with auto-refresh
@@ -160,14 +166,11 @@ Known limitations and constraints of StegVault.
   - Full CRUD operations
   - Search/filter functionality
   - Password history tracking
+- ✅ **Desktop GUI (preview)**: PySide6 vault viewer (Open/Save/Save As/Close)
 - ✅ **Headless**: JSON output for automation (v0.6.0+)
-- ✅ **Application Layer**: Ready for GUI integration (v0.6.1+)
+- ✅ **Application Layer**: Shared by CLI, TUI, and GUI (v0.6.1+)
 
-**Workaround**: TUI provides full interactive experience in terminal
-
-**Status**: TUI is stable and production-ready (v0.7.10)
-
-**Future**: Desktop GUI (PySide6) planned for v0.8.0
+**Workaround**: For full interactive experience use TUI (`stegvault tui`) or CLI until GUI reaches feature parity.
 
 ---
 
