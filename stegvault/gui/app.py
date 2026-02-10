@@ -287,9 +287,7 @@ class MainWindow(QMainWindow):
             return current_path, None
 
         if out_ext not in (".png", ".jpg", ".jpeg"):
-            raise ValueError(
-                f"Unsupported output extension '{out_ext}'. Use .png or .jpg / .jpeg."
-            )
+            raise ValueError(f"Unsupported output extension '{out_ext}'. Use .png or .jpg / .jpeg.")
 
         from PIL import Image
 
