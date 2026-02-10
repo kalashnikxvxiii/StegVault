@@ -9,7 +9,9 @@ work end-to-end. Next phase: Add/Edit/Delete entry dialogs and password
 visibility/copy.
 """
 
-from typing import Optional
+import os
+import tempfile
+from typing import Optional, Tuple
 
 from stegvault import __version__
 from stegvault.app.controllers.vault_controller import (
@@ -268,8 +270,57 @@ class MainWindow(QMainWindow):
                 result.error or "Failed to save vault.",
             )
 
+    def _get_cover_for_save_as(
+        self, current_path: str, output_path: str
+    ) -> Tuple[str, Optional[str]]:
+        """
+        Return (cover_path, temp_path_to_delete).
+        Ensures cover image format matches output extension so the stego layer
+        writes the correct format (PNG->.png, JPEG->.jpg). When current and
+        output extensions differ, converts current image to a temp file in
+        the target format; caller must delete the temp file after save.
+        Raises on unsupported extension or conversion failure.
+        """
+        cur_ext = os.path.splitext(current_path)[1].lower()
+        out_ext = os.path.splitext(output_path)[1].lower()
+        if cur_ext == out_ext:
+            return current_path, None
+
+        if out_ext not in (".png", ".jpg", ".jpeg"):
+            raise ValueError(
+                f"Unsupported output extension '{out_ext}'. Use .png or .jpg / .jpeg."
+            )
+
+        from PIL import Image
+
+        img = Image.open(current_path)
+        try:
+            img.load()
+            if out_ext == ".jpg" or out_ext == ".jpeg":
+                if img.mode not in ("RGB", "L"):
+                    old_img = img
+                    img = img.convert("RGB")
+                    old_img.close()
+                fmt_save = "JPEG"
+            else:
+                fmt_save = "PNG"
+            fd, temp_path = tempfile.mkstemp(suffix=out_ext)
+            os.close(fd)
+            try:
+                if fmt_save == "JPEG":
+                    img.save(temp_path, format="JPEG", quality=95)
+                else:
+                    img.save(temp_path, format="PNG")
+            except Exception:
+                if os.path.exists(temp_path):
+                    os.unlink(temp_path)
+                raise
+            return temp_path, temp_path
+        finally:
+            img.close()
+
     def _on_save_vault_as(self) -> None:
-        """Save current vault to a new image path."""
+        """Save current vault to a new image path. Ensures output format matches extension (PNG/JPEG)."""
         if not self._has_vault() or not self._current_image_path:
             return
         new_path, _ = QFileDialog.getSaveFileName(
@@ -283,26 +334,46 @@ class MainWindow(QMainWindow):
         passphrase = self._ask_passphrase("Save Vault As - Passphrase")
         if not passphrase:
             return
-        result: VaultSaveResult = self._vault_controller.save_vault(
-            vault=self._current_vault,
-            output_path=new_path,
-            passphrase=passphrase,
-            cover_image=self._current_image_path,
-        )
-        if result.success:
-            self._current_image_path = new_path
-            self._update_vault_dependent_actions()
-            QMessageBox.information(
-                self,
-                "Saved",
-                f"Vault saved to:\n{result.output_path}",
+
+        try:
+            cover_path, temp_to_delete = self._get_cover_for_save_as(
+                self._current_image_path, new_path
             )
-        else:
+        except Exception as e:
             QMessageBox.critical(
                 self,
-                "Save Failed",
-                result.error or "Failed to save vault.",
+                "Save As",
+                f"Cannot prepare image for target format: {e}",
             )
+            return
+
+        try:
+            result: VaultSaveResult = self._vault_controller.save_vault(
+                vault=self._current_vault,
+                output_path=new_path,
+                passphrase=passphrase,
+                cover_image=cover_path,
+            )
+            if result.success:
+                self._current_image_path = new_path
+                self._update_vault_dependent_actions()
+                QMessageBox.information(
+                    self,
+                    "Saved",
+                    f"Vault saved to:\n{result.output_path}",
+                )
+            else:
+                QMessageBox.critical(
+                    self,
+                    "Save Failed",
+                    result.error or "Failed to save vault.",
+                )
+        finally:
+            if temp_to_delete and os.path.exists(temp_to_delete):
+                try:
+                    os.unlink(temp_to_delete)
+                except OSError:
+                    pass
 
     def _on_close_vault(self) -> None:
         """Clear current vault and reset UI."""
