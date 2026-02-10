@@ -17,11 +17,13 @@ from stegvault.app.controllers.vault_controller import (
     VaultLoadResult,
     VaultSaveResult,
 )
-from stegvault.vault.operations import list_entries, get_entry
+from stegvault.vault.operations import add_entry as vault_add_entry, list_entries, get_entry
+from stegvault.gui.dialogs import AddEntryDialog
 
 try:
     from PySide6.QtWidgets import (
         QApplication,
+        QDialog,
         QFileDialog,
         QLabel,
         QLineEdit,
@@ -99,12 +101,18 @@ class MainWindow(QMainWindow):
         exit_action.setShortcut("Ctrl+Q")
         exit_action.triggered.connect(self.close)  # type: ignore[arg-type]
 
+        edit_menu: QMenu = menubar.addMenu("&Edit")
+        self._add_entry_action = edit_menu.addAction("Add Entry…")
+        self._add_entry_action.setShortcut("Ctrl+N")
+        self._add_entry_action.triggered.connect(self._on_add_entry)  # type: ignore[arg-type]
+
     def _update_vault_dependent_actions(self) -> None:
-        """Enable/disable Save, Save As, Close Vault based on whether a vault is loaded."""
+        """Enable/disable Save, Save As, Close Vault, Add Entry based on whether a vault is loaded."""
         enabled = self._has_vault()
         self._save_action.setEnabled(enabled)
         self._save_as_action.setEnabled(enabled)
         self._close_vault_action.setEnabled(enabled)
+        self._add_entry_action.setEnabled(enabled)
         if enabled and self._current_image_path:
             self.setWindowTitle(f"StegVault - {self._current_image_path}")
         else:
@@ -314,6 +322,43 @@ class MainWindow(QMainWindow):
             "Use File → Open Vault… to load an image-based vault."
         )
         self._update_vault_dependent_actions()
+
+    def _on_add_entry(self) -> None:
+        """Open Add Entry dialog and append new entry to current vault (in-memory; user must Save to persist)."""
+        if not self._has_vault():
+            return
+        dialog = AddEntryDialog(self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        try:
+            vault_add_entry(
+                self._current_vault,
+                key=dialog.get_key(),
+                password=dialog.get_password(),
+                username=dialog.get_username(),
+                url=dialog.get_url(),
+                notes=dialog.get_notes(),
+                tags=dialog.get_tags(),
+            )
+        except ValueError as e:
+            QMessageBox.critical(
+                self,
+                "Add Entry",
+                str(e),
+            )
+            return
+        self._populate_entries()
+        # Select the new entry in the list
+        key = dialog.get_key()
+        for i in range(self._entry_list.count()):
+            if self._entry_list.item(i).text() == key:
+                self._entry_list.setCurrentRow(i)
+                break
+        QMessageBox.information(
+            self,
+            "Add Entry",
+            f"Entry '{key}' added. Use File → Save to write the vault to the image.",
+        )
 
 
 class StegVaultGUI:
