@@ -189,7 +189,7 @@ class EditEntryDialog(QDialog):
 
     def get_password_new_or_unchanged(self) -> Optional[str]:
         """Return new password if user entered one, else None (do not update password)."""
-        p = self._password_edit.text()
+        p = self._password_edit.text().strip()
         return p if p else None
 
     def get_username(self) -> Optional[str]:
