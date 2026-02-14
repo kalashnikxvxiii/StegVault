@@ -20,6 +20,7 @@ from stegvault.app.controllers.vault_controller import (
 from stegvault.vault.operations import (
     add_entry as vault_add_entry,
     update_entry as vault_update_entry,
+    delete_entry as vault_delete_entry,
     list_entries,
     get_entry,
 )
@@ -115,6 +116,10 @@ class MainWindow(QMainWindow):
         self._edit_entry_action.setShortcut("Ctrl+E")
         self._edit_entry_action.triggered.connect(self._on_edit_entry)  # type: ignore[arg-type]
 
+        self._delete_entry_action = edit_menu.addAction("Delete Entry…")
+        self._delete_entry_action.setShortcut("Del")
+        self._delete_entry_action.triggered.connect(self._on_delete_entry)  # type: ignore[arg-type]
+
     def _get_selected_key(self) -> Optional[str]:
         """Return the key of the currently selected entry, or None."""
         item = self._entry_list.currentItem()
@@ -127,7 +132,9 @@ class MainWindow(QMainWindow):
         self._save_as_action.setEnabled(enabled)
         self._close_vault_action.setEnabled(enabled)
         self._add_entry_action.setEnabled(enabled)
-        self._edit_entry_action.setEnabled(enabled and self._get_selected_key() is not None)
+        has_selection = self._get_selected_key() is not None
+        self._edit_entry_action.setEnabled(enabled and has_selection)
+        self._delete_entry_action.setEnabled(enabled and has_selection)
         if enabled and self._current_image_path:
             self.setWindowTitle(f"StegVault - {self._current_image_path}")
         else:
@@ -430,6 +437,38 @@ class MainWindow(QMainWindow):
             "Edit Entry",
             f"Entry '{key}' updated. Use File → Save to write the vault to the image.",
         )
+
+    def _on_delete_entry(self) -> None:
+        """Delete the selected entry from the vault (in-memory; user must Save to persist)."""
+        if not self._has_vault():
+            return
+        key = self._get_selected_key()
+        if not key:
+            QMessageBox.information(
+                self,
+                "Delete Entry",
+                "Select an entry from the list to delete.",
+            )
+            return
+        reply = QMessageBox.question(
+            self,
+            "Delete Entry",
+            f"Delete entry '{key}'? This cannot be undone.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        ok = vault_delete_entry(self._current_vault, key)
+        if not ok:
+            QMessageBox.critical(
+                self,
+                "Delete Entry",
+                f"Failed to delete entry: {key}",
+            )
+            return
+        self._populate_entries()
+        self._update_vault_dependent_actions()
 
 
 class StegVaultGUI:
