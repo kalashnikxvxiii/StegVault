@@ -19,11 +19,19 @@ from stegvault.app.controllers.vault_controller import (
     VaultLoadResult,
     VaultSaveResult,
 )
-from stegvault.vault.operations import list_entries, get_entry
+from stegvault.vault.operations import (
+    add_entry as vault_add_entry,
+    update_entry as vault_update_entry,
+    delete_entry as vault_delete_entry,
+    list_entries,
+    get_entry,
+)
+from stegvault.gui.dialogs import AddEntryDialog, EditEntryDialog
 
 try:
     from PySide6.QtWidgets import (
         QApplication,
+        QDialog,
         QFileDialog,
         QLabel,
         QLineEdit,
@@ -101,12 +109,34 @@ class MainWindow(QMainWindow):
         exit_action.setShortcut("Ctrl+Q")
         exit_action.triggered.connect(self.close)  # type: ignore[arg-type]
 
+        edit_menu: QMenu = menubar.addMenu("&Edit")
+        self._add_entry_action = edit_menu.addAction("Add Entry…")
+        self._add_entry_action.setShortcut("Ctrl+N")
+        self._add_entry_action.triggered.connect(self._on_add_entry)  # type: ignore[arg-type]
+
+        self._edit_entry_action = edit_menu.addAction("Edit Entry…")
+        self._edit_entry_action.setShortcut("Ctrl+E")
+        self._edit_entry_action.triggered.connect(self._on_edit_entry)  # type: ignore[arg-type]
+
+        self._delete_entry_action = edit_menu.addAction("Delete Entry…")
+        self._delete_entry_action.setShortcut("Del")
+        self._delete_entry_action.triggered.connect(self._on_delete_entry)  # type: ignore[arg-type]
+
+    def _get_selected_key(self) -> Optional[str]:
+        """Return the key of the currently selected entry, or None."""
+        item = self._entry_list.currentItem()
+        return item.text().strip() if item else None
+
     def _update_vault_dependent_actions(self) -> None:
-        """Enable/disable Save, Save As, Close Vault based on whether a vault is loaded."""
+        """Enable/disable Save, Save As, Close Vault, Add/Edit Entry based on vault and selection."""
         enabled = self._has_vault()
         self._save_action.setEnabled(enabled)
         self._save_as_action.setEnabled(enabled)
         self._close_vault_action.setEnabled(enabled)
+        self._add_entry_action.setEnabled(enabled)
+        has_selection = self._get_selected_key() is not None
+        self._edit_entry_action.setEnabled(enabled and has_selection)
+        self._delete_entry_action.setEnabled(enabled and has_selection)
         if enabled and self._current_image_path:
             self.setWindowTitle(f"StegVault - {self._current_image_path}")
         else:
@@ -229,6 +259,7 @@ class MainWindow(QMainWindow):
             entry.notes or "",
         ]
         self._detail_label.setText("\n".join(details))
+        self._update_vault_dependent_actions()
 
     def _ask_passphrase(self, title: str = "Vault Passphrase") -> Optional[str]:
         """Ask for passphrase via dialog. Returns None if cancelled or empty."""
@@ -382,6 +413,130 @@ class MainWindow(QMainWindow):
             f"StegVault GUI v{__version__}\n\n"
             "Use File → Open Vault… to load an image-based vault."
         )
+        self._update_vault_dependent_actions()
+
+    def _on_add_entry(self) -> None:
+        """Open Add Entry dialog and append new entry to current vault (in-memory; user must Save to persist)."""
+        if not self._has_vault():
+            return
+        dialog = AddEntryDialog(self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        try:
+            vault_add_entry(
+                self._current_vault,
+                key=dialog.get_key(),
+                password=dialog.get_password(),
+                username=dialog.get_username(),
+                url=dialog.get_url(),
+                notes=dialog.get_notes(),
+                tags=dialog.get_tags(),
+            )
+        except ValueError as e:
+            QMessageBox.critical(
+                self,
+                "Add Entry",
+                str(e),
+            )
+            return
+        self._populate_entries()
+        # Select the new entry in the list
+        key = dialog.get_key()
+        for i in range(self._entry_list.count()):
+            if self._entry_list.item(i).text() == key:
+                self._entry_list.setCurrentRow(i)
+                break
+        QMessageBox.information(
+            self,
+            "Add Entry",
+            f"Entry '{key}' added. Use File → Save to write the vault to the image.",
+        )
+
+    def _on_edit_entry(self) -> None:
+        """Open Edit Entry dialog for the selected entry and apply changes (in-memory; user must Save to persist)."""
+        if not self._has_vault():
+            return
+        key = self._get_selected_key()
+        if not key:
+            QMessageBox.information(
+                self,
+                "Edit Entry",
+                "Select an entry from the list to edit.",
+            )
+            return
+        entry = get_entry(self._current_vault, key)
+        if not entry:
+            QMessageBox.critical(
+                self,
+                "Edit Entry",
+                f"Entry not found: {key}",
+            )
+            return
+        dialog = EditEntryDialog(self, entry=entry)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        kwargs = {
+            "username": dialog.get_username(),
+            "url": dialog.get_url(),
+            "notes": dialog.get_notes(),
+            "tags": dialog.get_tags(),
+        }
+        new_password = dialog.get_password_new_or_unchanged()
+        if new_password is not None:
+            kwargs["password"] = new_password
+        ok = vault_update_entry(self._current_vault, key, **kwargs)
+        if not ok:
+            QMessageBox.critical(
+                self,
+                "Edit Entry",
+                f"Failed to update entry: {key}",
+            )
+            return
+        self._populate_entries()
+        for i in range(self._entry_list.count()):
+            if self._entry_list.item(i).text() == key:
+                self._entry_list.setCurrentRow(i)
+                break
+        self._on_entry_selected(
+            self._entry_list.currentItem(),
+            None,
+        )
+        QMessageBox.information(
+            self,
+            "Edit Entry",
+            f"Entry '{key}' updated. Use File → Save to write the vault to the image.",
+        )
+
+    def _on_delete_entry(self) -> None:
+        """Delete the selected entry from the vault (in-memory; user must Save to persist)."""
+        if not self._has_vault():
+            return
+        key = self._get_selected_key()
+        if not key:
+            QMessageBox.information(
+                self,
+                "Delete Entry",
+                "Select an entry from the list to delete.",
+            )
+            return
+        reply = QMessageBox.question(
+            self,
+            "Delete Entry",
+            f"Delete entry '{key}'? This cannot be undone.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        ok = vault_delete_entry(self._current_vault, key)
+        if not ok:
+            QMessageBox.critical(
+                self,
+                "Delete Entry",
+                f"Failed to delete entry: {key}",
+            )
+            return
+        self._populate_entries()
         self._update_vault_dependent_actions()
 
 
