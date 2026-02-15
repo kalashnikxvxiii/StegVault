@@ -156,8 +156,9 @@ This document outlines the planned development roadmap for StegVault.
 - [x] Dual-pane vault viewer: entry list (left), entry details (right); password hidden by default
 - [x] VaultController integration (load_vault, list_entries, get_entry, save_vault)
 - [x] Dynamic window title and menu state (Save/Save As/Close enabled only when vault open)
+- [x] Full CRUD in GUI (Add/Edit/Delete entry); password row with Show/Hide and Copy
 - [ ] Drag-and-drop image support
-- [ ] Password generator widget and full CRUD in GUI
+- [ ] Password generator widget
 - [ ] Background decryption (QThread), settings dialog, keyboard shortcuts
 - [ ] GUI test suite (pytest-qt)
 
@@ -178,7 +179,7 @@ Native desktop application with visual vault management. **Preview available**: 
 ### Features
 - [x] Native desktop application with Qt/PySide6 (preview)
 - [x] Open/Save/Save As/Close vault; dual-pane viewer
-- [ ] Visual vault entry editor (add/edit/delete in GUI)
+- [x] Visual vault entry editor (add/edit/delete in GUI); password Show/Hide and Copy in detail panel
 - [ ] Password strength meter and generator UI
 - [ ] Search across all vaults
 - [ ] Tag-based organization
