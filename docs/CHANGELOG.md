@@ -25,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - File -> Close Vault: clear vault state, reset list and details panel.
 - Menu state: Save/Save As/Close disabled when no vault open; window title shows "StegVault - &lt;path&gt;" when vault loaded.
 
+**Password visibility and copy**:
+- Detail panel: Password row (masked by default) with Show/Hide toggle and Copy to clipboard for the selected entry.
+- Row visible only when an entry is selected; reset on selection change or Close Vault.
+
 **Usage**: `pip install -e ".[gui]"` (or `pip install stegvault[gui]`) then `stegvault gui`.
 
 ## [0.7.11] - 2026-02-08

@@ -4,9 +4,8 @@ Main application and main window for StegVault Desktop GUI.
 Uses the same Application Layer (VaultController, CryptoController, Vault)
 as CLI and TUI.
 
-GUI foundation is complete when: Open, View, Save, Save As, Close vault
-work end-to-end. Next phase: Add/Edit/Delete entry dialogs and password
-visibility/copy.
+Open, View, Save, Save As, Close vault; full CRUD (Add/Edit/Delete entry);
+password row in detail panel with Show/Hide and Copy to clipboard.
 """
 
 import os
@@ -41,6 +40,7 @@ try:
         QMenu,
         QMenuBar,
         QMessageBox,
+        QPushButton,
         QHBoxLayout,
         QVBoxLayout,
         QWidget,
@@ -70,6 +70,7 @@ class MainWindow(QMainWindow):
         self._vault_controller = VaultController()
         self._current_vault = None  # type: ignore[assignment]
         self._current_image_path: Optional[str] = None
+        self._last_selected_entry_password: Optional[str] = None
 
         self._setup_ui()
         self._update_vault_dependent_actions()
@@ -165,6 +166,27 @@ class MainWindow(QMainWindow):
         self._detail_label.setWordWrap(True)
 
         detail_layout.addWidget(self._detail_label)
+
+        # Password row: masked by default, Show/Hide toggle and Copy
+        password_row = QWidget()
+        row_layout = QHBoxLayout(password_row)
+        row_layout.addWidget(QLabel("Password:"))
+        self._password_line = QLineEdit()
+        self._password_line.setReadOnly(True)
+        self._password_line.setEchoMode(QLineEdit.EchoMode.Password)
+        self._password_line.setText("********")
+        self._password_line.setMinimumWidth(120)
+        row_layout.addWidget(self._password_line, stretch=1)
+        self._btn_show_password = QPushButton("Show")
+        self._btn_show_password.clicked.connect(self._on_toggle_password_visibility)  # type: ignore[arg-type]
+        self._btn_copy_password = QPushButton("Copy")
+        self._btn_copy_password.clicked.connect(self._on_copy_password)  # type: ignore[arg-type]
+        row_layout.addWidget(self._btn_show_password)
+        row_layout.addWidget(self._btn_copy_password)
+        self._password_row_widget = password_row
+        self._password_row_widget.setVisible(False)
+        detail_layout.addWidget(password_row)
+
         layout.addWidget(detail_container, stretch=2)
 
     # Actions --------------------------------------------------------------
@@ -216,6 +238,8 @@ class MainWindow(QMainWindow):
         from stegvault.vault.core import Vault
 
         self._entry_list.clear()
+        self._last_selected_entry_password = None
+        self._password_row_widget.setVisible(False)
         self._detail_label.setText(
             f"Vault loaded from:\n{self._current_image_path or ''}\n\n"
             "Select an entry on the left to view details."
@@ -235,15 +259,31 @@ class MainWindow(QMainWindow):
     ) -> None:
         """Update detail panel when a new entry is selected."""
         if current is None or self._current_vault is None:
+            self._last_selected_entry_password = None
+            self._password_row_widget.setVisible(False)
+            if self._has_vault() and self._current_image_path:
+                self._detail_label.setText(
+                    f"Vault loaded from:\n{self._current_image_path or ''}\n\n"
+                    "Select an entry on the left to view details."
+                )
+            self._update_vault_dependent_actions()
             return
 
         key = current.text()
         entry = get_entry(self._current_vault, key)
         if entry is None:
             self._detail_label.setText(f"Entry not found: {key}")
+            self._last_selected_entry_password = None
+            self._password_row_widget.setVisible(False)
+            self._update_vault_dependent_actions()
             return
 
-        # Show non-sensitive fields; passwords remain hidden in UI for now.
+        self._last_selected_entry_password = entry.password or ""
+        self._password_row_widget.setVisible(True)
+        self._password_line.setEchoMode(QLineEdit.EchoMode.Password)
+        self._password_line.setText("********")
+        self._btn_show_password.setText("Show")
+
         tags = ", ".join(entry.tags) if entry.tags else "(none)"
         details = [
             f"Key: {entry.key}",
@@ -274,6 +314,25 @@ class MainWindow(QMainWindow):
         if not ok or not passphrase:
             return None
         return passphrase
+
+    def _on_toggle_password_visibility(self) -> None:
+        """Toggle between masked and visible password in the detail panel."""
+        if self._last_selected_entry_password is None:
+            return
+        if self._password_line.echoMode() == QLineEdit.EchoMode.Password:
+            self._password_line.setEchoMode(QLineEdit.EchoMode.Normal)
+            self._password_line.setText(self._last_selected_entry_password)
+            self._btn_show_password.setText("Hide")
+        else:
+            self._password_line.setEchoMode(QLineEdit.EchoMode.Password)
+            self._password_line.setText("********")
+            self._btn_show_password.setText("Show")
+
+    def _on_copy_password(self) -> None:
+        """Copy the current entry password to the clipboard."""
+        if self._last_selected_entry_password is None:
+            return
+        QApplication.clipboard().setText(self._last_selected_entry_password)
 
     def _on_save_vault(self) -> None:
         """Save current vault to the same image path (overwrite)."""
@@ -408,6 +467,8 @@ class MainWindow(QMainWindow):
         """Clear current vault and reset UI."""
         self._current_vault = None
         self._current_image_path = None
+        self._last_selected_entry_password = None
+        self._password_row_widget.setVisible(False)
         self._entry_list.clear()
         self._detail_label.setText(
             f"StegVault GUI v{__version__}\n\n"

@@ -152,11 +152,12 @@ Known limitations and constraints of StegVault.
 
 **Current GUI capabilities**:
 - Open vault from image (File → Open Vault, Ctrl+O); passphrase via dialog
-- Dual-pane viewer: entry list (left), entry details (right); password hidden by default
+- Dual-pane viewer: entry list (left), entry details (right); password row with Show/Hide and Copy
+- Full CRUD: Add Entry (Ctrl+N), Edit Entry (Ctrl+E), Delete Entry (Del) with confirmation
 - Save (Ctrl+S), Save As, Close Vault, Exit (Ctrl+Q)
 - Window title shows current vault path when open
 
-**Limitation**: GUI is preview-only. Full CRUD (add/edit/delete entries), password generator widget, drag-drop, and advanced features are planned for later releases.
+**Limitation**: GUI is preview-only. Password generator widget, drag-drop, and advanced features are planned for later releases.
 
 **Current Interfaces**:
 - ✅ **CLI**: Full-featured command-line interface
