@@ -1,7 +1,7 @@
 version: 2
 updates:
-  # Python dependencies (pyproject.toml + optional [dev],[gui])
-  - package-ecosystem: "pip"
+  # Python dependencies (uv.lock from pyproject.toml; enables security + version updates)
+  - package-ecosystem: "uv"
     directory: "/"
     schedule:
       interval: "weekly"
@@ -14,8 +14,6 @@ updates:
     commit-message:
       prefix: "deps"
       include: "scope"
-    # Required for pip + setuptools/pyproject.toml so Dependabot can resolve deps
-    insecure-external-code-execution: allow
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
