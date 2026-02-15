@@ -6,6 +6,7 @@ as CLI and TUI.
 
 Open, View, Save, Save As, Close vault; full CRUD (Add/Edit/Delete entry);
 password row in detail panel with Show/Hide and Copy to clipboard.
+Drag-and-drop an image file onto the window to open it as a vault.
 """
 
 import os
@@ -46,6 +47,7 @@ try:
         QWidget,
     )
     from PySide6.QtCore import Qt
+    from PySide6.QtGui import QDragEnterEvent, QDropEvent
 except ImportError as e:
     raise ImportError(
         "PySide6 is required for the GUI. Install with: pip install stegvault[gui]"
@@ -72,6 +74,7 @@ class MainWindow(QMainWindow):
         self._current_image_path: Optional[str] = None
         self._last_selected_entry_password: Optional[str] = None
 
+        self.setAcceptDrops(True)
         self._setup_ui()
         self._update_vault_dependent_actions()
 
@@ -190,20 +193,10 @@ class MainWindow(QMainWindow):
         layout.addWidget(detail_container, stretch=2)
 
     # Actions --------------------------------------------------------------
-    def _on_open_vault(self) -> None:
-        """
-        Open an image containing a vault and display its entries.
-        """
-        image_path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Open Vault Image",
-            "",
-            "Images (*.png *.jpg *.jpeg *.bmp);;All Files (*)",
-        )
-        if not image_path:
-            return
+    _IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".bmp")
 
-        # Ask for passphrase
+    def _open_vault_from_path(self, image_path: str) -> None:
+        """Ask for passphrase and load vault from image path. On success updates UI."""
         from PySide6.QtWidgets import QInputDialog
 
         passphrase, ok = QInputDialog.getText(
@@ -214,12 +207,10 @@ class MainWindow(QMainWindow):
         )
         if not ok or not passphrase:
             return
-
         result: VaultLoadResult = self._vault_controller.load_vault(
             image_path=image_path,
             passphrase=passphrase,
         )
-
         if not result.success or result.vault is None:
             QMessageBox.critical(
                 self,
@@ -227,11 +218,48 @@ class MainWindow(QMainWindow):
                 result.error or "Failed to load vault from image.",
             )
             return
-
         self._current_vault = result.vault
         self._current_image_path = image_path
         self._populate_entries()
         self._update_vault_dependent_actions()
+
+    def _on_open_vault(self) -> None:
+        """Open an image containing a vault (file dialog)."""
+        image_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open Vault Image",
+            "",
+            "Images (*.png *.jpg *.jpeg *.bmp);;All Files (*)",
+        )
+        if not image_path:
+            return
+        self._open_vault_from_path(image_path)
+
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
+        """Accept drag if at least one dropped item is a local image file."""
+        if not event.mimeData().hasUrls():
+            return
+        for url in event.mimeData().urls():
+            if url.isLocalFile():
+                path = url.toLocalFile()
+                if path and os.path.splitext(path)[1].lower() in self._IMAGE_EXTENSIONS:
+                    event.acceptProposedAction()
+                    return
+
+    def dropEvent(self, event: QDropEvent) -> None:
+        """Open the first dropped local image file as a vault."""
+        for url in event.mimeData().urls():
+            if not url.isLocalFile():
+                continue
+            path = url.toLocalFile()
+            if not path or os.path.splitext(path)[1].lower() not in self._IMAGE_EXTENSIONS:
+                continue
+            if not os.path.isfile(path):
+                continue
+            self._open_vault_from_path(path)
+            event.acceptProposedAction()
+            return
+        event.ignore()
 
     def _populate_entries(self) -> None:
         """Populate the entry list with keys from the current vault."""

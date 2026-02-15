@@ -29,6 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Detail panel: Password row (masked by default) with Show/Hide toggle and Copy to clipboard for the selected entry.
 - Row visible only when an entry is selected; reset on selection change or Close Vault.
 
+**Drag-and-drop**:
+- Drop an image file (.png, .jpg, .jpeg, .bmp) onto the main window to open it as a vault; passphrase is requested via dialog.
+
 **Usage**: `pip install -e ".[gui]"` (or `pip install stegvault[gui]`) then `stegvault gui`.
 
 ## [0.7.11] - 2026-02-08
