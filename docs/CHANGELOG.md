@@ -35,6 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **Password generator**:
 - Add Entry and Edit Entry dialogs: "Generate" button next to the password field; generates a 20-character password (vault generator) and fills the field.
 
+**Background decryption**:
+- Opening a vault (File -> Open or drag-and-drop) runs decryption in a QThread; UI shows wait cursor and remains responsive during load.
+
 **Usage**: `pip install -e ".[gui]"` (or `pip install stegvault[gui]`) then `stegvault gui`.
 
 ## [0.7.11] - 2026-02-08

@@ -7,6 +7,7 @@ as CLI and TUI.
 Open, View, Save, Save As, Close vault; full CRUD (Add/Edit/Delete entry);
 password row in detail panel with Show/Hide and Copy; Generate button in Add/Edit dialogs.
 Drag-and-drop an image file onto the window to open it as a vault.
+Open-vault decryption runs in a background thread (QThread) to keep the UI responsive.
 """
 
 import os
@@ -46,7 +47,7 @@ try:
         QVBoxLayout,
         QWidget,
     )
-    from PySide6.QtCore import Qt
+    from PySide6.QtCore import QObject, Qt, QThread, Signal
     from PySide6.QtGui import QDragEnterEvent, QDropEvent
 except ImportError as e:
     raise ImportError(
@@ -73,6 +74,9 @@ class MainWindow(QMainWindow):
         self._current_vault = None  # type: ignore[assignment]
         self._current_image_path: Optional[str] = None
         self._last_selected_entry_password: Optional[str] = None
+        self._pending_open_path: Optional[str] = None
+        self._load_thread: Optional[QThread] = None
+        self._load_worker: Optional["LoadVaultWorker"] = None
 
         self.setAcceptDrops(True)
         self._setup_ui()
@@ -196,7 +200,7 @@ class MainWindow(QMainWindow):
     _IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".bmp")
 
     def _open_vault_from_path(self, image_path: str) -> None:
-        """Ask for passphrase and load vault from image path. On success updates UI."""
+        """Ask for passphrase and load vault in a background thread. On success updates UI."""
         from PySide6.QtWidgets import QInputDialog
 
         passphrase, ok = QInputDialog.getText(
@@ -207,19 +211,38 @@ class MainWindow(QMainWindow):
         )
         if not ok or not passphrase:
             return
-        result: VaultLoadResult = self._vault_controller.load_vault(
-            image_path=image_path,
-            passphrase=passphrase,
-        )
-        if not result.success or result.vault is None:
+        self._pending_open_path = image_path
+        worker = LoadVaultWorker(image_path=image_path, passphrase=passphrase)
+        thread = QThread(self)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.do_work)  # type: ignore[arg-type]
+        worker.finished.connect(self._on_vault_loaded)  # type: ignore[arg-type]
+        worker.finished.connect(thread.quit)  # type: ignore[arg-type]
+        self._load_thread = thread
+        self._load_worker = worker
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        self.setEnabled(False)
+        thread.start()
+
+    def _on_vault_loaded(
+        self, success: bool, vault: Optional[object], error_msg: str
+    ) -> None:
+        """Handle result of background vault load (runs on main thread)."""
+        QApplication.restoreOverrideCursor()
+        self.setEnabled(True)
+        path = self._pending_open_path
+        self._pending_open_path = None
+        self._load_thread = None
+        self._load_worker = None
+        if not success or vault is None:
             QMessageBox.critical(
                 self,
                 "Error",
-                result.error or "Failed to load vault from image.",
+                error_msg or "Failed to load vault from image.",
             )
             return
-        self._current_vault = result.vault
-        self._current_image_path = image_path
+        self._current_vault = vault
+        self._current_image_path = path
         self._populate_entries()
         self._update_vault_dependent_actions()
 
@@ -627,6 +650,35 @@ class MainWindow(QMainWindow):
             return
         self._populate_entries()
         self._update_vault_dependent_actions()
+
+
+class LoadVaultWorker(QObject):
+    """Runs load_vault in a background thread. Emits finished(success, vault, error_msg)."""
+
+    finished = Signal(bool, object, str)
+
+    def __init__(
+        self,
+        image_path: str,
+        passphrase: str,
+        parent: Optional[QObject] = None,
+    ) -> None:
+        super().__init__(parent)
+        self._image_path = image_path
+        self._passphrase = passphrase
+
+    def do_work(self) -> None:
+        controller = VaultController()
+        result: VaultLoadResult = controller.load_vault(
+            image_path=self._image_path,
+            passphrase=self._passphrase,
+        )
+        self._passphrase = ""
+        self.finished.emit(
+            result.success,
+            result.vault,
+            result.error or "",
+        )
 
 
 class StegVaultGUI:

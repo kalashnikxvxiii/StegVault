@@ -159,7 +159,8 @@ This document outlines the planned development roadmap for StegVault.
 - [x] Full CRUD in GUI (Add/Edit/Delete entry); password row with Show/Hide and Copy
 - [x] Drag-and-drop image support (drop image file onto window to open vault)
 - [x] Password generator widget (Generate button in Add/Edit Entry dialogs)
-- [ ] Background decryption (QThread), settings dialog, keyboard shortcuts
+- [x] Background decryption (QThread): open-vault runs in worker thread, UI shows wait cursor and stays responsive
+- [ ] Settings dialog, keyboard shortcuts
 - [ ] GUI test suite (pytest-qt)
 
 ## Version 0.8.0 - Desktop GUI (Q1 2026)
@@ -182,6 +183,7 @@ Native desktop application with visual vault management. **Preview available**: 
 - [x] Visual vault entry editor (add/edit/delete in GUI); password Show/Hide and Copy in detail panel
 - [x] Drag-and-drop image onto window to open vault
 - [x] Password generator in Add/Edit Entry dialogs (Generate button, 20-char default)
+- [x] Background decryption: Open Vault (file/drag-drop) runs in QThread with wait cursor
 - [ ] Password strength meter and generator UI (advanced options)
 - [ ] Search across all vaults
 - [ ] Tag-based organization
