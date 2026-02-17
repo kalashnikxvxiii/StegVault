@@ -106,9 +106,11 @@ class MainWindow(QMainWindow):
         self._save_action.triggered.connect(self._on_save_vault)  # type: ignore[arg-type]
 
         self._save_as_action = file_menu.addAction("Save As…")
+        self._save_as_action.setShortcut("Ctrl+Shift+S")
         self._save_as_action.triggered.connect(self._on_save_vault_as)  # type: ignore[arg-type]
 
         self._close_vault_action = file_menu.addAction("Close Vault")
+        self._close_vault_action.setShortcut("Ctrl+W")
         self._close_vault_action.triggered.connect(self._on_close_vault)  # type: ignore[arg-type]
 
         file_menu.addSeparator()
@@ -129,6 +131,41 @@ class MainWindow(QMainWindow):
         self._delete_entry_action = edit_menu.addAction("Delete Entry…")
         self._delete_entry_action.setShortcut("Del")
         self._delete_entry_action.triggered.connect(self._on_delete_entry)  # type: ignore[arg-type]
+
+        help_menu: QMenu = menubar.addMenu("&Help")
+        shortcuts_action = help_menu.addAction("Keyboard Shortcuts…")
+        shortcuts_action.triggered.connect(self._on_show_shortcuts)  # type: ignore[arg-type]
+        about_action = help_menu.addAction("About StegVault")
+        about_action.triggered.connect(self._on_about)  # type: ignore[arg-type]
+
+    def _on_show_shortcuts(self) -> None:
+        """Show a dialog listing keyboard shortcuts."""
+        text = """File
+  Open Vault…     Ctrl+O
+  Save            Ctrl+S
+  Save As…        Ctrl+Shift+S
+  Close Vault     Ctrl+W
+  Exit            Ctrl+Q
+
+Edit
+  Add Entry…      Ctrl+N
+  Edit Entry…     Ctrl+E
+  Delete Entry    Del"""
+        QMessageBox.information(
+            self,
+            "Keyboard Shortcuts",
+            text,
+        )
+
+    def _on_about(self) -> None:
+        """Show About dialog."""
+        QMessageBox.about(
+            self,
+            "About StegVault",
+            f"StegVault v{__version__}\n\n"
+            "Password manager using steganography to embed encrypted credentials in images.\n\n"
+            "Optional GUI: pip install stegvault[gui]",
+        )
 
     def _get_selected_key(self) -> Optional[str]:
         """Return the key of the currently selected entry, or None."""
