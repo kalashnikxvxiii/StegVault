@@ -5,7 +5,7 @@ Uses the same Application Layer (VaultController, CryptoController, Vault)
 as CLI and TUI.
 
 Open, View, Save, Save As, Close vault; full CRUD (Add/Edit/Delete entry);
-password row in detail panel with Show/Hide and Copy to clipboard.
+password row in detail panel with Show/Hide and Copy; Generate button in Add/Edit dialogs.
 Drag-and-drop an image file onto the window to open it as a vault.
 """
 

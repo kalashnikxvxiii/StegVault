@@ -14,8 +14,10 @@ try:
         QDialog,
         QDialogButtonBox,
         QFormLayout,
+        QHBoxLayout,
         QLineEdit,
         QPlainTextEdit,
+        QPushButton,
         QVBoxLayout,
         QWidget,
     )
@@ -52,7 +54,14 @@ class AddEntryDialog(QDialog):
         self._password_edit = QLineEdit()
         self._password_edit.setEchoMode(QLineEdit.EchoMode.Password)
         self._password_edit.setPlaceholderText("Password")
-        form.addRow("Password (required):", self._password_edit)
+        btn_generate = QPushButton("Generate")
+        btn_generate.clicked.connect(self._on_generate_password)  # type: ignore[arg-type]
+        password_row = QWidget()
+        password_row_layout = QHBoxLayout(password_row)
+        password_row_layout.setContentsMargins(0, 0, 0, 0)
+        password_row_layout.addWidget(self._password_edit, stretch=1)
+        password_row_layout.addWidget(btn_generate)
+        form.addRow("Password (required):", password_row)
 
         self._username_edit = QLineEdit()
         self._username_edit.setPlaceholderText("Username or email")
@@ -79,6 +88,11 @@ class AddEntryDialog(QDialog):
         buttons.accepted.connect(self._on_accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+
+    def _on_generate_password(self) -> None:
+        from stegvault.vault.generator import generate_password
+
+        self._password_edit.setText(generate_password(length=20))
 
     def _on_accept(self) -> None:
         key = self._key_edit.text().strip()
@@ -148,7 +162,14 @@ class EditEntryDialog(QDialog):
         self._password_edit = QLineEdit()
         self._password_edit.setEchoMode(QLineEdit.EchoMode.Password)
         self._password_edit.setPlaceholderText("Leave blank to keep current password")
-        form.addRow("Password:", self._password_edit)
+        btn_generate = QPushButton("Generate")
+        btn_generate.clicked.connect(self._on_generate_password)  # type: ignore[arg-type]
+        password_row = QWidget()
+        password_row_layout = QHBoxLayout(password_row)
+        password_row_layout.setContentsMargins(0, 0, 0, 0)
+        password_row_layout.addWidget(self._password_edit, stretch=1)
+        password_row_layout.addWidget(btn_generate)
+        form.addRow("Password:", password_row)
 
         self._username_edit = QLineEdit()
         self._username_edit.setPlaceholderText("Username or email")
@@ -173,6 +194,11 @@ class EditEntryDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+
+    def _on_generate_password(self) -> None:
+        from stegvault.vault.generator import generate_password
+
+        self._password_edit.setText(generate_password(length=20))
 
     def _fill_from_entry(self) -> None:
         if not self._entry:

@@ -32,6 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **Drag-and-drop**:
 - Drop an image file (.png, .jpg, .jpeg, .bmp) onto the main window to open it as a vault; passphrase is requested via dialog.
 
+**Password generator**:
+- Add Entry and Edit Entry dialogs: "Generate" button next to the password field; generates a 20-character password (vault generator) and fills the field.
+
 **Usage**: `pip install -e ".[gui]"` (or `pip install stegvault[gui]`) then `stegvault gui`.
 
 ## [0.7.11] - 2026-02-08

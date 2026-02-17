@@ -157,7 +157,7 @@ Known limitations and constraints of StegVault.
 - Save (Ctrl+S), Save As, Close Vault, Exit (Ctrl+Q)
 - Window title shows current vault path when open
 
-**Limitation**: GUI is preview-only. Password generator widget, drag-drop, and advanced features are planned for later releases.
+**Limitation**: GUI is preview-only. Advanced generator options (length, character sets), strength meter, and further features are planned for later releases.
 
 **Current Interfaces**:
 - ✅ **CLI**: Full-featured command-line interface
