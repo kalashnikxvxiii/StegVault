@@ -224,9 +224,7 @@ class MainWindow(QMainWindow):
         self.setEnabled(False)
         thread.start()
 
-    def _on_vault_loaded(
-        self, success: bool, vault: Optional[object], error_msg: str
-    ) -> None:
+    def _on_vault_loaded(self, success: bool, vault: Optional[object], error_msg: str) -> None:
         """Handle result of background vault load (runs on main thread)."""
         QApplication.restoreOverrideCursor()
         self.setEnabled(True)
