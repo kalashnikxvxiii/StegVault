@@ -8,11 +8,38 @@ Open, View, Save, Save As, Close vault; full CRUD (Add/Edit/Delete entry);
 password row in detail panel with Show/Hide and Copy; Generate button in Add/Edit dialogs.
 Drag-and-drop an image file onto the window to open it as a vault.
 Open-vault decryption runs in a background thread (QThread) to keep the UI responsive.
+
+Debug: set env STEGVAULT_GUI_DEBUG=1 then run:
+  set STEGVAULT_GUI_DEBUG=1
+  stegvault gui 2>&1 | tee gui_debug.log
+(or on Unix: STEGVAULT_GUI_DEBUG=1 stegvault gui 2>&1 | tee gui_debug.log)
+Then reproduce the issue (e.g. open Help -> Keyboard Shortcuts). In the log:
+- Last line before freeze = where it blocked.
+- Many _on_show_shortcuts ENTER without EXIT = dialog open/close loop.
+- _update_vault_dependent_actions call# > 50 = signal loop (currentItemChanged re-entrancy).
 """
 
 import os
+import sys
 import tempfile
+import time
 from typing import Optional, Tuple
+
+# Debug tracing (enable with STEGVAULT_GUI_DEBUG=1)
+_DEBUG_START = time.monotonic()
+_DEBUG_ENABLED = os.environ.get("STEGVAULT_GUI_DEBUG", "").strip() in ("1", "true", "yes")
+
+
+def _dbg(msg: str) -> None:
+    if _DEBUG_ENABLED:
+        elapsed = (time.monotonic() - _DEBUG_START) * 1000
+        print(f"[StegVault GUI] {elapsed:8.1f}ms {msg}", flush=True, file=sys.stderr)
+
+
+if _DEBUG_ENABLED:
+    print(
+        "[StegVault GUI] DEBUG TRACE ENABLED (STEGVAULT_GUI_DEBUG=1)", flush=True, file=sys.stderr
+    )
 
 from stegvault import __version__
 from stegvault.app.controllers.vault_controller import (
@@ -48,7 +75,7 @@ try:
         QWidget,
     )
     from PySide6.QtCore import QObject, Qt, QThread, Signal
-    from PySide6.QtGui import QDragEnterEvent, QDropEvent
+    from PySide6.QtGui import QDragEnterEvent, QDropEvent, QShowEvent
 except ImportError as e:
     raise ImportError(
         "PySide6 is required for the GUI. Install with: pip install stegvault[gui]"
@@ -64,23 +91,39 @@ class MainWindow(QMainWindow):
     - List of entry keys + read-only entry details
     """
 
+    _debug_update_actions_count = 0  # class-level for debug
+
     def __init__(self) -> None:
+        _dbg("MainWindow.__init__ START")
         super().__init__()
+        _dbg("MainWindow.__init__ after super()")
         self.setWindowTitle("StegVault")
         self.setMinimumSize(800, 500)
 
         # Core state
+        _dbg("MainWindow.__init__ creating VaultController")
         self._vault_controller = VaultController()
+        _dbg("MainWindow.__init__ VaultController done")
         self._current_vault = None  # type: ignore[assignment]
         self._current_image_path: Optional[str] = None
         self._last_selected_entry_password: Optional[str] = None
         self._pending_open_path: Optional[str] = None
         self._load_thread: Optional[QThread] = None
         self._load_worker: Optional["LoadVaultWorker"] = None
+        # Debounce modal dialogs: tiling WMs (e.g. Komorebi) can re-trigger menu actions
+        # when focus returns; ignore reopen for 2s; _focus_away_from_menu() reduces re-triggers
+        self._last_modal_closed_at: float = 0.0
 
         self.setAcceptDrops(True)
+        _dbg("MainWindow.__init__ calling _setup_ui")
         self._setup_ui()
+        _dbg("MainWindow.__init__ _setup_ui done, calling _update_vault_dependent_actions")
         self._update_vault_dependent_actions()
+        _dbg("MainWindow.__init__ END")
+
+    def showEvent(self, event: QShowEvent) -> None:
+        super().showEvent(event)
+        _dbg("MainWindow.showEvent (window just became visible)")
 
     def _has_vault(self) -> bool:
         """True if a vault is currently loaded."""
@@ -90,10 +133,14 @@ class MainWindow(QMainWindow):
 
     # UI setup -------------------------------------------------------------
     def _setup_ui(self) -> None:
+        _dbg("_setup_ui START")
         self._create_menu_bar()
+        _dbg("_setup_ui menu_bar done")
         self._create_central_layout()
+        _dbg("_setup_ui END")
 
     def _create_menu_bar(self) -> None:
+        _dbg("_create_menu_bar START")
         menubar: QMenuBar = self.menuBar()
         file_menu: QMenu = menubar.addMenu("&File")
 
@@ -137,20 +184,21 @@ class MainWindow(QMainWindow):
         shortcuts_action.triggered.connect(self._on_show_shortcuts)  # type: ignore[arg-type]
         about_action = help_menu.addAction("About StegVault")
         about_action.triggered.connect(self._on_about)  # type: ignore[arg-type]
+        _dbg("_create_menu_bar END")
 
     def _on_show_shortcuts(self) -> None:
         """Show a dialog listing keyboard shortcuts."""
         text = """File
-  Open Vault…     Ctrl+O
-  Save            Ctrl+S
-  Save As…        Ctrl+Shift+S
-  Close Vault     Ctrl+W
-  Exit            Ctrl+Q
+    Open Vault…     Ctrl+O
+    Save            Ctrl+S
+    Save As…        Ctrl+Shift+S
+    Close Vault     Ctrl+W
+    Exit            Ctrl+Q
 
 Edit
-  Add Entry…      Ctrl+N
-  Edit Entry…     Ctrl+E
-  Delete Entry    Del"""
+    Add Entry…      Ctrl+N
+    Edit Entry…     Ctrl+E
+    Delete Entry    Del"""
         QMessageBox.information(
             self,
             "Keyboard Shortcuts",
@@ -174,20 +222,31 @@ Edit
 
     def _update_vault_dependent_actions(self) -> None:
         """Enable/disable Save, Save As, Close Vault, Add/Edit Entry based on vault and selection."""
-        enabled = self._has_vault()
-        self._save_action.setEnabled(enabled)
-        self._save_as_action.setEnabled(enabled)
-        self._close_vault_action.setEnabled(enabled)
-        self._add_entry_action.setEnabled(enabled)
-        has_selection = self._get_selected_key() is not None
-        self._edit_entry_action.setEnabled(enabled and has_selection)
-        self._delete_entry_action.setEnabled(enabled and has_selection)
-        if enabled and self._current_image_path:
-            self.setWindowTitle(f"StegVault - {self._current_image_path}")
-        else:
-            self.setWindowTitle("StegVault")
+        MainWindow._debug_update_actions_count += 1
+        n = MainWindow._debug_update_actions_count
+        _dbg(f"_update_vault_dependent_actions ENTER call#{n}")
+        if n > 50:
+            _dbg(f"_update_vault_dependent_actions WARNING call#{n} > 50 (possible loop)")
+        self._entry_list.blockSignals(True)
+        try:
+            enabled = self._has_vault()
+            self._save_action.setEnabled(enabled)
+            self._save_as_action.setEnabled(enabled)
+            self._close_vault_action.setEnabled(enabled)
+            self._add_entry_action.setEnabled(enabled)
+            has_selection = self._get_selected_key() is not None
+            self._edit_entry_action.setEnabled(enabled and has_selection)
+            self._delete_entry_action.setEnabled(enabled and has_selection)
+            if enabled and self._current_image_path:
+                self.setWindowTitle(f"StegVault - {self._current_image_path}")
+            else:
+                self.setWindowTitle("StegVault")
+        finally:
+            self._entry_list.blockSignals(False)
+        _dbg(f"_update_vault_dependent_actions EXIT call#{n}")
 
     def _create_central_layout(self) -> None:
+        _dbg("_create_central_layout START")
         central = QWidget()
         self.setCentralWidget(central)
 
@@ -195,6 +254,7 @@ Edit
 
         # Left: entry list
         self._entry_list = QListWidget()
+        _dbg("_create_central_layout _entry_list created, connecting currentItemChanged")
         self._entry_list.currentItemChanged.connect(self._on_entry_selected)  # type: ignore[arg-type]
         layout.addWidget(self._entry_list, stretch=1)
 
@@ -232,12 +292,14 @@ Edit
         detail_layout.addWidget(password_row)
 
         layout.addWidget(detail_container, stretch=2)
+        _dbg("_create_central_layout END")
 
     # Actions --------------------------------------------------------------
     _IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".bmp")
 
     def _open_vault_from_path(self, image_path: str) -> None:
         """Ask for passphrase and load vault in a background thread. On success updates UI."""
+        _dbg("_open_vault_from_path START")
         from PySide6.QtWidgets import QInputDialog
 
         passphrase, ok = QInputDialog.getText(
@@ -247,7 +309,9 @@ Edit
             QLineEdit.EchoMode.Password,
         )
         if not ok or not passphrase:
+            self._modal_closed()
             return
+        self._modal_closed()
         self._pending_open_path = image_path
         worker = LoadVaultWorker(image_path=image_path, passphrase=passphrase)
         thread = QThread(self)
@@ -259,10 +323,12 @@ Edit
         self._load_worker = worker
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         self.setEnabled(False)
+        _dbg("_open_vault_from_path starting worker thread")
         thread.start()
 
     def _on_vault_loaded(self, success: bool, vault: Optional[object], error_msg: str) -> None:
         """Handle result of background vault load (runs on main thread)."""
+        _dbg(f"_on_vault_loaded ENTER success={success}")
         QApplication.restoreOverrideCursor()
         self.setEnabled(True)
         path = self._pending_open_path
@@ -275,14 +341,18 @@ Edit
                 "Error",
                 error_msg or "Failed to load vault from image.",
             )
+            self._modal_closed()
             return
         self._current_vault = vault
         self._current_image_path = path
         self._populate_entries()
         self._update_vault_dependent_actions()
+        _dbg("_on_vault_loaded EXIT")
 
     def _on_open_vault(self) -> None:
         """Open an image containing a vault (file dialog)."""
+        if self._modal_debounce("_on_open_vault"):
+            return
         image_path, _ = QFileDialog.getOpenFileName(
             self,
             "Open Vault Image",
@@ -344,6 +414,8 @@ Edit
         _previous: Optional[QListWidgetItem],
     ) -> None:
         """Update detail panel when a new entry is selected."""
+        key = current.text().strip() if current else None
+        _dbg(f"_on_entry_selected ENTER current_key={key!r}")
         if current is None or self._current_vault is None:
             self._last_selected_entry_password = None
             self._password_row_widget.setVisible(False)
@@ -353,6 +425,7 @@ Edit
                     "Select an entry on the left to view details."
                 )
             self._update_vault_dependent_actions()
+            _dbg("_on_entry_selected EXIT (no current or no vault)")
             return
 
         key = current.text()
@@ -362,6 +435,7 @@ Edit
             self._last_selected_entry_password = None
             self._password_row_widget.setVisible(False)
             self._update_vault_dependent_actions()
+            _dbg("_on_entry_selected EXIT (entry not found)")
             return
 
         self._last_selected_entry_password = entry.password or ""
@@ -386,6 +460,7 @@ Edit
         ]
         self._detail_label.setText("\n".join(details))
         self._update_vault_dependent_actions()
+        _dbg("_on_entry_selected EXIT")
 
     def _ask_passphrase(self, title: str = "Vault Passphrase") -> Optional[str]:
         """Ask for passphrase via dialog. Returns None if cancelled or empty."""
@@ -397,6 +472,7 @@ Edit
             "Enter vault passphrase:",
             QLineEdit.EchoMode.Password,
         )
+        self._modal_closed()
         if not ok or not passphrase:
             return None
         return passphrase
@@ -422,6 +498,8 @@ Edit
 
     def _on_save_vault(self) -> None:
         """Save current vault to the same image path (overwrite)."""
+        if self._modal_debounce("_on_save_vault"):
+            return
         if not self._has_vault() or not self._current_image_path:
             return
         passphrase = self._ask_passphrase("Save Vault - Passphrase")
@@ -445,6 +523,7 @@ Edit
                 "Save Failed",
                 result.error or "Failed to save vault.",
             )
+        self._modal_closed()
 
     def _get_cover_for_save_as(
         self, current_path: str, output_path: str
@@ -495,6 +574,8 @@ Edit
 
     def _on_save_vault_as(self) -> None:
         """Save current vault to a new image path. Ensures output format matches extension (PNG/JPEG)."""
+        if self._modal_debounce("_on_save_vault_as"):
+            return
         if not self._has_vault() or not self._current_image_path:
             return
         new_path, _ = QFileDialog.getSaveFileName(
@@ -519,6 +600,7 @@ Edit
                 "Save As",
                 f"Cannot prepare image for target format: {e}",
             )
+            self._modal_closed()
             return
 
         try:
@@ -542,6 +624,7 @@ Edit
                     "Save Failed",
                     result.error or "Failed to save vault.",
                 )
+            self._modal_closed()
         finally:
             if temp_to_delete and os.path.exists(temp_to_delete):
                 try:
@@ -564,11 +647,15 @@ Edit
 
     def _on_add_entry(self) -> None:
         """Open Add Entry dialog and append new entry to current vault (in-memory; user must Save to persist)."""
+        if self._modal_debounce("_on_add_entry"):
+            return
         if not self._has_vault():
             return
         dialog = AddEntryDialog(self)
         if dialog.exec() != QDialog.DialogCode.Accepted:
+            self._modal_closed()
             return
+        self._modal_closed()
         try:
             vault_add_entry(
                 self._current_vault,
@@ -585,6 +672,7 @@ Edit
                 "Add Entry",
                 str(e),
             )
+            self._modal_closed()
             return
         self._populate_entries()
         # Select the new entry in the list
@@ -598,9 +686,12 @@ Edit
             "Add Entry",
             f"Entry '{key}' added. Use File → Save to write the vault to the image.",
         )
+        self._modal_closed()
 
     def _on_edit_entry(self) -> None:
         """Open Edit Entry dialog for the selected entry and apply changes (in-memory; user must Save to persist)."""
+        if self._modal_debounce("_on_edit_entry"):
+            return
         if not self._has_vault():
             return
         key = self._get_selected_key()
@@ -610,6 +701,7 @@ Edit
                 "Edit Entry",
                 "Select an entry from the list to edit.",
             )
+            self._modal_closed()
             return
         entry = get_entry(self._current_vault, key)
         if not entry:
@@ -618,10 +710,13 @@ Edit
                 "Edit Entry",
                 f"Entry not found: {key}",
             )
+            self._modal_closed()
             return
         dialog = EditEntryDialog(self, entry=entry)
         if dialog.exec() != QDialog.DialogCode.Accepted:
+            self._modal_closed()
             return
+        self._modal_closed()
         kwargs = {
             "username": dialog.get_username(),
             "url": dialog.get_url(),
@@ -638,6 +733,7 @@ Edit
                 "Edit Entry",
                 f"Failed to update entry: {key}",
             )
+            self._modal_closed()
             return
         self._populate_entries()
         for i in range(self._entry_list.count()):
@@ -653,9 +749,12 @@ Edit
             "Edit Entry",
             f"Entry '{key}' updated. Use File → Save to write the vault to the image.",
         )
+        self._modal_closed()
 
     def _on_delete_entry(self) -> None:
         """Delete the selected entry from the vault (in-memory; user must Save to persist)."""
+        if self._modal_debounce("_on_delete_entry"):
+            return
         if not self._has_vault():
             return
         key = self._get_selected_key()
@@ -665,6 +764,7 @@ Edit
                 "Delete Entry",
                 "Select an entry from the list to delete.",
             )
+            self._modal_closed()
             return
         reply = QMessageBox.question(
             self,
@@ -673,6 +773,7 @@ Edit
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
+        self._modal_closed()
         if reply != QMessageBox.StandardButton.Yes:
             return
         ok = vault_delete_entry(self._current_vault, key)
@@ -682,6 +783,7 @@ Edit
                 "Delete Entry",
                 f"Failed to delete entry: {key}",
             )
+            self._modal_closed()
             return
         self._populate_entries()
         self._update_vault_dependent_actions()
@@ -703,26 +805,34 @@ class LoadVaultWorker(QObject):
         self._passphrase = passphrase
 
     def do_work(self) -> None:
+        _dbg("LoadVaultWorker.do_work START (background thread)")
         controller = VaultController()
         result: VaultLoadResult = controller.load_vault(
             image_path=self._image_path,
             passphrase=self._passphrase,
         )
         self._passphrase = ""
+        _dbg("LoadVaultWorker.do_work emitting finished")
         self.finished.emit(
             result.success,
             result.vault,
             result.error or "",
         )
+        _dbg("LoadVaultWorker.do_work END")
 
 
 class StegVaultGUI:
     """Entry point for the desktop GUI. Runs the Qt event loop."""
 
     def run(self) -> None:
+        _dbg("StegVaultGUI.run START")
         app = QApplication.instance()
         if app is None:
             app = QApplication([])
+        _dbg("StegVaultGUI.run creating MainWindow")
         window = MainWindow()
+        _dbg("StegVaultGUI.run MainWindow created, calling show()")
         window.show()
+        _dbg("StegVaultGUI.run entering app.exec()")
         app.exec()
+        _dbg("StegVaultGUI.run app.exec() returned (event loop ended)")
