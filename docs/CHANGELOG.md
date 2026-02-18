@@ -41,6 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **Keyboard shortcuts and Help**:
 - Save As: Ctrl+Shift+S, Close Vault: Ctrl+W. Help menu: Keyboard Shortcuts (dialog listing all shortcuts), About StegVault.
 
+**Settings dialog**:
+- Edit -> Settings: read-only dialog showing config file path and current Argon2 parameters (time cost, memory cost, parallelism). Advanced editing via config file or TUI.
+
 **Usage**: `pip install -e ".[gui]"` (or `pip install stegvault[gui]`) then `stegvault gui`.
 
 ## [0.7.11] - 2026-02-08

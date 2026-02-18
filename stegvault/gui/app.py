@@ -54,7 +54,7 @@ from stegvault.vault.operations import (
     list_entries,
     get_entry,
 )
-from stegvault.gui.dialogs import AddEntryDialog, EditEntryDialog
+from stegvault.gui.dialogs import AddEntryDialog, EditEntryDialog, SettingsDialog
 
 try:
     from PySide6.QtWidgets import (
@@ -179,6 +179,10 @@ class MainWindow(QMainWindow):
         self._delete_entry_action.setShortcut("Del")
         self._delete_entry_action.triggered.connect(self._on_delete_entry)  # type: ignore[arg-type]
 
+        edit_menu.addSeparator()
+        settings_action = edit_menu.addAction("Settings…")
+        settings_action.triggered.connect(self._on_settings)  # type: ignore[arg-type]
+
         help_menu: QMenu = menubar.addMenu("&Help")
         shortcuts_action = help_menu.addAction("Keyboard Shortcuts…")
         shortcuts_action.triggered.connect(self._on_show_shortcuts)  # type: ignore[arg-type]
@@ -214,6 +218,25 @@ Edit
             "Password manager using steganography to embed encrypted credentials in images.\n\n"
             "Optional GUI: pip install stegvault[gui]",
         )
+
+    def _on_settings(self) -> None:
+        """Show Settings dialog (config path and crypto params, read-only)."""
+        if getattr(self, "_modal_debounce", None) and self._modal_debounce("_on_settings"):
+            return
+        from stegvault.config import get_config_path
+
+        config_path = get_config_path()
+        crypto = self._vault_controller.crypto.config.crypto
+        dialog = SettingsDialog(
+            self,
+            config_path=config_path,
+            time_cost=crypto.argon2_time_cost,
+            memory_cost=crypto.argon2_memory_cost,
+            parallelism=crypto.argon2_parallelism,
+        )
+        dialog.exec()
+        if getattr(self, "_modal_closed", None):
+            self._modal_closed()
 
     def _get_selected_key(self) -> Optional[str]:
         """Return the key of the currently selected entry, or None."""

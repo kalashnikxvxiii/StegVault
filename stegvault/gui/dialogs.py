@@ -1,10 +1,11 @@
 """
 Dialogs for StegVault Desktop GUI.
 
-Add Entry, Edit Entry, Delete confirmation (via QMessageBox in app).
+Add Entry, Edit Entry, Settings (read-only), Delete confirmation (via QMessageBox in app).
 """
 
-from typing import Optional, List, TYPE_CHECKING
+from pathlib import Path
+from typing import Optional, List, TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
     from stegvault.vault.core import VaultEntry
@@ -15,6 +16,7 @@ try:
         QDialogButtonBox,
         QFormLayout,
         QHBoxLayout,
+        QLabel,
         QLineEdit,
         QPlainTextEdit,
         QPushButton,
@@ -235,3 +237,60 @@ class EditEntryDialog(QDialog):
         if not t:
             return []
         return [tag.strip() for tag in t.split(",") if tag.strip()]
+
+
+class SettingsDialog(QDialog):
+    """
+    Read-only settings dialog: config file path and current crypto parameters (Argon2).
+    Advanced editing remains in config file or TUI.
+    """
+
+    def __init__(
+        self,
+        parent: Optional[QWidget] = None,
+        config_path: Union[str, Path, None] = None,
+        time_cost: int = 3,
+        memory_cost: int = 65536,
+        parallelism: int = 4,
+    ) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Settings")
+        self.setMinimumWidth(420)
+        path_str = str(config_path) if config_path else "(default)"
+        self._setup_ui(path_str, time_cost, memory_cost, parallelism)
+
+    def _setup_ui(
+        self, config_path_str: str, time_cost: int, memory_cost: int, parallelism: int
+    ) -> None:
+        layout = QVBoxLayout(self)
+        form = QFormLayout()
+
+        path_edit = QLineEdit()
+        path_edit.setReadOnly(True)
+        path_edit.setText(config_path_str)
+        form.addRow("Config file:", path_edit)
+
+        layout.addLayout(form)
+        layout.addWidget(QLabel("Cryptography (Argon2) — read-only; edit via config file or TUI:"))
+
+        crypto_form = QFormLayout()
+        time_edit = QLineEdit()
+        time_edit.setReadOnly(True)
+        time_edit.setText(str(time_cost))
+        crypto_form.addRow("Time cost:", time_edit)
+
+        mem_edit = QLineEdit()
+        mem_edit.setReadOnly(True)
+        mem_edit.setText(f"{memory_cost} KB")
+        crypto_form.addRow("Memory cost:", mem_edit)
+
+        par_edit = QLineEdit()
+        par_edit.setReadOnly(True)
+        par_edit.setText(str(parallelism))
+        crypto_form.addRow("Parallelism:", par_edit)
+
+        layout.addLayout(crypto_form)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
+        buttons.accepted.connect(self.accept)
+        layout.addWidget(buttons)

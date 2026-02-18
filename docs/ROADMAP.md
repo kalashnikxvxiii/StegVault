@@ -161,7 +161,7 @@ This document outlines the planned development roadmap for StegVault.
 - [x] Password generator widget (Generate button in Add/Edit Entry dialogs)
 - [x] Background decryption (QThread): open-vault runs in worker thread, UI shows wait cursor and stays responsive
 - [x] Keyboard shortcuts: Save As (Ctrl+Shift+S), Close Vault (Ctrl+W); Help menu with Keyboard Shortcuts and About
-- [ ] Settings dialog
+- [x] Settings dialog (Edit -> Settings): config file path and Argon2 params read-only
 - [ ] GUI test suite (pytest-qt)
 
 ## Version 0.8.0 - Desktop GUI (Q1 2026)
@@ -186,6 +186,7 @@ Native desktop application with visual vault management. **Preview available**: 
 - [x] Password generator in Add/Edit Entry dialogs (Generate button, 20-char default)
 - [x] Background decryption: Open Vault (file/drag-drop) runs in QThread with wait cursor
 - [x] Keyboard shortcuts (Help menu: list + About); Save As Ctrl+Shift+S, Close Ctrl+W
+- [x] Settings dialog: config path + crypto (Argon2) read-only
 - [ ] Password strength meter and generator UI (advanced options)
 - [ ] Search across all vaults
 - [ ] Tag-based organization
