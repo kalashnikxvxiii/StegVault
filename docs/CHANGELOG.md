@@ -44,6 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **Settings dialog**:
 - Edit -> Settings: read-only dialog showing config file path and current Argon2 parameters (time cost, memory cost, parallelism). Advanced editing via config file or TUI.
 
+**GUI test suite**:
+- Optional dependency `pytest-qt>=4.2.0` in `[gui]` extra. `tests/unit/test_gui.py`: MainWindow title/menubar, SettingsDialog content, AddEntryDialog getters and Generate button, EditEntryDialog fill/get, LoadVaultWorker finished signal on failure, StegVaultGUI instantiation. GUI tests are skipped at collection when PySide6 is not installed (conftest).
+
 **Usage**: `pip install -e ".[gui]"` (or `pip install stegvault[gui]`) then `stegvault gui`.
 
 ## [0.7.11] - 2026-02-08

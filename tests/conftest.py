@@ -3,6 +3,7 @@ Pytest configuration and fixtures for memory-efficient testing.
 
 Provides cleanup hooks to reduce RAM usage during test execution.
 Skips TUI test modules when the 'textual' package is not installed (e.g. Python 3.14).
+Skips GUI test modules when 'PySide6' is not installed (optional [gui] extra).
 """
 
 from pathlib import Path
@@ -15,9 +16,10 @@ import pytest
 def pytest_ignore_collect(collection_path: Path, path=None, config=None) -> bool:
     """
     Skip TUI-related test modules when 'textual' is not installed.
+    Skip GUI-related test modules when 'PySide6' is not installed.
 
     Allows the rest of the test suite to run on environments where textual
-    has no wheel (e.g. Python 3.14) so pre-commit and CI can pass.
+    has no wheel (e.g. Python 3.14) or GUI is not installed, so pre-commit and CI can pass.
 
     Signature matches pytest hook: (collection_path, path, config).
     path is legacy/deprecated; we only use collection_path.
@@ -26,6 +28,11 @@ def pytest_ignore_collect(collection_path: Path, path=None, config=None) -> bool
     if "test_tui" in path_str or "test_settings_screen" in path_str:
         try:
             import textual  # noqa: F401
+        except ImportError:
+            return True
+    if "test_gui" in path_str:
+        try:
+            import PySide6  # noqa: F401
         except ImportError:
             return True
     return False

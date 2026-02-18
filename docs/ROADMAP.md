@@ -162,7 +162,7 @@ This document outlines the planned development roadmap for StegVault.
 - [x] Background decryption (QThread): open-vault runs in worker thread, UI shows wait cursor and stays responsive
 - [x] Keyboard shortcuts: Save As (Ctrl+Shift+S), Close Vault (Ctrl+W); Help menu with Keyboard Shortcuts and About
 - [x] Settings dialog (Edit -> Settings): config file path and Argon2 params read-only
-- [ ] GUI test suite (pytest-qt)
+- [x] GUI test suite (pytest-qt)
 
 ## Version 0.8.0 - Desktop GUI (Q1 2026)
 
