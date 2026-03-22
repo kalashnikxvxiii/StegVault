@@ -5,6 +5,14 @@
 
 set -e  # Exit on any error
 
+# Auto-activate virtualenv if present
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+if [ -f "$SCRIPT_DIR/.venv/bin/activate" ]; then
+    source "$SCRIPT_DIR/.venv/bin/activate"
+elif [ -f "$SCRIPT_DIR/venv/bin/activate" ]; then
+    source "$SCRIPT_DIR/venv/bin/activate"
+fi
+
 echo "=========================================="
 echo "StegVault Pre-Commit Validation"
 echo "Replicating CI/CD Pipeline Locally"

@@ -111,14 +111,12 @@ def search_by_tag(
                 (vault_id,),
             )
         else:
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT e.*, v.*
                 FROM vault_entries_cache e
                 JOIN vaults v ON e.vault_id = v.id
                 ORDER BY v.name, e.entry_key
-            """
-            )
+            """)
 
         rows = cursor.fetchall()
 

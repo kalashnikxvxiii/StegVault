@@ -8,7 +8,6 @@ import struct
 from typing import Tuple
 from dataclasses import dataclass
 
-
 # Magic header for payload identification and versioning
 MAGIC_HEADER = b"SPW1"  # StegVault Password Wallet v1
 MAGIC_SIZE = 4

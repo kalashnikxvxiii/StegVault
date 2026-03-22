@@ -52,11 +52,8 @@ class TestVaultScreen:
         controller = VaultController()
         screen = VaultScreen(vault, "test.png", "passphrase", controller)
 
-        # Create a mock parent with app
         mock_app = Mock()
         mock_app.pop_screen = Mock()
-        screen._parent = Mock()
-        screen._parent.app = mock_app
 
         # Test: no unsaved changes
         screen.has_unsaved_changes = False
@@ -70,12 +67,9 @@ class TestVaultScreen:
         controller = VaultController()
         screen = VaultScreen(vault, "test.png", "passphrase", controller)
 
-        # Create a mock parent with app
         mock_app = Mock()
         mock_app.exit = Mock()
-        mock_app.push_screen_wait = AsyncMock(return_value=True)  # User confirms quit
-        screen._parent = Mock()
-        screen._parent.app = mock_app
+        mock_app.push_screen_wait = AsyncMock(return_value=True)
 
         # Test: no unsaved changes
         screen.has_unsaved_changes = False

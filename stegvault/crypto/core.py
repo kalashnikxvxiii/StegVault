@@ -13,7 +13,6 @@ from argon2.low_level import Type, hash_secret_raw
 import nacl.secret
 import nacl.utils
 
-
 # Argon2id parameters (balanced security/performance)
 ARGON2_TIME_COST = 3  # Number of iterations
 ARGON2_MEMORY_COST = 65536  # 64 MB

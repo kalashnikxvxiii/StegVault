@@ -69,8 +69,7 @@ class GalleryDB:
             cursor = self.conn.cursor()
 
             # Vaults table
-            cursor.execute(
-                """
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS vaults (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL UNIQUE,
@@ -82,12 +81,10 @@ class GalleryDB:
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     last_accessed TIMESTAMP
                 )
-            """
-            )
+            """)
 
             # Vault entries cache table
-            cursor.execute(
-                """
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS vault_entries_cache (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     vault_id INTEGER NOT NULL,
@@ -101,30 +98,23 @@ class GalleryDB:
                     FOREIGN KEY (vault_id) REFERENCES vaults(id) ON DELETE CASCADE,
                     UNIQUE(vault_id, entry_key)
                 )
-            """
-            )
+            """)
 
             # Create indexes for better search performance
-            cursor.execute(
-                """
+            cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_vault_entries_vault_id
                 ON vault_entries_cache(vault_id)
-            """
-            )
+            """)
 
-            cursor.execute(
-                """
+            cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_vault_entries_key
                 ON vault_entries_cache(entry_key)
-            """
-            )
+            """)
 
-            cursor.execute(
-                """
+            cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_vault_entries_url
                 ON vault_entries_cache(url)
-            """
-            )
+            """)
 
             self.conn.commit()
 
