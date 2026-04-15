@@ -42,8 +42,8 @@ classifiers = [
 dependencies = [
     "PyNaCl>=1.5.0",
     "argon2-cffi>=23.1.0",
-    "Pillow>=12.1.1; python_version >= '3.10'",
-    "Pillow>=10.0.0,<10.3.0; python_version < '3.10'",
+    "Pillow>=12.2.0",
+    "Pygments>=2.20.0",
     "click>=8.1.0",
     "numpy>=1.24.0",
     "tomli>=2.0.0; python_version < '3.11'",
@@ -64,7 +64,7 @@ Changelog = "https://github.com/kalashnikxvxiii/stegvault/blob/main/CHANGELOG.md
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.4.0",
+    "pytest>=9.0.3",
     "pytest-cov>=4.1.0",
     "pytest-rerunfailures>=12.0",
     "pytest-asyncio>=0.21.0",
