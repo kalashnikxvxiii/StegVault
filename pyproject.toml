@@ -42,7 +42,8 @@ classifiers = [
 dependencies = [
     "PyNaCl>=1.5.0",
     "argon2-cffi>=23.1.0",
-    "Pillow>=12.2.0",
+    "Pillow>=12.2.0; python_version >= '3.10'",
+    "Pillow>=11.3.0; python_version < '3.10'",
     "Pygments>=2.20.0",
     "click>=8.1.0",
     "numpy>=1.24.0",
