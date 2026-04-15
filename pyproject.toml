@@ -65,7 +65,8 @@ Changelog = "https://github.com/kalashnikxvxiii/stegvault/blob/main/CHANGELOG.md
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=9.0.3",
+    "pytest>=9.0.3; python_version >= '3.10'",
+    "pytest>=8.4.2; python_version < '3.10'",
     "pytest-cov>=4.1.0",
     "pytest-rerunfailures>=12.0",
     "pytest-asyncio>=0.21.0",
