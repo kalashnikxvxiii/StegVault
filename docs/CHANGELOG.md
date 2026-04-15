@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (Nothing yet.)
 
+## [0.7.12] - 2026-04-15
+
+### Security
+
+**Dependency vulnerabilities resolved (3 Dependabot alerts)**:
+- **Pillow** (High): bumped to `>=12.2.0` on Python 3.10+, `>=11.3.0` on Python 3.9 — fixes FITS GZIP decompression bomb CVE
+- **pytest** (Medium): bumped to `>=9.0.3` on Python 3.10+, `>=8.4.2` on Python 3.9 — fixes vulnerable tmpdir handling CVE
+- **Pygments** (Low): added explicit `>=2.20.0` constraint — fixes ReDoS via inefficient GUID regex
+
+### Changed
+
+- **Branch protection** enabled on `main` and `dev`:
+  - `main`: PR required (1 approval), status checks enforced (Python 3.9–3.12 + Lint), force push and deletion blocked
+  - `dev`: force push and deletion blocked, direct push allowed
+
+### Fixed
+
+- `pyproject.toml` version aligned to `0.7.11` (was incorrectly `0.7.10`)
+- Python 3.9 conditional bounds for Pillow and pytest (12.x/9.x series require Python ≥ 3.10)
+
 ## [0.7.11] - 2026-02-08
 
 ### Added - Operative Security (Merge branch 'operative-security' into dev)
